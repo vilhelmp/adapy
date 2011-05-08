@@ -1242,7 +1242,7 @@ def plot_spectrum (filename,
                 region=[0,0,0,0],
                 obj_dict = dict(vsys=0),
                 freq=False,
-                font={'family':'serif', 'sans-serif': ['Times', 'Times New Roman'],
+                font={'family':'serif', 'serif': ['Times', 'Times New Roman'],
                 'size': 20, 'weight':'bold'},
                 bin=False,
                 fit = dict(type=None, params=[(0.09, 7.3, 3.6)],
@@ -2889,6 +2889,340 @@ Future modifications to the PARINFO structure, if any, will involve
     #
     pl.subplots_adjust(left=pl_left, bottom=pl_bottom, right=pl_right, top=pl_top)
 #
+
+def plot_vgradient(radecfile,
+                fitsfile=None,
+                rms=None,
+                chvals=None,
+                nvals=None,
+                xy_cont = None,
+                region=[0,0,0,0],
+                obj_dict = dict(vsys=0),
+                freq=False,
+                font={'family':'serif', 'serif': ['Times', 'Times New Roman'],
+                'size': 20, 'weight':'bold'},
+                bin=False,
+                fit = dict(type=None, params=[(0.09, 7.3, 3.6)],
+                guess=False, interactive=False, fixlist=None, error=None,
+                limmin=None, minpar=None, limmax=None, maxpar=None, tie=None),
+                send=False,
+                quality=[150, 72],
+                plot_adjust= [0.12, 0.09, 0.99, 0.99],
+                lines = [],\
+                axspace = [1.01, 1.01, 1.01, 1.05],
+                ylimits=None):
+    # imports
+    #import scipy as sp
+    from scipy import array, where, median, std, sign, arange, alen, vstack, \
+    concatenate, sqrt, log10, ones, nan
+    #import pyfits as pf
+    import matplotlib.pyplot as pl
+    #from matplotlib.patches import Circle
+    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+    from matplotlib import cm, rc
+    #
+
+    ################################
+    # setting global rc properties #
+    ################################
+    rc('savefig', **{'dpi': 300})
+    rc('text', usetex=True)
+    rc('savefig', **{'dpi': quality[0]})
+    rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
+
+    #to set the global font properties
+    rc('font', **font)
+
+    ################################
+    # setting the tick label font  #
+    ################################
+    # we are using latex formatting here!
+    # following sets the ticklabel format string
+    data_fmt = '%g'         # for normal y and x axis
+    cbar_data_fmt = '%2.2f'         # for normal y and x axis
+    label_X = parse_tick_font(font)
+    tick_label_formatter = FormatStrFormatter(label_X.replace('X',data_fmt))
+    cbar_tick_label_formatter = FormatStrFormatter(label_X.replace('X',cbar_data_fmt))
+    # ticksize
+    rc('xtick',**{'minor.size':3, 'major.size':7})
+    rc('ytick',**{'minor.size':3, 'major.size':7})
+
+    # linewidths
+    rc('axes', linewidth=1)
+    rc('lines', linewidth=1.5, markeredgewidth=1)
+
+    pl_left, pl_bottom, pl_right,pl_top = plot_adjust
+    
+    
+    #
+    # TODO: be able to add RMS directly, instead of loading fits-file all the time
+    #
+    if fitsfile!=None and nvals!=None:
+        # first get the fitsfile
+        linedata = loadcube(filename,telescope)
+        #
+        linedata.velarr = linedata.velarr - obj_dict['vsys'] #now all the velocities are based on the LSR
+         # parse the region, get the area for the spectra
+        x1,x2,y1,y2 = parse_region(linedata, region)
+    elif fitsfile==None and rms==None:
+        print 'If you do not supply a fitsfile or rms value the calculations cannot proceed.'
+        sysexit()
+    elif nvals==None and rms==None:
+        print 'Need eiter a RMS value, or a fitsfile and velocities over\
+        which to calculate the RMS.'
+        sysexit()
+    elif rms!=None:
+        pass
+   
+    if nvals!=None:
+        ## get the nvals and calculate RMS etc
+        print '='*40
+        print ' '*11,'Noise statistics'
+        # calculate the rms from the channels in the spectra
+        # accounts for it even if it is binned
+        #
+        # image rms
+        # change x1,x2,y1,y2 to quarter region
+        # change so that when binning, the rms i calculated
+        # x1,x2
+        zlen, ylen, xlen = data.d.shape
+        ydelt = ylen/6
+        xdelt = xlen/6
+        i1,i2 = xlen/2-xdelt, xlen/2+xdelt
+        j1,j2 = ylen/2-ydelt, ylen/2+ydelt
+        rms = sqrt(((data.d[get_indices(velocity,nvals),j1:j2,i1:i2])**2).mean())
+        rms_mjy = rms*1e3
+    
+        xlen = data.d.shape
+        #rms_0 = sqrt(((spect[get_indices(velocity,nvals)])**2).mean())
+        #rms_2 = sqrt(((data.d[get_indices(velocity,nvals),:,:])**2).mean())
+    
+        #rms_0= rms/sqrt(abs(data.vcdeltkms))
+        #print rms_0
+        #print 'rms_0 =', rms_0*1e3
+        #print 'rms_2 =', rms_2*1e3
+        #
+        # the sensitivity
+        s = rms/sqrt(abs(velocity_delta))
+        s_mjy = s*1e3
+        # the channels used
+        ind = get_indices(velocity,nvals)
+        ind1, ind2 = ind.min(), ind.max()
+        print u'\n RMS \t\t: %2.3f mJy\u00b7beam\u207b\u00b9\u00b7channel\u207b\u00b9' % rms_mjy
+        print u' Sensitivity \t: %2.3f mJy\u00b7beam\u207b\u00b9\u00b7km\u207b\u00b9\u00b7s' % s_mjy
+        print u' Channels used \t: %d, %d (%s km\u00b7s\u207b\u00b9)' % (ind1, ind2, str(nvals))
+        print u' Region \t: %s arcsec offset' % (str(region))
+        print u' Channel width \t: %2.3f km\u00b7s\u207b\u00b9' % abs(velocity_delta)
+        #ax_kms.plot([xmin, xmax],[3*rms,3*rms],'b--', lw=2, alpha=0.7)
+        #ax_kms.plot([xmin, xmax],[-3*rms,-3*rms],'b--', lw=2, alpha=0.7)
+    
+    
+    ####################################################################
+    # need to load the data into the arrays
+    # need ra, d_ra, dec, d_dec, channel numbers, flux from the radecfile
+    
+    try:
+        f=open(radecfile, mode='r')
+    except (IOError):
+        print 'File %s does not exist!' % radecfile
+        sysexit()
+    lines = [line for line in f]
+    f.close()
+    linebyline = [lines[i].split() for i in arange(len(lines))]
+    ch = []
+    rapos = []
+    d_ra = []
+    decpos = []
+    d_dec = []
+    ch = []
+    flux = []
+    d_flux = []
+    vel = []
+    
+    for i in arange(len(linebyline)):
+        # have to get the chvals here if they where not input?
+        # i.e. if chvals==None
+        # if I just use output from GILDAS POINT uv_fit
+        if linebyline[i][1:5] == ['No', 'data', 'for', 'channel']:
+            ch.append(linebyline[i][5])
+            rapos.append(nan)
+            d_ra.append(nan)
+            decpos.append(nan)
+            d_dec.append(nan)
+            flux.append(nan)
+        elif linebyline[i][2:6] == ['data', 'points', 'for', 'channel']:
+            if linebyline[i+4][0] != 'POINT':
+                print 'Only supports POINT fits for now'
+                sysexit()
+            ch.append(linebyline[i][6])
+            vel.append(linebyline[i+1][7])
+            rapos.append(linebyline[i+4][3])
+            d_ra.append(linebyline[i+4][5].strip(')'))
+            if linebyline[i+5][0] == 'STOP':
+                i+=1
+            decpos.append(linebyline[i+5][3])
+            d_dec.append(linebyline[i+5][5].strip(')'))
+            if linebyline[i+6][0] == 'STOP':
+                i+=1
+            flux.append(linebyline[i+6][3])
+            d_flux.append(linebyline[i+6][5].strip(')'))
+    #
+    # done getting all the values!
+    
+    ch = array(ch).astype('i')
+    rapos = array(rapos).astype('float')
+    d_ra = array(d_ra).astype('float')
+    decpos = array(decpos).astype('float')
+    d_dec = array(d_dec).astype('float')
+    flux = array(flux).astype('float')
+    d_flux = array(d_flux).astype('float')
+    vel = array(vel).astype('float')
+
+    # First get all values 3*RMS above
+    rms3 = 3*rms
+    i_3sigma = where(flux>=rms3)[0]
+    #pl.plot(flux)
+    #pl.plot([0, len(flux)],[rms3,rms3])
+    if chvals==None:
+        # take what is given, all of it
+        # parse the channel values
+        print 'You did not input any velocity values (chvals=[v1, v2])\n\
+        So will try to take what is given in the radecpos-file'
+        i_vel = arange(0,alen(vel),1).astype('int')
+    elif chvals!=None:
+        # slice!
+        v1, v2 = chvals
+        i_vel = where((vel>=v1)*(vel<=v2))[0]
+    i = [a for a in i_3sigma if a in i_vel]
+    x = rapos[i]
+    dx = d_ra[i]
+    y = decpos[i]
+    dy = d_dec[i]
+    z = vel[i]
+    channels = ch[i]
+    f = flux[i]
+    df = d_flux[i]
+    # need to slice the arrays according to chvals now and set below 
+    # do not includ values with flux<=3sigma
+    
+    ####################################################################
+    """
+        find the strongest velocity gradient in data.
+        input either ra, and dec lists, or just the STDOUT of uvfit 
+        in GILDAS MAPPING
+    
+        Fit a plane to a cloud of points
+        From
+        http://www.geometrictools.com/Documentation/LeastSquaresFitting.pdf
+    """
+    from scipy import pi, arange, tan, array, dot, arctan, alen, meshgrid, arcsin, cos, sin
+    
+    from matplotlib import cm
+    import matplotlib.pyplot as pl
+    from scipy.optimize import leastsq
+    pl.ion()
+    
+    # TODO: include errors. 
+    #       i.e. need equation which include varance-covariance matrix for x and y 
+    def fit_plane_to_cloud((x,y,z), err=None):
+        """
+        Fit a plane Ax + By + C = z, to a cloud of points
+        Input:
+            (x,y,z) - the coordinates of the points to be fit
+            err     - the error, in (dx, dy)
+            
+        Output:
+            G       - (A, B, C) of the fit, ie the normal is (A, B, -1)
+        """
+        from scipy.linalg import solve
+        #x = rapos
+        #y = decpos
+        #z = arange(alen(decpos)) # for now, need the exact channel numbers
+        # can fit all channels of the cube, and then define velocity to fit over!
+        
+        if not x.size == y.size == z.size:
+            print 'input not same size'
+            import sys
+            sys.exit(1)
+        
+        a11 = (x**2).sum()
+        a12 = (x*y).sum()
+        a13 = x.sum()
+        
+        a21 = (x*y).sum()
+        a22 = (y**2).sum()
+        a23 = y.sum()
+        
+        a31 = x.sum()
+        a32 = y.sum()
+        a33 = alen(y)
+        
+        A = array([[a11, a21, a31],[a12, a22, a32],[a13, a23, a33]])
+        
+        
+        b1 = (x*z).sum()
+        b2 = (y*z).sum()
+        b3 = z.sum()
+        
+        B = array([[b1],[b2],[b3]])
+        
+        
+        G = solve(A,B)
+        return G
+    G = fit_plane_to_cloud((x,y,z))
+    grad = G[0:2] # the projected gradient (normal of the plane) onto the xy-plane
+    
+    # only in the positive side of the y-axis
+    # the direction of the gradient is obvious from figures etc
+    # this makes the y-axis the same for all angles
+    # we essentailly move the vector up to positive y-values, mirror it
+    if grad[1]<0:
+        grad[1] = grad[1]*(-1)
+    
+    # the angle with which we incline the coordinate system
+    theta = arcsin(grad[0]/((grad**2).sum())**.5)[0]
+    
+    # the new y axis is called "s" (s,t)-plane
+    s_offsets =[]
+    for x,y in zip(x,y):
+        x_offset = x*sin(theta)+y*cos(theta)
+        s_offsets.append(x_offset)
+    
+    # convert to array
+    s_offsets = array(s_offsets,dtype='float')
+    
+    #
+    #ab = (G[0]**2+G[1]**2)**.5
+    #v = z/ab - G[2]/ab
+    from scipy import polyfit
+    p = polyfit(z,s_offsets,deg=1)
+    s = lambda x: p[0]*x + p[1]
+      
+    fig = pl.figure(1,figsize=(7,6))
+    ax = fig.add_subplot(111)
+    ax.plot(z,s_offsets,'x')
+    ax.plot(z,s(z))
+    if xy_cont!=None:
+        #new position in (s,t) coordinate system of the continuum
+        s_cont = xy_cont[0]*sin(theta)+xy_cont[1]*cos(theta)
+        ax.plot([z[0],z[-1]],[s_cont, s_cont])
+    else:
+        print '\nINFO: No continuum position (rel to phase center) given\n\
+        ->skipping...\n'
+    ax.set_xlabel('Velocity [km~s$^{-1}$]')
+    ax.set_ylabel('Offset[$\prime\prime$]')
+    #ax.set_xlim(5.8,8.2)
+    #ax.set_ylim(-0.205,0.305)
+    fig.subplots_adjust(left=0.17,bottom=0.14,right=0.98,top=0.97)
+    print '\n','*'*40
+    print '\t\tResults:\n'
+    print u'Velocity gradient: %2.2f km\u00b7s\u207b\u00b9\u00b7arcsec\u207b\u00b9' % p[0]**-1
+    
+    #return fig, ax, G, p
+#
+
+
+
 
 
 
