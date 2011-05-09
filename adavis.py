@@ -2911,6 +2911,15 @@ def plot_vgradient(radecfile,
                 lines = [],\
                 axspace = [1.01, 1.01, 1.01, 1.05],
                 ylimits=None):
+    """
+    
+    
+    
+    TODO: add a plot of the fit perpendicular to the gradient!
+    
+    
+    """
+            
     # imports
     #import scipy as sp
     from scipy import array, where, median, std, sign, arange, alen, vstack, \
@@ -3123,7 +3132,8 @@ def plot_vgradient(radecfile,
     pl.ion()
     
     # TODO: include errors. 
-    #       i.e. need equation which include varance-covariance matrix for x and y 
+    #       i.e. need equation which include varance-covariance matrix for x and y
+    #       -> the orthogonal 3D regression
     def fit_plane_to_cloud((x,y,z), err=None):
         """
         Fit a plane Ax + By + C = z, to a cloud of points
@@ -3169,6 +3179,8 @@ def plot_vgradient(radecfile,
         
         G = solve(A,B)
         return G
+    #
+    #
     G = fit_plane_to_cloud((x,y,z))
     grad = G[0:2] # the projected gradient (normal of the plane) onto the xy-plane
     
@@ -3183,42 +3195,78 @@ def plot_vgradient(radecfile,
     theta = arcsin(grad[0]/((grad**2).sum())**.5)[0]
     
     # the new y axis is called "s" (s,t)-plane
-    s_offsets =[]
+    s_offsets = []
+    t_offsets = []
     for x,y in zip(x,y):
-        x_offset = x*sin(theta)+y*cos(theta)
-        s_offsets.append(x_offset)
+        x_prime = x*cos(theta) - y*sin(theta)
+        y_prime = x*sin(theta) + y*cos(theta)
+        t_offsets.append(x_prime)
+        s_offsets.append(y_prime)
     
     # convert to array
+    t_offsets = array(t_offsets,dtype='float')
     s_offsets = array(s_offsets,dtype='float')
-    
     #
     #ab = (G[0]**2+G[1]**2)**.5
     #v = z/ab - G[2]/ab
+    
+    ## plot the best fit model
     from scipy import polyfit
     p = polyfit(z,s_offsets,deg=1)
     s = lambda x: p[0]*x + p[1]
-      
-    fig = pl.figure(1,figsize=(7,6))
-    ax = fig.add_subplot(111)
-    ax.plot(z,s_offsets,'x')
-    ax.plot(z,s(z))
+    
+    fig1 = pl.figure(1,figsize=(10,5))
+    #ax1 = fig1.add_subplot(111)
+    ax1 = fig1.add_subplot(121)
+    ax1.plot(z,s_offsets,'x')
+    ax1.plot(z,s(z))
     if xy_cont!=None:
         #new position in (s,t) coordinate system of the continuum
-        s_cont = xy_cont[0]*sin(theta)+xy_cont[1]*cos(theta)
-        ax.plot([z[0],z[-1]],[s_cont, s_cont])
+        s_cont = xy_cont[0]*sin(theta) + xy_cont[1]*cos(theta)
+        ax1.plot([z[0],z[-1]],[s_cont, s_cont])
     else:
         print '\nINFO: No continuum position (rel to phase center) given\n\
         ->skipping...\n'
-    ax.set_xlabel('Velocity [km~s$^{-1}$]')
-    ax.set_ylabel('Offset[$\prime\prime$]')
+    ax1.set_xlabel('Velocity [km~s$^{-1}$]')
+    ax1.set_ylabel('s-offset[$\prime\prime$]')
     #ax.set_xlim(5.8,8.2)
     #ax.set_ylim(-0.205,0.305)
-    fig.subplots_adjust(left=0.17,bottom=0.14,right=0.98,top=0.97)
+    #fig1.subplots_adjust(left=0.17,bottom=0.14,right=0.98,top=0.97)
     print '\n','*'*40
-    print '\t\tResults:\n'
+    print '\t\tResults for the parallell s-axis:\n'
     print u'Velocity gradient: %2.2f km\u00b7s\u207b\u00b9\u00b7arcsec\u207b\u00b9' % p[0]**-1
     
-    #return fig, ax, G, p
+    
+    ## plot perpendicular to the best fit model
+    #from scipy import polyfit
+    #p = polyfit(z,t_offsets,deg=1)
+    #t = lambda x: p[0]*x + p[1]
+    
+    #fig2 = pl.figure(2,figsize=(7,6))
+    #ax2 = fig2.add_subplot(111)
+    ax2 = fig1.add_subplot(122)
+    ax2.plot(z,t_offsets,'x')
+    #ax2.plot(z,t(z))
+    if xy_cont!=None:
+        #new position in (s,t) coordinate system of the continuum
+        t_cont = xy_cont[0]*cos(theta) - xy_cont[1]*sin(theta)
+        ax2.plot([z[0],z[-1]],[t_cont, t_cont])
+    else:
+        print '\nINFO: No continuum position (rel to phase center) given\n\
+        ->skipping...\n'
+    ax2.set_xlabel('Velocity [km~s$^{-1}$]')
+    ax2.set_ylabel('t-offset[$\prime\prime$]')
+    #ax.set_xlim(5.8,8.2)
+    #ax.set_ylim(-0.205,0.305)
+    #fig2.subplots_adjust(left=0.17,bottom=0.14,right=0.98,top=0.97)
+    fig1.subplots_adjust(left=0.12,bottom=0.14,right=0.97,top=0.95,wspace=0.31)
+    print '\n','*'*40
+    print '\t\tResults for the perpendicular t-axis:\n'
+    print u'Velocity gradient: %2.2f km\u00b7s\u207b\u00b9\u00b7arcsec\u207b\u00b9' % p[0]**-1
+    
+    
+    
+ 
 #
 
 
@@ -4649,9 +4697,73 @@ def showchannelmap(filename,v_sys):
     pl.subplots_adjust(left=0.1, bottom=0.1, right=0.97, top=0.97, wspace=0, hspace=0)
 
 #
-# this is for windows,right?
-def main():
-    return 0
+# 
 if __name__ == '__main__':
-    main()
+    # statements that you want to be executed only when the
+    # module is executed from the command line
+    # (not when importing the code by an import statement)
+    # wee hooo...
+    
+    print '\nThe ADAVIS program was run from the command line\n'
+    import os
+    import sys
+    from optparse import OptionParser as op
+    import pyfits as pf
+    from string import lower
+    
+    #version
+    ver = 1.0
+    
+    desc="""Add a keyword and value to fitsheader"""
+    usage = "usage: %prog [options] fitsfile"
+    epilog = """usage: %prog [options] fitsfile, \'fitsfile\' \n\
+    should contain the relative path to the file as well"""
+    
+    parser = op(usage=usage,description=desc,epilog=epilog, version="%prog " + str(ver))
+    
+    # the options permitted
+    parser.add_option("-f", "--function", dest="f", help="function to run on fits file" , metavar="FUNCTION")
+    parser.add_option("-v", "--velocities", dest="v", help="between what velocities to plot", metavar="VELOCITIES")
+    parser.add_option("-b", "--box", dest="b", help="zoom to a box X,Y size", metavar="BOX")
+    parser.add_option("-l", "--list", action="store_true", dest="l", help="list the header", metavar="LIST")
+    parser.add_option("-k", "--force", action="store_true", dest="k", help="force overwriting of keyword", metavar="FORCE")
+    
+    # time to parse
+    (options, args) = parser.parse_args()
+    
+    # if no filename is supplied
+    if len(args) != 1:
+        parser.error("Incorrect number of arguments")
+        parser.print_usage()
+    # the options
+    f = str(options.f)
+    
+    def convert_to_list(a):
+        return [float(x) for x in (a).split(',')]
+    #
+    if options.v != None:
+        v = convert_to_list(options.v)
+    else:
+        v = options.v
+    if options.b != None:
+        b = convert_to_list(options.b)
+    else:
+        b = options.b
+    listhdr = options.l
+    force = options.f
+    # and the file...
+    filename = str(args[0])
+    print v, b
+    if lower(f) in ['spectrum', 'sectrum', 'stectrum', 'spectraum', 'spectarum']:
+        # tries to pick up miss-spellings
+        plot_spectrum(filename)
+    
+    if lower(f) in ['moment0','mom0','m0']:
+        if b!=None:
+            plot_moment0(filename,box=b)
+        else:
+            plot_moment0(filename)
+    #
+    a = str(raw_input('Press any key to exit...'))
+    # put Jes, optparser here!
 
