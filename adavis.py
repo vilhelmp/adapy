@@ -170,7 +170,7 @@ def loadcube(fitsfile, telescope=None):
     # getting the velocity
     def loadvelocity(data, axno):
         data.veltype = axno
-        data.vcrpix = data.hdr['CRPIX'+data.veltype] # because python is 0 based, and fits 1 based
+        data.vcrpix = data.hdr['CRPIX'+data.veltype]
         data.vcrval = data.hdr['CRVAL'+data.veltype]
         data.vctype = data.hdr['CTYPE'+data.veltype]
         data.vcdelt = data.hdr['CDELT'+data.veltype]
@@ -208,7 +208,7 @@ def loadcube(fitsfile, telescope=None):
         data.type = 'IMAGE'
         pass
     #
-    # still image, but with an extra axis to show frequency
+    # spectral image cube (extra axis for frequency/velocity)
     elif data.hdr['NAXIS']==3 and data.hdr['NAXIS1']>1 and data.hdr['NAXIS2']>1 and data.hdr['NAXIS3']==1:
         data.type = 'IMAGE'
         # extra if the continuum image has the freq and width
@@ -242,7 +242,7 @@ def loadcube(fitsfile, telescope=None):
         data.velarr = ((arange(1,data.vnaxis+1)-data.vcrpix)*data.vcdelt+data.vcrval)/float(1e3)
         data.restfreq = data.hdr['RESTFREQ'] # in Hertz
         data.fov = 58.4*(3e8/data.restfreq)/(data.diameter)*3600
-        data.d = data.d[0][0][0]
+        data.d = data.d[0][0][0] # specific for this data...
 
 
     #
