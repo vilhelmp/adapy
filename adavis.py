@@ -1721,7 +1721,7 @@ def plot_moment0 (filename,
                 box=[0,0],
                 nsig=3,
                 nsjump=2,
-                obj_dict = dict(vsys=0),
+                obj_dict = dict(vsys=0,),
                 font={'family':'serif', 'serif': ['Times', 'Times New Roman'],
                 'size':22, 'weight':'bold'},
                 fit = dict(gauss = None, params = None, continuum = False,
@@ -1793,6 +1793,8 @@ def plot_moment0 (filename,
     # first get the fitsfile
     linedata = loadcube(filename,telescope)
     #
+    if not obj_dict.has_key('vsys'):
+        obj_dict['vsys'] = 0
     linedata.velarr = linedata.velarr - obj_dict['vsys'] #now all the velocities are based on the LSR
 
     # and the continuum data, if existent
@@ -1956,7 +1958,7 @@ def plot_moment0 (filename,
     else:
         line = ax.contour(img, levels=levs, colors='r', extent=(left,right,bottom,top))
 	
-	ax.text(0.5,0.5,'test',transform = ax.transAxes)
+	#ax.text(0.5,0.5,'test',transform = ax.transAxes)
     draw_beam(ax, linedata)
     draw_fov(ax, linedata)
 
@@ -1996,9 +1998,10 @@ def plot_moment0 (filename,
     #fig.suptitle(linedata.obj+' (%s km s$^{-1}$)'% str(linedata.unit))
     #if cfile!=None:
     #    fig.subplots_adjust(bottom=0.08, right=0.77, top=0.90)
-    ax.text(0.05,0.93,
-    linedata.obj,
-    transform = ax.transAxes,)
+    if obj_dict.has_key('source'):
+        ax.text(0.05,0.93, obj_dict['source'], transform = ax.transAxes)
+    else:
+        ax.text(0.05,0.93, linedata.obj, transform = ax.transAxes)
     ax.set_xlim(i1,i2)
     ax.set_ylim(j1,j2)
     ax.set_aspect(1)
