@@ -37,12 +37,11 @@ form['to'] = str(203.408)
 form['frequency_units'] = ['GHz']
 
 # 'click' the form
-result = urlopen(form.click()).read() # this does NOT works
+#result = urlopen(form.click()).read() # this does NOT works
 
 # workaround, add 'submit=Search' to the request url
 result = urlopen(form.click_request_data()[0]+'&submit=Search').read() # this works
 # parse the results
-
 
 ####### Alternative 1
 from lxml import html
@@ -57,8 +56,8 @@ findTD = './td[position()=1]/a/@href | ./td[position()>1]/text() | self::node()[
 rows = [row.xpath(findTD) for row in table.xpath(findTR)]
 for row in rows:
     print len(row)*'%7s\t' % tuple(row)
-for row in table.xpath('//table[@class="results"]/tr'):
-    column = row.xpath('./td[position()=1]/a/@href | ./td[position()>1]/text() | self::node()[position()=1]/td/text()')
+for row in table.xpath(findTR):
+    column = row.xpath(findTD)
     l = len(column)
     print l*'%7s\t' % tuple(column)
 
@@ -70,12 +69,63 @@ for row in table.xpath('//table[@class="results"]/tr'):
 # inspired by http://blog.jgc.org/2009/11/parsing-html-in-python-with.html
 from BeautifulSoup import BeautifulSoup as bfs
 
+#bfs.NESTABLE_TAGS['a'] = ['td']
+#bfs.NESTABLE_TAGS['sub'] = ['td']
+
 soup = bfs(result)
+
+
+def findreplace(soup, x):
+    r = soup.findAll(x)
+    [i.replaceWith(i.renderContents()) for i in r]
+
+# these work
+findreplace(soup, 'a')
+findreplace(soup, 'br')
+
+# these does not work!!!!!!!!!!!!!!!!
+findreplace(soup, 'sub')
+findreplace(soup, 'sup')
+
+
+
 results_table = soup.find('table',"results")
+
+for r in results_table.findAll(True):
+    if r not in ['table', 'tr', 'td']:
+        r.replaceWith(r.renderContents())
+
+
 data = [[col.renderContents() for col in row.findAll('td')] for row in results_table.findAll('tr')]
-  
+
+# very ugly solution to remove sub, sup, font and a href tags from
+# table cells
+for line in data:
+    for i in line:
+        s = bfs(i)        
+        for tag in s.findAll(True):
+            for i, x in enumerate(tag.parent.contents):
+                if x == tag: 
+                    break
+                else:
+                    print "Can't find", tag, "in", tag.parent
+                    continue
+            for r in reversed(tag.contents):
+              tag.parent.insert(i, r)
+            tag.extract()
+
+## another try
+for line in data:
+    for i in line:  
+        for tag in s.findAll('a'):
+            print s
+            tag.replaceWith(tag.renderContents())
+            print s
+
+
 ####### Alternative 3
 # need file in parse cmd, I have result string
+# does not work
 from xml.etree.ElementTree import ElementTree
 
 doc = ElementTree().parse(result)
@@ -85,13 +135,6 @@ for t in doc.findall('.//table'):
     tds = tr.findall('./td')
     print tds[0][0].attrib['href'], tds[1].text.strip(), tds[2].text.strip()
 
-
- 
-
-
-
-
-        
 
 
 
