@@ -1,3 +1,4 @@
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 #       magpy.py
@@ -4748,6 +4749,8 @@ if __name__ == '__main__':
         v = convert_to_list(options.v)
     else:
         v = options.v
+    if options.n != None:
+        n
     if options.b != None:
         b = convert_to_list(options.b)
     else:
