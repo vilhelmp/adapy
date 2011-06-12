@@ -156,7 +156,7 @@ def loadcube(fitsfile, telescope=None):
         data.hdr.update('TELESCOP', telescope)
     #
     if data.hdr.has_key('TELESCOP') == 1:
-        name = array(['SMA', 'PDB', 'JCMT', 'AP-H201-F102'])
+        name = array(['SMA', 'PDBI', 'JCMT', 'AP-H201-F102'])
         dia = array([6, 15, 15, 12])
         try:
             data.diameter = dia[where(upper(data.hdr['TELESCOP'])==name)][0]
@@ -1254,7 +1254,8 @@ def plot_spectrum (filename,
                 plot_adjust= [0.12, 0.09, 0.99, 0.99],
                 lines = [],\
                 axspace = [1.01, 1.01, 1.01, 1.05],
-                ylimits=None):
+                ylimits=None,
+                telescope=None):
     """
     Function documentation
 
@@ -1361,7 +1362,7 @@ def plot_spectrum (filename,
         v1, v2 = chvals
 
     # first get the fitsfile
-    data = loadcube(filename)
+    data = loadcube(filename,telescope)
     data.velarr = data.velarr - obj_dict['vsys'] #now all the velocities are based on the LSR
     #data.freqarr = calc_frequency(data.velarr,data.restfreq)
     #
@@ -4749,8 +4750,6 @@ if __name__ == '__main__':
         v = convert_to_list(options.v)
     else:
         v = options.v
-    if options.n != None:
-        n
     if options.b != None:
         b = convert_to_list(options.b)
     else:
@@ -4769,6 +4768,13 @@ if __name__ == '__main__':
             plot_moment0(filename,box=b)
         else:
             plot_moment0(filename)
+    if lower(f) in ['moment1','mom1','m1']:
+        if b!=None:
+            plot_moment1(filename,box=b)
+        else:
+            plot_moment1(filename)
+
+
     #
     a = str(raw_input('Press any key to exit...'))
     # put Jes, optparser here!
