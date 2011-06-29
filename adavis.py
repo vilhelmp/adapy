@@ -192,7 +192,8 @@ def loadcube(fitsfile, telescope=None):
         data.fov = 58.4*(3.e8/data.restfreq)/float(data.diameter)*3600.
         print 'Field of view: %.2f asecs, for dish size: %.1f m' % (data.fov, data.diameter)
         #print data.veltype, data.vcrpix, data.vcrval, data.vcdeltkms, data.vnaxis
-        print 'Velocity range \t: %d' % data.velrangekms
+        print 'Velocity range \t: %d km/s' % data.velrangekms
+        print 'Velocity step \t: %2.4f km/s' % data.vcdeltkms
         return data
     # spectra: 3 axis and 3rd axis is >1 in size
     # image: 2 axis (or 3 axis, 3rd is =1 in size)
@@ -440,6 +441,32 @@ def put_line_indicator(ax, velocity, spect, xpos, text_string, \
 def calc_sigma(N,rms,vcdelt):
     return sqrt(N)*rms*abs(vcdelt)
 #
+def calc_cooffset(ra,dec,offset):
+    """ 
+    calculates new coordinates from old ones
+    ra,dec - string with coordinate
+    offset - offsets in a tuple/list i.e. (dX,dY), [dX,dY]
+    """
+    from numpy import cos, pi, array
+    ra_inp = ra
+    ra = ra.split(':')
+    ra = [float(i) for i in ra]
+    ra_decimal = (ra[0] + ra[1]/60.0 + ra[2]/3600.0)*15.0 # convert to decimal number in degrees
+    dec_inp = dec
+    dec = dec.split(':')
+    dec = [float(i) for i in dec]
+    dec_decimal = dec[0] + dec[1]/60.0 + dec[2]/3600.0 # convert to decimal number
+    offset_inp = offset
+    offset = array(offset)/3600.0
+    cosdec = cos(dec_decimal*pi/180.) # convert to radians
+    new_ra = ra_decimal + offset[0]/cosdec
+    new_dec = dec_decimal + offset[1]
+    print 'Input coordinates:'
+    print 'RA:\t%s\nDEC:\t%s' % (ra_inp,dec_inp)
+    print 'Offset: %s, %s' % offset_inp
+    print 'New coordinates:'
+    print 'RA:\t%s\nDEC:\t%s' % ((parse_ra(new_ra,string=True),parse_dec(new_dec,string=True)))
+#
 def parse_tick_font (font):
     """
     You have to add your formatter yourself with:
@@ -542,7 +569,7 @@ def parse_pxlcoord (data, x, y):
     yoffset = (y-data.dec_crpix)*data.dec_cdelt
     return xoffset, yoffset
 #
-def parse_ra (ra):
+def parse_ra (ra,string=False):
     """
 
     Parses a simple float coordinate and returns hours, minutes and seconds.
@@ -564,9 +591,11 @@ def parse_ra (ra):
     b = (a-hours)*60
     minutes = int(b)
     seconds = (b-minutes)*60
+    if string:
+        return str(hours)+':'+str(minutes)+':'+str(seconds)
     return hours,minutes,seconds
 #
-def parse_dec (dec):
+def parse_dec (dec, string=False):
     """
 
     Parses a simple float coordinate and returns hours, minutes and seconds.
@@ -587,6 +616,8 @@ def parse_dec (dec):
     b = (dec-degrees)*60
     minutes = int(b)
     seconds = (b-minutes)*60
+    if string:
+        return str(degrees)+':'+str(minutes)+':'+str(seconds)
     return degrees,minutes,seconds
 #
 def parse_linelist(linelist):
@@ -1243,8 +1274,8 @@ def plot_spectrum (filename,
                 region=[0,0,0,0],
                 obj_dict = dict(vsys=0),
                 freq=False,
-                font={'family':'serif', 'serif': ['Times', 'Times New Roman'],
-                'size': 20, 'weight':'bold'},
+                font={'family':'sans-serif', 'sans-serif': ['Courier'],
+                'size':16, 'weight':'bold'},
                 bin=False,
                 fit = dict(type=None, params=[(0.09, 7.3, 3.6)],
                 guess=False, interactive=False, fixlist=None, error=None,
@@ -1255,7 +1286,8 @@ def plot_spectrum (filename,
                 lines = [],\
                 axspace = [1.01, 1.01, 1.01, 1.05],
                 ylimits=None,
-                telescope=None):
+                telescope=None,
+                fsize=(9.,7.)):
     """
     Function documentation
 
@@ -1407,7 +1439,7 @@ def plot_spectrum (filename,
     #
     pl.ion()
     pl.close()
-    fig = pl.figure(1,figsize=(10.5,8))
+    fig = pl.figure(1,figsize=fsize)
     #fig = pl.figure(1,figsize=(10.5,4.5))
     fig.clf()
     ax_kms = fig.add_subplot(111)
@@ -1417,7 +1449,7 @@ def plot_spectrum (filename,
     cy1 = axspace[2]
     cy2 = axspace[3]
     if data.vcdelt<0:
-        ax_kms.step(flipud(velocity), flipud(spect), '0.3', lw=2,  where='mid')
+        ax_kms.step(flipud(velocity), flipud(spect), 'k', lw=2,  where='mid')
         xmin, xmax = round(flipud(velocity)[0])*cx1, round(flipud(velocity)[-1])*cx2
         ymin, ymax = round(min(flipud(spect)),3)*cy1, round(max(flipud(spect)),3)*cy2
     elif data.vcdelt>=0:
@@ -1724,19 +1756,22 @@ def plot_moment0 (filename,
                 nsig=3,
                 nsjump=2,
                 obj_dict = dict(vsys=0,),
-                font={'family':'serif', 'serif': ['Times', 'Times New Roman'],
-                'size':22, 'weight':'bold'},
+                font={'family':'sans-serif', 'sans-serif': ['Courier'],
+                'size':16, 'weight':'bold'},
                 fit = dict(gauss = None, params = None, continuum = False,
                 interactive = False),
                 send=False,
                 quality=[150, 72],
                 cbar=True,
+                colormap=True,
                 plot_adjust= [0.12, 0.01, 0.74, 0.99],
                 cpeak=[0,0,'k'],
                 ccol='r',
                 sbar=dict(dist=220,au=200),
                 locators = [2,1],
-                telescope=None):
+                telescope=None,
+                negcontours=True,
+                fsize=(9.,7.)):
     """
 
     Function doc
@@ -1786,7 +1821,7 @@ def plot_moment0 (filename,
     rc('ytick',**{'minor.size':3, 'major.size':7})
 
     # linewidths
-    rc('axes', linewidth=1)
+    rc('axes', linewidth=2)
     rc('lines', linewidth=1.5, markeredgewidth=1)
 
     pl_left, pl_bottom, pl_right,pl_top = plot_adjust
@@ -1883,10 +1918,12 @@ def plot_moment0 (filename,
     img_min = img.min()
     #
     # now create the levels for the contours
-    levs = concatenate((-1*flipud(arange(nsig*img_sigma,abs(img_min)+img_sigma,nsjump*img_sigma)), arange(nsig*img_sigma,img_max+img_sigma,nsjump*img_sigma)))
-    levs_contour = concatenate((-1*flipud(arange(nsig*img_sigma,abs(img_min)+img_sigma,2*nsjump*img_sigma)), arange(nsig*img_sigma,img_max+img_sigma,2*nsjump*img_sigma)))
-    print levs
-    print levs_contour
+    if negcontours:
+        levs = concatenate((-1*flipud(arange(nsig*img_sigma,abs(img_min)+img_sigma,nsjump*img_sigma)), arange(nsig*img_sigma,img_max+img_sigma,nsjump*img_sigma)))
+        levs_contour = concatenate((-1*flipud(arange(nsig*img_sigma,abs(img_min)+img_sigma,2*nsjump*img_sigma)), arange(nsig*img_sigma,img_max+img_sigma,2*nsjump*img_sigma)))
+    else:
+        levs = arange(nsig*img_sigma,img_max+img_sigma,nsjump*img_sigma)
+        levs_contour = arange(nsig*img_sigma,img_max+img_sigma,2*nsjump*img_sigma)
     #levs = arange(nsig*img_sigma, img_max, nsjump*img_sigma)
     # print some info out
     print '\n','='*40
@@ -1911,10 +1948,7 @@ def plot_moment0 (filename,
 
     pl.ion()
     pl.close()
-    if cbar and cfile!=None:
-        fig = pl.figure(1, (9., 7.))
-    else:
-        fig = pl.figure(1, (9.,7.))
+    fig = pl.figure(1, figsize=fsize)
     fig.clf()
     #
     ax = fig.add_subplot(111)
@@ -1944,10 +1978,17 @@ def plot_moment0 (filename,
         print ' PA \t\t: %2.3f Degrees (0<theta<180) \n' % contdata.bpa
     #
     #
-    if cfile == None:
+    if colormap:
+        colormap = cm.bone_r
+    if colormap == None:
+        # just contours
         levs = levs.round(3)
         levs_contour = levs_contour.round(3)
-        cs1 = ax.contourf(img, levs, cmap=cm.bone_r, extent=(left,right,bottom,top))
+        cs = ax.contour(img, levs_contour, colors=ccol, extent=(left,right,bottom,top))
+    elif cfile == None and colormap!=None:
+        levs = levs.round(3)
+        levs_contour = levs_contour.round(3)
+        cs1 = ax.contourf(img, levs, cmap=colormap, extent=(left,right,bottom,top))
         #cs2 = ax.contour(img, cs1.levels[::2], colors=ccol, extent=(left,right,bottom,top))
         #return cs1 
         cs2 = ax.contour(img, levs_contour, colors=ccol, extent=(left,right,bottom,top))
@@ -2139,20 +2180,20 @@ def plot_moment1 (filename,
                 nsig=3,
                 nsjump=2,
                 obj_dict = dict(vsys=0),
-                font={'family':'serif', 'serif': ['Times', 'Times New Roman'],
-                'size':22, 'weight':'bold'},
+                font={'family':'sans-serif', 'sans-serif': ['Courier'],
+                'size':16, 'weight':'bold'},
                 fit = dict(gauss = None, params = None, continuum = False,
                 interactive = False),
                 send=False,
                 quality=[150, 72],
-                cbar=True,
                 plot_adjust= [0.12, 0.01, 0.74, 0.99],
                 cpeak=[0,0,'k'],
                 ccol='r',
                 sbar=dict(dist=250,au=200),
                 locators = [2,1],
                 telescope=None,
-                type=1):
+                type=1,
+                fsize=(9.,7.)):
     """
     Plot moment1 map of an area
 
@@ -2212,6 +2253,9 @@ def plot_moment1 (filename,
     set_rc(font=font, quality=quality)
 
 
+    # linewidths
+    rc('axes', linewidth=2)
+    rc('lines', linewidth=1.5, markeredgewidth=1)
 
 
 
@@ -2368,10 +2412,7 @@ def plot_moment1 (filename,
     """
     pl.ion()
     pl.close()
-    if cbar:
-        fig = pl.figure(1, (9., 7.))
-    elif not cbar:
-        fig = pl.figure(1, (9.,7.))
+    fig = pl.figure(1, figsize=fsize)
     fig.clf()
     #
     ax = fig.add_subplot(111)
@@ -2398,10 +2439,7 @@ def plot_moment1 (filename,
     cs2 = ax.contour(moment0, levels=levels, colors='k', extent=(left,right,bottom,top))
     cbar = pl.colorbar(im,format=cbar_tick_label_formatter) #label_X.replace('X','%2.2f'))
 
-    if str(linedata.unit) == 'Jy/beam':
-        cbar.ax.set_ylabel(r'Jy\,beam$^{\sf-1}$')
-    else:
-        cbar.ax.set_ylabel(str(linedata.unit))
+    cbar.ax.set_ylabel(r'km\,s$^{\sf -1}$')
 
 
 
