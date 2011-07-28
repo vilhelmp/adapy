@@ -1,9 +1,9 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-#       magpy.py
+#       adavis.py
 #
-#       Copyright 2010 Magnus Persson <magnusp@snm.ku.dk>
+#       Copyright 2011 Magnus Persson <magnusp@snm.ku.dk>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 #       GNU General Public License for more details.
 #
 #
-#       ver 1.0
+#       ver 2.0
 #
 #
 #
@@ -24,6 +24,9 @@
 """
 Script with functions to perform different actions on
 our data.
+
+Needs : scipy (and numpy), mpfit.py (optional), congridding.py (optional)
+
 
 
 ######################################################
@@ -51,49 +54,14 @@ TODO : Tick locators are good for small regions/narrow spectra, but not for big/
 TODO : Separate the loadcube function, so that one can work with data
        objects instead of a function that allways reads the file
 
+TODO : obj_dict -> source
+
 Lastly:
 - Check Jes functions how they work and try to merge/replace them.
 - How to divide it into a runnable program
 - implement it as command line program
 
-
-
-
 """
-
-#import os
-from sys import exit as sysexit
-#import scipy as sp
-from scipy import arange, array, indices, flipud, concatenate, ceil, alen,\
-                clip, pi, sqrt
-#import pyfits as pf
-from platform import system
-if system() == 'Darwin':
-    print 'Where on OSX so setting backend to MacOSX'
-    # must import and run use before pyplot/pylab
-    import matplotlib
-    matplotlib.use('MacOSX')
-
-from matplotlib import cm, rc
-import matplotlib.pyplot as pl
-#import pywcsgrid2 as pwg
-#import matplotlib.pyplot as pl
-#from mpl_toolkits.axes_grid import AxesGrid
-
-#from matplotlib.patches import Circle
-from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-from string import upper
-
-from matplotlib import rc
-
-rc('image',**{'origin':'lower', 'interpolation':'bilinear'})
-rc('savefig', **{'dpi': 300})
-rc('text', usetex=True)
-rc('figure',**{'facecolor': '1', 'dpi': 72})
-
-# do not know if this is needed, check if eps export is rasterised
-# need python-poppler installed
-#rc('ps.usedistiller' : 'xpdf')
 
 ###########################################
 # ERRORS
@@ -110,204 +78,6 @@ class ParError(Exception):
 ###########################################
 # HELP FUNCTIONS
 
-
-def loadcube(fitsfile, telescope=None):
-    """
-    TODO : loadcube - if the rotational matrice is non empty, load data and rotate it
-    TODO : loadcube -what if add a function to grid it to a certain size, say 512x512?
-            o so it is possible to combine data with different res.
-            o better to do this when plotting?
-    TODO : loadcube - More robust loading (detecting the axis etc)?
-            o Minimum of different types of data
-                - Naxis 2 (Freq/Vel & Flux/Intensity) - 1D Spectra
-                - Naxis 2 (RA & DEC) - 2D map
-                - Naxis 3 (RA & DEC & Flux/Intensity) 3D Spectral map
-                - Polarization data?
-    TODO : make loadcube delete an axis, along with the hdr keywords if all
-           the axis keywords/values are empty/null
-                o only to loaded data, not save to raw data (fits file)
-    """
-
-
-    #imports
-    from pyfits import open as fitsopen
-    #from  sys import
-    from os.path import getsize
-    from scipy import where, array
-    #
-
-    # create the class, but without any init script.
-    # a class (object) the easy way
-    class data: pass
-    print u'Loading fitsfile :  %s ' % colorify(str(fitsfile),c='g')
-    s  = getsize(fitsfile)
-    print " Size %0.2f MB" % (s/(1024*1024.0))
-    f = fitsopen(fitsfile)
-    data.hdr, data.d = f[0].header, f[0].data
-    #data.d = data.d[0] # this is if the stokes axis is present,
-    # but it should not be there anymore
-    f.close()
-
-    #
-    #
-    # the telescope diameter
-    # first check if there was keyword sent in
-    if telescope!=None:
-        data.hdr.update('TELESCOP', telescope)
-    #
-    if data.hdr.has_key('TELESCOP') == 1:
-        name = array(['SMA', 'PDBI', 'JCMT', 'AP-H201-F102'])
-        dia = array([6, 15, 15, 12])
-        try:
-            data.diameter = dia[where(upper(data.hdr['TELESCOP'])==name)][0]
-        except IndexError, ex:
-            data.diameter = 1
-    else:
-        data.diameter= 1
-    if data.hdr.has_key('LINE')==1:
-        data.linename = data.hdr['LINE']
-    #
-    #
-    # getting the velocity
-    def loadvelocity(data, axno):
-        data.veltype = axno
-        data.vcrpix = data.hdr['CRPIX'+data.veltype]
-        data.vcrval = data.hdr['CRVAL'+data.veltype]
-        data.vctype = data.hdr['CTYPE'+data.veltype]
-        data.vcdelt = data.hdr['CDELT'+data.veltype]
-        data.vnaxis = data.hdr['NAXIS'+data.veltype]
-        data.vcdeltkms = data.vcdelt/float(1e3)
-        data.velarr = ((arange(1,data.vnaxis+1)-data.vcrpix)*data.vcdelt+data.vcrval)/float(1e3) # so it is i kms
-        data.velrangekms = data.velarr.max()-data.velarr.min()
-        # not good if vcdletkms has more than 3 significant digits.
-        #data.velarr = data.velarr.round(3)
-        #data.vcdeltkms = round(data.vcdeltkms,2)
-
-        #start = data.vcrval-data.vcdelt*(data.vcrpix-1)
-        #stop =  data.vcrval+data.vcdelt*(data.vnaxis-data.vcrpix)
-        #arr = arange(start,stop-1,data.vcdelt)/float(1e3)
-        #print data.velarr-arr
-        # calculate the FOV = 58.4*lambda/D*3600 asec
-        data.restfreq = data.hdr['RESTFREQ'] # in Hertz
-        data.fov = 58.4*(3.e8/data.restfreq)/float(data.diameter)*3600.
-        print 'Field of view: %.2f asecs, for dish size: %.1f m' % (data.fov, data.diameter)
-        #print data.veltype, data.vcrpix, data.vcrval, data.vcdeltkms, data.vnaxis
-        print 'Velocity range \t: %d km/s' % data.velrangekms
-        print 'Velocity step \t: %2.4f km/s' % data.vcdeltkms
-        return data
-    # spectra: 3 axis and 3rd axis is >1 in size
-    # image: 2 axis (or 3 axis, 3rd is =1 in size)
-    #
-    from numpy import diff, arange
-    #naxis = data.hdr['NAXIS']
-    #axshape = data.d.shape
-    #if axshape[0] array([i>1 for i in a.shape[1:]]).all()
-    # an image, only 2 dimensions
-    if data.hdr['NAXIS']==2 and data.hdr['NAXIS1']>1 and data.hdr['NAXIS2']>1:
-        #if data.hdr['NAXIS']==3 and data.hdr['NAXIS1']>1 and data.hdr['NAXIS2']>1 and data.hdr['NAXIS3']==1:
-        # image, not SD spectra or anything,
-        # really 2D and greater extent than 1x1
-        data.type = 'IMAGE'
-        pass
-    #
-    # spectral image cube (extra axis for frequency/velocity)
-    elif data.hdr['NAXIS']==3 and data.hdr['NAXIS1']>1 and data.hdr['NAXIS2']>1 and data.hdr['NAXIS3']==1:
-        data.type = 'IMAGE'
-        # extra if the continuum image has the freq and width
-        data.freq = data.hdr['CRVAL3']
-        data.freqwidth = data.hdr['CDELT3']
-        # remove the extra axis in the data
-        data.d = data.d[0]
-    # a spectra! the 3rd axis is longer than 1
-    elif data.hdr['NAXIS']>=3 and data.hdr['NAXIS3']>1:
-        # spectral cube
-        # only support for velo-lsr in 3rd axis
-        data.type = 'CUBE'
-        # load the third axis
-        velax = str([x for x in data.hdr.keys() if x[:-1]=='CTYPE' and 'VELO' in data.hdr[x]][0][-1:])
-        data = loadvelocity(data, velax)
-        # now if we want to have the spectral array as well to use
-        if data.hdr.has_key('RESTFREQ'):
-            data.restfreq = data.hdr['RESTFREQ']
-        if data.hdr['NAXIS']==4 and  data.hdr['NAXIS4']==1:
-            data.d = data.d[0]
-        #
-        # this was just a test
-        # SD pointing spectra
-    elif data.hdr['NAXIS']>1 and data.hdr['NAXIS2']==1 and data.hdr['NAXIS3']==1:
-        data.type = 'SDSPECT'
-        data.vcdelt = data.hdr['DELTAV']
-        data.vcdeltkms = data.hdr['DELTAV']/float(1e3)
-        data.vcrpix = data.hdr['CRPIX1']
-        data.vnaxis = data.hdr['NAXIS1']
-        data.vcrval = data.hdr['VELO-LSR']
-        data.velarr = ((arange(1,data.vnaxis+1)-data.vcrpix)*data.vcdelt+data.vcrval)/float(1e3)
-        data.restfreq = data.hdr['RESTFREQ'] # in Hertz
-        data.fov = 58.4*(3e8/data.restfreq)/(data.diameter)*3600
-        data.d = data.d[0][0][0] # specific for this data...
-
-
-    #
-    else:
-        # if it is not an image or a spectral cube
-        print '\n ERROR\nThe dimensions of the data is wrong\n at least the header keywords indicate that.\n The data has '+str(data.hdr['NAXIS'])+' axes. \n\n Perhaps use the removeaxis script?\n\n'
-        sysexit(1)
-
-        #
-        # FREQUENCY ARRAY
-        #
-        # construct the frequency array!
-        # the 3rd axis longer than 1, and 4th axis is the frequency
-        # if the data is constructed in gildas
-        #
-
-    # DEC
-    data.dec_cdelt = data.hdr['CDELT2']*3600 # arcs
-    data.dec_npix = data.hdr['NAXIS2']
-    data.y_npix = data.hdr['NAXIS2']
-    data.dec_crpix = data.hdr['CRPIX2']
-    data.dec_crval = data.hdr['CRVAL2']
-    # RA
-    data.ra_cdelt = data.hdr['CDELT1']*3600 # arcs
-    data.ra_npix = data.hdr['NAXIS1']
-    data.x_npix = data.hdr['NAXIS1']
-    data.ra_crpix = data.hdr['CRPIX1']
-    data.ra_crval = data.hdr['CRVAL1']
-    try:
-        # Beam size in asecs
-        data.bmaj = data.hdr['BMAJ']*3600
-        data.bmin = data.hdr['BMIN']*3600
-        data.bpa = data.hdr['BPA']
-    except KeyError, ex:
-        data.bmaj = None
-        data.bmin = None
-        data.bpa = None
-    try:
-        # Data units
-        data.unit = data.hdr['BUNIT']
-        data.obj = data.hdr['OBJECT']
-    except Exception, ex:
-        data.unit = None
-    #
-    # Object name
-    data.obj = data.hdr['OBJECT']
-
-    print '\n','='*40
-    print ' '*8,'INFORMATION : FITS file'
-    print '='*40
-    print 'Object : %s' % data.obj
-    data.ra_size = abs(data.ra_cdelt)*data.ra_npix
-    data.dec_size = abs(data.dec_cdelt)*data.dec_npix
-    print 'Spatial size of image\n RA\t: %2.3f asec\n DEC\t: %2.3f asec' % (data.ra_size, data.dec_size)
-    ra_h, ra_m, ra_s = parse_ra(data.ra_crval)
-    dec_h, dec_m, dec_s = parse_dec(data.dec_crval)
-    print 'Phase center '
-    print ' RA : %2d:%2d:%2.4f' % (ra_h,ra_m,ra_s)
-    print ' DEC : %2d:%2d:%2.4f' % (dec_h,dec_m,dec_s)
-    #
-    print('done')
-    return data
-#
 def calc_frequency(vlsr, freq0):
     """
     vlsr in kms
@@ -410,8 +180,8 @@ def draw_highlight_box(ax, xpos, xwidth):
     ax.add_patch(rect)
 #
 def put_line_indicator(ax, velocity, spect, xpos, text_string, \
-            text_size='medium', text_weight='extra bold', text_color='black', \
-            lw=3, lc='b', offset=0):
+            text_size='medium', text_weight='extra bold', text_color='black',\
+             lc='b', offset=0):
     """
     Put text in figure, the positon is in axes data coordinates
     additional kwargs are text_size, text_weight, text_color
@@ -429,8 +199,7 @@ def put_line_indicator(ax, velocity, spect, xpos, text_string, \
     text_ypos = line_ypos + line_height + line_height*0.5
     text_ypos = text_ypos + len(text_string)*offset*3e-3
     # plot line
-    ax.plot([xpos, xpos],[line_ypos,line_ypos+line_height],lc,\
-            lw=lw)
+    ax.plot([xpos, xpos],[line_ypos,line_ypos+line_height],lc)
     # print text
     ax.text(xpos+0.1,text_ypos,\
     text_string,\
@@ -439,6 +208,7 @@ def put_line_indicator(ax, velocity, spect, xpos, text_string, \
     transform = ax.transData)
 #
 def calc_sigma(N,rms,vcdelt):
+    from scipy import sqrt
     return sqrt(N)*rms*abs(vcdelt)
 #
 def calc_cooffset(ra,dec,offset):
@@ -466,28 +236,6 @@ def calc_cooffset(ra,dec,offset):
     print 'Offset: %s, %s' % offset_inp
     print 'New coordinates:'
     print 'RA:\t%s\nDEC:\t%s' % ((parse_ra(new_ra,string=True),parse_dec(new_dec,string=True)))
-#
-def parse_tick_font (font):
-    """
-    You have to add your formatter yourself with:
-    labels = label_X.replace('X',data_fmt)
-    where data_fmt  eg = '%g'
-    and also:
-    formatted_labels = FormatStrFormatter(labels)
-
-    and lastly:
-    ax.xaxis.set_major_formatter(formatted_labels)
-
-    """
-    from scipy import array, where
-    if font.has_key('family'):
-        fformatters = array(['$\mathrm{X}$','$\mathsf{X}$','$\mathtt{X}$' , '$\mathit{X}$'])
-        ffamilies = array(['serif', 'sans-serif', 'monospace', 'cursive'])
-        label_X = fformatters[where(font['family']==ffamilies)][0]
-    else:
-        label_X = '$\mathrm{X}$'
-    #return label_X
-    return 'X'
 #
 def parse_region(data, region, f=False):
     """
@@ -527,7 +275,7 @@ def parse_region(data, region, f=False):
     corrected it
 
     """
-    from scipy import ceil, floor
+    from scipy import ceil, floor, array
     if len(region)==4:
         xcheck = region[0]==region[2]
         ycheck = region[1]==region[3]
@@ -659,7 +407,7 @@ def parse_linelist(linelist):
         Doc written
 
     """
-    from scipy import size, arange, zeros
+    from scipy import size, arange, zeros, array
     def get_lines(linelist):
         # pars a list of lists scenario
         names = linelist[0]
@@ -681,8 +429,16 @@ def parse_linelist(linelist):
         # load the table with the load ascii table function loadatbl
         names, freqs = loadatbl(linelist, dtype='string', sep=':')[0:3:2]
         #
+        f = []
+        n = []
+        for i,j in zip(freqs,names):
+            if i != '':
+                f.append(i)
+                n.append(j)
+        freqs=array(f)
+        names = n
         freqs = freqs.astype('float64')
-        return get_lines([names,freqs])
+    return get_lines([names,freqs])
 #
 def get_indices (arr,vals,disp=False):
     """
@@ -721,13 +477,17 @@ def get_indices (arr,vals,disp=False):
     if len(vals)==4:
         v1,v2,v3,v4 = vals + array([-1,1,-1,1])*dx
         # if the user wants two velocity areas to calculate noise
-        low = where((arr>=v1)*(arr<v2))[0] + 1
-        high = where((arr>=v3)*(arr<v4))[0] + 1
+        low = where((arr>=v1)*(arr<=v2))[0]
+        high = where((arr>=v3)*(arr<=v4))[0]
         channels = concatenate((low,high))
     elif len(vals)==2:
         v1,v2 = vals + array([-1,1])*dx
         #  if input just want one velocity area to calculate noise
-        channels = where((arr>=v1)*(arr<v2))[0] + 1
+        # 28/07/2011 removed +1 here, why did I have that?
+        #            seems to be more correct without +1
+        #            changed arr<v2 to arr<=v2
+        #channels = where((arr>=v1)*(arr<v2))[0]+1
+        channels = where((arr>=v1)*(arr<=v2))[0]
     #
     if disp and len(vals)==2:
         first, last = channels.min(), channels.max()
@@ -868,7 +628,6 @@ def fit_gauss1d((X,Y),\
     from numpy import exp, hstack, array, log, sqrt, diag, alen, zeros, \
                         where
     from mpfit import mpfit
-    print '='*40
     print '\n Fitting Gaussians'
     #
     ## Checking the input parameters
@@ -1253,6 +1012,7 @@ def set_rc(font={'family':'sans-serif', 'sans-serif': ['Arial', 'Helvetica'],
     rc('text', usetex=True)
     rc('savefig', **{'dpi': quality[0]})
     rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
+    rc('image', **{'origin': 'lower'})
     #to set the global font properties
     rc('font', **font)
     # ticksize
@@ -1263,31 +1023,368 @@ def set_rc(font={'family':'sans-serif', 'sans-serif': ['Arial', 'Helvetica'],
     rc('axes', linewidth=2)
     rc('lines', linewidth=1.5, markeredgewidth=1)
 #
+def parse_tick_font (font):
+    """
+    You have to add your formatter yourself with:
+    labels = label_X.replace('X',data_fmt)
+    where data_fmt  eg = '%g'
+    and also:
+    formatted_labels = FormatStrFormatter(labels)
+
+    and lastly:
+    ax.xaxis.set_major_formatter(formatted_labels)
+
+    """
+    from scipy import array, where
+    if font.has_key('family'):
+        fformatters = array(['$\mathrm{X}$','$\mathsf{X}$','$\mathtt{X}$' , '$\mathit{X}$'])
+        ffamilies = array(['serif', 'sans-serif', 'monospace', 'cursive'])
+        label_X = fformatters[where(font['family']==ffamilies)][0]
+    else:
+        label_X = '$\mathrm{X}$'
+    #return label_X
+    return 'X'
+#
+def get_telescope_diameter(telescope):
+    from string import upper
+    from scipy import where, array
+    name = array(['SMA', 'PDBI', 'JCMT', 'AP-H201-F102', 'IRAM30M'])
+    dia = array([6, 15, 15, 12, 30])
+    try:
+        diameter = dia[where(upper(telescope)==name)][0]
+    except IndexError, ex:
+        diameter = 1
+    return diameter
+#
+#########################################
+# ASCII TABLE HELP FUNCTIONS
+# table handling help functions. easily reads in
+# simple ascii tables with # as comment character
+def saveatbl(filename, dataList, names):
+    """
+    saves a list of data arrays ("dataList") in to a table with
+    the coloumn names in "names" as an ASCII file with name
+    "filename" (can be a path to a file as well)
+    """
+
+    def fileExists(f):
+        try:
+            file = open(f)
+        except IOError:
+            return False
+        else:
+            return True
+
+    if type(dataList) != type([]):
+        dataList = list(dataList) # if its not a list, make it one
+
+    if len(dataList) != len(names):
+        raise Exception('The number of column names does not match the number of data arrays')
+
+    if fileExists(filename) == False:
+        with open(filename,'w') as f: # force creating "filename"
+            #first line, the column names
+            out = "\t\t".join(['no']+names)
+            f.write('#'+out+'\n')
+            f.write('\n')
+
+            for i in xrange(len(dataList[0])): # make the index as long as
+                # the first array in the list
+                out = "\t\t".join([str(i+1)]+[str(x[i]) for x in dataList])
+                f.write(out+'\n') # add a line break
+
+    elif fileExists(filename) == True:
+        print(' ')
+        print('FILE EXISTS ('+str(filename) +') - SKIPPING SAVE')
+        print(' ')
+#
+def loadatbl(filename, dtype='float64',sep=None):
+    """
+    loads a list of data arrays in "filename", returns an array of the
+    whole shebang (loads arrays saved with the savetable command). just do:
+    (not the number column...)
+    a = loadtable(filename)
+    and then a[0] for first column, a[1] for second column and so on.
+    """
+    from scipy import array
+    try:
+        with open(filename,'r') as f:
+            values = []
+            for line in f:
+                if line.startswith('#') or not line.strip():
+                    continue # skip lines that are comments (# char) and empty
+                cols = line.split(sep)
+                values.append(array(cols,dtype=dtype))
+    except IOError:
+        raise IOError('file ' +str(filename)+' does NOT exist...')
+    except ValueError:
+        raise ValueError('Trying to convert to '+str(dtype)+' while it is a string\
+                        try to change it to \'str\'')
+
+    return array(values,dtype=dtype).transpose()
+#
+def infoatbl(filename, sep=None):
+    """
+    just returns the lines with comments (ie the column names) from a *.atbl file
+    """
+    try:
+        with open(filename,'r') as f:
+            strings = []
+            for line in f:
+                if line.startswith('#'):
+                    strings.append(line.split(sep))
+    except IOError:
+        raise IOError('file' + str(filename)+'does not exist...')
+
+    return strings
+#
+#########################################
+# MAIN DATA CLASS
+# Main data object, needs fits file as input
+# keywords can be appended to object later
+
+class DataObject:
+    """
+    ------------------------------------------
+    Adavis DataObject
+    
+    Usage :
+    ObjectName = DataObject(PathToFitsFile)
+    
+    ------------------------------------------
+    
+    Reads:
+    Maps, cubes, SD-spectra
+    
+    
+    """
+    def __init__(self, fitsfile, telescope=None):
+        """
+        TODO : loadcube - if the rotational matrice is non empty, load data and rotate it
+        TODO : loadcube -what if add a function to grid it to a certain size, say 512x512?
+                o so it is possible to combine data with different res.
+                o better to do this when plotting?
+        TODO : loadcube - More robust loading (detecting the axis etc)?
+                o Minimum of different types of data
+                    - Naxis 2 (Freq/Vel & Flux/Intensity) - 1D Spectra
+                    - Naxis 2 (RA & DEC) - 2D map
+                    - Naxis 3 (RA & DEC & Flux/Intensity) 3D Spectral map
+                    - Polarization data?
+                    (i.e, in SD spectra need to get rid of self.d = self.d[0][0][0])
+        TODO : make loadcube delete an axis, along with the hdr keywords if all
+               the axis keywords/values are empty/null
+                    o only to loaded data, not save to raw data (fits file)
+        """
+        
+        #imports
+        from pyfits import open as fitsopen
+        #from  sys import
+        from os.path import getsize
+        from scipy import where, array, nan
+        #
+    
+        # create the class, but without any init script.
+        # a class (object) the easy way
+        print u'Loading fitsfile :  %s ' % colorify(str(fitsfile),c='g')
+        s  = getsize(fitsfile)
+        print " Size %0.2f MB" % (s/(1024.*1024.))
+        f = fitsopen(fitsfile)
+        self.hdr, self.d = f[0].header, f[0].data
+        #self.d = self.d[0] # this is if the stokes axis is present,
+        # but it should not be there anymore
+        f.close()
+    
+        #
+        #
+        # the telescope diameter
+        # first check if there was keyword sent in
+        if telescope!=None:
+            self.hdr.update('TELESCOP', telescope)
+            self.telescope = str(telescope)
+        #
+        if self.hdr.has_key('TELESCOP'):
+            #~ name = array(['SMA', 'PDBI', 'JCMT', 'AP-H201-F102', 'IRAM30M'])
+            #~ dia = array([6, 15, 15, 12, 30])
+            #~ try:
+                #~ self.diameter = dia[where(upper(self.hdr['TELESCOP'])==name)][0]
+            #~ except IndexError, ex:
+                #~ self.diameter = 1
+            self.diameter = get_telescope_diameter(self.hdr['TELESCOP'])
+            self.telescope = self.hdr['TELESCOP']
+        else:
+            self.diameter= 1
+            self.telescope = None
+        if self.hdr.has_key('LINE'):
+            self.linename = self.hdr['LINE']
+        #
+        #
+        # spectra: 3 axis and 3rd axis is >1 in size
+        # image: 2 axis (or 3 axis, 3rd is =1 in size)
+        #
+        from numpy import diff, arange
+        #naxis = self.hdr['NAXIS']
+        #axshape = self.d.shape
+        #if axshape[0] array([i>1 for i in a.shape[1:]]).all()
+        # an image, only 2 dimensions
+        if self.hdr['NAXIS']==2 and self.hdr['NAXIS1']>1 and self.hdr['NAXIS2']>1:
+            #if self.hdr['NAXIS']==3 and self.hdr['NAXIS1']>1 and self.hdr['NAXIS2']>1 and self.hdr['NAXIS3']==1:
+            # image, not SD spectra or anything,
+            # really 2D and greater extent than 1x1
+            self.datatype = 'IMAGE'
+            pass
+        #
+        # spectral image cube (extra axis for frequency/velocity)
+        elif self.hdr['NAXIS']==3 and self.hdr['NAXIS1']>1 and self.hdr['NAXIS2']>1 and self.hdr['NAXIS3']==1:
+            self.datatype = 'IMAGE',2
+            # extra if the continuum image has the freq and width
+            self.freq = self.hdr['CRVAL3']
+            self.freqwidth = self.hdr['CDELT3']
+            # remove the extra axis in the data
+            self.d = self.d[0]
+        # a spectra! the 3rd axis is longer than 1
+        elif self.hdr['NAXIS']>=3 and self.hdr['NAXIS3']>1:
+            # spectral cube
+            # only support for velo-lsr in 3rd axis
+            self.datatype = 'CUBE',3
+            # load the third axis
+            velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VELO' in self.hdr[x]][0][-1:])
+            #data = loadvelocity(data, velax)
+            # loading velocity information
+            self.veltype = velax
+            self.vcrpix = self.hdr['CRPIX'+self.veltype]
+            self.vcrval = self.hdr['CRVAL'+self.veltype]
+            self.vctype = self.hdr['CTYPE'+self.veltype]
+            self.vcdelt = self.hdr['CDELT'+self.veltype]
+            self.vnaxis = self.hdr['NAXIS'+self.veltype]
+            self.vcdeltkms = self.vcdelt/float(1e3)
+            self.velarr = ((arange(1,self.vnaxis+1)-self.vcrpix)*self.vcdelt+self.vcrval)/float(1e3) # so it is i kms
+            self.velrangekms = self.velarr.max()-self.velarr.min()
+            # not good if vcdletkms has more than 3 significant digits.
+            #self.velarr = self.velarr.round(3)
+            #self.vcdeltkms = round(self.vcdeltkms,2)
+    
+            #start = self.vcrval-self.vcdelt*(self.vcrpix-1)
+            #stop =  self.vcrval+self.vcdelt*(self.vnaxis-self.vcrpix)
+            #arr = arange(start,stop-1,self.vcdelt)/float(1e3)
+            #print self.velarr-arr
+            # calculate the FOV = 58.4*lambda/D*3600 asec
+            self.restfreq = self.hdr['RESTFREQ'] # in Hertz
+            self.fov = 58.4*(3.e8/self.restfreq)/float(self.diameter)*3600.
+            print 'Field of view: %.2f asecs, for dish size: %.1f m' % (self.fov, self.diameter)
+            #print self.veltype, self.vcrpix, self.vcrval, self.vcdeltkms, self.vnaxis
+            print 'Velocity range \t: %d km/s' % self.velrangekms
+            print 'Velocity step \t: %2.4f km/s' % self.vcdeltkms
+            #
+            # now if we want to have the spectral array as well to use
+            if self.hdr.has_key('RESTFREQ'):
+                self.restfreq = self.hdr['RESTFREQ']
+            if self.hdr['NAXIS']==4 and  self.hdr['NAXIS4']==1:
+                self.d = self.d[0]
+            #
+            # this was just a test
+            # SD pointing spectra
+        elif self.hdr['NAXIS']>1 and self.hdr['NAXIS2']==1 and self.hdr['NAXIS3']==1:
+            self.datatype = 'SDSPECT',1
+            self.vcdelt = self.hdr['DELTAV']
+            self.vcdeltkms = self.hdr['DELTAV']/float(1e3)
+            self.vcrpix = self.hdr['CRPIX1']
+            self.vnaxis = self.hdr['NAXIS1']
+            self.vcrval = self.hdr['VELO-LSR']
+            self.velarr = ((arange(1,self.vnaxis+1)-self.vcrpix)*self.vcdelt+self.vcrval)/float(1e3)
+            self.restfreq = self.hdr['RESTFREQ'] # in Hertz
+            self.fov = 58.4*(3e8/self.restfreq)/(self.diameter)*3600
+            self.d = self.d[0][0][0] # specific for this data...
+        else:
+            # if it is not an image or a spectral cube
+            print '\n ERROR\nThe dimensions of the data is wrong\n at least the header keywords indicate that.\n The data has '+str(self.hdr['NAXIS'])+' axes. \n\n Perhaps use the removeaxis script?\n\n'
+            sysexit(1)
+    
+            #
+            # FREQUENCY ARRAY
+            #
+            # construct the frequency array!
+            # the 3rd axis longer than 1, and 4th axis is the frequency
+            # if the data is constructed in gildas
+            #
+        # DEC
+        self.dec_cdelt = self.hdr['CDELT2']*3600 # arcs
+        self.dec_npix = self.hdr['NAXIS2']
+        self.y_npix = self.hdr['NAXIS2']
+        self.dec_crpix = self.hdr['CRPIX2']
+        self.dec_crval = self.hdr['CRVAL2']
+        # RA
+        self.ra_cdelt = self.hdr['CDELT1']*3600 # arcs
+        self.ra_npix = self.hdr['NAXIS1']
+        self.x_npix = self.hdr['NAXIS1']
+        self.ra_crpix = self.hdr['CRPIX1']
+        self.ra_crval = self.hdr['CRVAL1']
+        try:
+            # Beam size in asecs
+            self.bmaj = self.hdr['BMAJ']*3600
+            self.bmin = self.hdr['BMIN']*3600
+            self.bpa = self.hdr['BPA']
+        except KeyError, ex:
+            self.bmaj = None
+            self.bmin = None
+            self.bpa = None
+        try:
+            # Data units
+            self.unit = self.hdr['BUNIT']
+            self.obj = self.hdr['OBJECT']
+        except Exception, ex:
+            self.unit = None
+        #
+        # Object name
+        self.obj = self.hdr['OBJECT']
+        print '\n','='*40
+        print ' '*8,'INFORMATION : FITS file\n'
+        print 'Data type : %s' % str(self.datatype[0])
+        print 'Object : %s' % self.obj
+        if self.datatype[0] != 'SDSPECT':
+            self.ra_size = abs(self.ra_cdelt)*self.ra_npix
+            self.dec_size = abs(self.dec_cdelt)*self.dec_npix
+            print 'Spatial size of image\n RA\t: %2.3f asec\n DEC\t: %2.3f asec' % (self.ra_size, self.dec_size)
+        ra_h, ra_m, ra_s = parse_ra(self.ra_crval)
+        dec_h, dec_m, dec_s = parse_dec(self.dec_crval)
+        print 'Phase center '
+        print ' RA : %2d:%2d:%2.4f' % (ra_h,ra_m,ra_s)
+        print ' DEC : %2d:%2d:%2.4f' % (dec_h,dec_m,dec_s)
+        #
+        #return data
+
+    def calc_fov(self):
+        if self.telescope!=None:
+            self.diameter = get_telescope_diameter(self.telescope)
+        elif self.diameter == 1:
+            print 'You have not changed either the diameter of the telescope or the telescope name'
+        self.fov = 58.4*(3.e8/self.restfreq)/float(self.diameter)*3600.
 
 
+    
 ###########################################
 # MAIN FUNCTIONS
 
-def plot_spectrum (filename,
+def plot_spectrum (self,
                 chvals=None,
                 nvals=None,
                 region=[0,0,0,0],
-                obj_dict = dict(vsys=0),
+                source = dict(vsys=0),
                 freq=False,
-                font={'family':'sans-serif', 'sans-serif': ['Courier'],
-                'size':16, 'weight':'bold'},
-                bin=False,
-                fit = dict(type=None, params=[(0.09, 7.3, 3.6)],
+                font={'family':'serif', 'serif': ['Times New Roman'],
+                'size':8},
+                bin=1,
+                bintype='mean',
+                linefit = dict(type=None, params=[(0.09, 7.3, 3.6)],
                 guess=False, interactive=False, fixlist=None, error=None,
                 limmin=None, minpar=None, limmax=None, maxpar=None, tie=None),
                 send=False,
-                quality=[150, 72],
-                plot_adjust= [0.12, 0.09, 0.99, 0.99],
+                quality=[300, 300],
+                plot_adjust= [0.15, 0.17, 0.98, 0.95],
                 lines = [],\
                 axspace = [1.01, 1.01, 1.01, 1.05],
                 ylimits=None,
                 telescope=None,
-                fsize=(9.,7.)):
+                fsize=(3.,2.)):
     """
     Function documentation
 
@@ -1335,16 +1432,20 @@ def plot_spectrum (filename,
 
 
 
-    TODO : what is the RMS when binning and giving a area_region>1?
+    TODO : What is the RMS when binning and giving a area_region>1?
+                    # RMS is not accounting for binning in vel. axis
+                    # RMS is not correct when giving a are_region>1
             ie does the end unit change? yes-> fix it
                     # change x1,x2,y1,y2 to quarter region (line 2350)
                     # change so that when binning, the rms i calculated
+            Remove the most weird font-settings
     """
     # imports
     #import scipy as sp
     print 'importing...'
     from scipy import array, where, median, std, sign, arange, alen, vstack, \
-                    concatenate, sqrt, log10, exp, log, ceil, floor, diff
+                    concatenate, sqrt, log10, exp, log, ceil, floor, diff, \
+                    flipud
     import matplotlib.pyplot as pl
     from mpl_toolkits.axes_grid import AxesGrid
     #from matplotlib.patches import Circle
@@ -1359,16 +1460,6 @@ def plot_spectrum (filename,
     #from matplotlib.font_manager import FontProperties
     #FontProperties(family=None, style=None, variant=None, weight=None, stretch=None, size=None, fname=None, _init=None)
     ################################
-    # setting global rc properties #
-    ################################
-    rc('savefig', **{'dpi': quality[0]})
-    rc('text', usetex=True)
-    rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
-    #to set the global font properties
-    rc('font', **font)
-    rc('axes',linewidth=2)
-    rc('lines', linewidth=2)
-    ################################
     # setting the tick label font  #
     ################################
     # the following set the ticklabel format string
@@ -1378,23 +1469,21 @@ def plot_spectrum (filename,
     tick_label_formatter = FormatStrFormatter(label_X.replace('X',data_fmt))
     freq_label_formatter = FormatStrFormatter(label_X.replace('X',freq_data_fmt))
     #rc('mathtext',**{'rm':'sans\\-serif'})
-    # ticksize
-    rc('xtick',**{'minor.size':4, 'major.size':9, 'major.pad': 6})
-    rc('ytick',**{'minor.size':4, 'major.size':9, 'major.pad': 4})
-    # linewidths
-    rc('axes', linewidth=2)
-    rc('lines', linewidth=1, markeredgewidth=2)
-
-
+    #
+    # just rename it...
+    obj_dict= source
+    
     # set the subplot_adjust parameters, if not given a standard set will
     # be used
     pl_left, pl_bottom, pl_right,pl_top = plot_adjust
-
+    # save the channel values (in velocity)
     if chvals!=None:
         v1, v2 = chvals
-
-    # first get the fitsfile
-    data = loadcube(filename,telescope)
+    ###################################
+    #          Load the data          #
+    ###################################
+    #data = loadcube(filename,telescope)
+    data = self
     data.velarr = data.velarr - obj_dict['vsys'] #now all the velocities are based on the LSR
     #data.freqarr = calc_frequency(data.velarr,data.restfreq)
     #
@@ -1403,62 +1492,119 @@ def plot_spectrum (filename,
     x1,x2,y1,y2 = parse_region(data, region)
     print x1,x2,y1,y2
     # now start the plotting
+    ###################################
+    #      extract the spectra        #
+    ###################################
+    """
+    Extracting spectra, the region keyword gives the region to sum over.
+    BUT we have to devide by that area to get back to the correct units(?).
+    """
     area_region = ((y2-y1)*(x2-x1))
-    if data.type != 'SDSPECT':
-        spect = (data.d[:,y1:y2,x1:x2].sum(axis=1).sum(axis=1))/(area_region)
-    elif data.type == 'SDSPECT':
+    if data.datatype[0] != 'SDSPECT':
+        spect = (data.d[:,y1:y2,x1:x2].sum(axis=1).sum(axis=1))/float(area_region)
+    elif data.datatype[0] == 'SDSPECT':
+        print "SD-SPECTRUM - area keyword not doing anything"
         spect = data.d
-    #
-    # binning of data
-    if bin!=False:
-        # change to congridding?
+    ####################################
+    #          binning of data         #
+    ####################################
+    if bin>1 and bintype=='resample':
         from congridding import congrid
         j = int(bin)
 
-        #  Old method - simple binning, just average
-        #indices = arange(0,alen(spect),j)
-        #spect = array([spect[x:x+j].sum(axis=0)/j for x in indices])
-        #velocity = array([data.velarr[x:x+j].sum(axis=0)/j for x in indices])
+        # congridding, proper resampling of data
         #
-        # congridding, proper re gridding of data
-        #
-        spect = congrid(spect,(alen(spect)/bin,),centre=True)
+        spect = congrid(spect,(alen(spect)/bin,),centre=True,method='neighbour')
         velocity = congrid(data.velarr,(alen(data.velarr)/j,))
         #
         velocity_delta = data.vcdeltkms*bin
+    elif bin>1 and bintype=='mean':
+        j = int(bin)
+        if alen(spect)%j!=0:
+            print 'bin has to be evenly devide the number of channels: %d' % alen(spect)
+            sysexit()
+        #  Old method - simple binning, just average
+        indices = arange(0,alen(spect),j)
+        spect = array([spect[x:x+j].sum(axis=0)/j for x in indices])
+        velocity = array([data.velarr[x:x+j].sum(axis=0)/j for x in indices])
         #
-    elif bin==False:
+        velocity_delta = data.vcdeltkms*bin
+    elif bin==1:
         velocity = data.velarr
         velocity_delta = data.vcdeltkms
-
-
+    elif bin<1:
+        print colorify("\nERROR:\n Variable \"bin\" has to be 1 for no binning, or above 1 \n\
+            for the number of channels to bin")
+    # print out information about the binning
+    if bin>1:
+        print '='*40
+        print ' '*11,"Binning of data\n"
+        print "No channels to bin : %d" % bin
+        print "Velocity step : %f" % velocity_delta
+        if bintype=='mean':
+            print 'Type of binning : Simple mean over selected no. bin channels'
+        elif bintype=='resample':
+            print 'Type of binning : Resampling - 1D interpolation'
+    #
+    if send:
+        if nvals!=None and linefit['type']!=None: # send everything!
+            txt = '\n sending you spectra, velarr, data, noise-spectra'
+            print colorify(txt,c='g')
+            return spect,velocity, data, spect[get_indices(velocity,nvals)]
+        elif nvals==None and linefit['type']=='gauss': # no noise channels supplied
+            txt = '\n sending you spect, velarr, data'
+            print colorify(txt,c='g')
+            return spect,velocity, data
+        elif nvals!=None and linefit['type']==None: # no fit but noise
+            txt =  '\n sending you spect, velarr, data, noise-spectra'
+            print colorify(txt,c='g')
+            return spect, velocity, data, spect[get_indices(velocity,nvals)]
+        else: # well non of them are supplied
+            txt =  '\n sending you spectra, velarr, data'
+            print colorify(txt,c='g')
+            return spect, velocity, data
     #
     # From here on the velocity array is 'velocity'
     # and the vcdelt is 'velocity_delta'
-
     #
+    ################################
+    # setting global rc properties #
+    ################################
+    rc('savefig', **{'dpi': quality[0]})
+    rc('text', usetex=True)
+    rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
+    #to set the global font properties
+    rc('font', **font)
+    rc('axes',linewidth=0.3)
+    rc('lines', linewidth=0.3, markeredgewidth=0.5)
+    rc('patch',linewidth=0.3)
+    # ticksize
+    rc('xtick',**{'minor.size':2, 'major.size':4, 'major.pad': 3})
+    rc('ytick',**{'minor.size':2, 'major.size':4, 'major.pad': 1})
+    ### done!
     pl.ion()
     pl.close()
     fig = pl.figure(1,figsize=fsize)
     #fig = pl.figure(1,figsize=(10.5,4.5))
     fig.clf()
     ax_kms = fig.add_subplot(111)
-    # now correct so that negative values are to the left
+    # if we want som space in the figure
     cx1 = axspace[0]
     cx2 = axspace[1]
     cy1 = axspace[2]
     cy2 = axspace[3]
+    # now correct so that negative values are to the left
     if data.vcdelt<0:
-        ax_kms.step(flipud(velocity), flipud(spect), 'k', lw=2,  where='mid')
+        ax_kms.step(flipud(velocity), flipud(spect), 'k',  where='mid')
         xmin, xmax = round(flipud(velocity)[0])*cx1, round(flipud(velocity)[-1])*cx2
         ymin, ymax = round(min(flipud(spect)),3)*cy1, round(max(flipud(spect)),3)*cy2
     elif data.vcdelt>=0:
-        ax_kms.step(velocity, spect, 'k', lw=2, where='mid')
+        ax_kms.step(velocity, spect, 'k', where='mid')
         xmin, xmax = round(velocity[0])*cx1,round(velocity[-1])*cx2
         ymin, ymax = round(min(spect),3)*cy1,round(max(spect),3)*cy2
     if nvals!=None:
         print '='*40
-        print ' '*11,'Noise statistics'
+        print ' '*11,'Noise statistics\n'
         # calculate the rms from the channels in the spectra
         # accounts for it even if it is binned
         #
@@ -1466,15 +1612,16 @@ def plot_spectrum (filename,
         # change x1,x2,y1,y2 to quarter region
         # change so that when binning, the rms i calculated
         # x1,x2
-        zlen, ylen, xlen = data.d.shape
-        ydelt = ylen/6
-        xdelt = xlen/6
-        i1,i2 = xlen/2-xdelt, xlen/2+xdelt
-        j1,j2 = ylen/2-ydelt, ylen/2+ydelt
-        rms = sqrt(((data.d[get_indices(velocity,nvals),j1:j2,i1:i2])**2).mean())
+        if data.datatype[0] == 'SDSPECT':
+            rms = sqrt(((data.d[get_indices(velocity,nvals)])**2).mean()/float(bin))
+        else:
+            zlen, ylen, xlen = data.d.shape
+            ydelt = ylen/6
+            xdelt = xlen/6
+            i1,i2 = xlen/2-xdelt, xlen/2+xdelt
+            j1,j2 = ylen/2-ydelt, ylen/2+ydelt
+            rms = sqrt(((data.d[get_indices(velocity,nvals),j1:j2,i1:i2])**2).mean()/float(bin))
         rms_mjy = rms*1e3
-
-        xlen = data.d.shape
         #rms_0 = sqrt(((spect[get_indices(velocity,nvals)])**2).mean())
         #rms_2 = sqrt(((data.d[get_indices(velocity,nvals),:,:])**2).mean())
 
@@ -1489,16 +1636,16 @@ def plot_spectrum (filename,
         # the channels used
         ind = get_indices(velocity,nvals)
         ind1, ind2 = ind.min(), ind.max()
-        print u'\n RMS \t\t: %2.3f mJy\u00b7beam\u207b\u00b9\u00b7channel\u207b\u00b9' % rms_mjy
+        print u'RMS \t\t: %2.3f mJy\u00b7beam\u207b\u00b9\u00b7channel\u207b\u00b9' % rms_mjy
         print u' Sensitivity \t: %2.3f mJy\u00b7beam\u207b\u00b9\u00b7km\u207b\u00b9\u00b7s' % s_mjy
         print u' Channels used \t: %d, %d (%s km\u00b7s\u207b\u00b9)' % (ind1, ind2, str(nvals))
-        print u' Region \t: %s arcsec offset' % (str(region))
+        print u' Region \t: %s arcsec' % (str(region))
         print u' Channel width \t: %2.3f km\u00b7s\u207b\u00b9' % abs(velocity_delta)
-        ax_kms.plot([xmin, xmax],[3*rms,3*rms],'b--', lw=2, alpha=0.7)
-        ax_kms.plot([xmin, xmax],[-3*rms,-3*rms],'b--', lw=2, alpha=0.7)
+        ax_kms.plot([xmin, xmax],[3*rms,3*rms],'b--', alpha=0.7)
+        ax_kms.plot([xmin, xmax],[-3*rms,-3*rms],'b--', alpha=0.7)
     #
     # plot dotted lines at y=0 and x=0
-    ax_kms.plot([xmin-10,xmax+10],[0,0],'k:',[0,0],[ymin-1,ymax+1],'k:')
+    ax_kms.plot([xmin-10,xmax+10],[0,0],'g:',[0,0],[ymin-1,ymax+1],'g:')
     #####################
     #   Ticklocations   #
     #####################
@@ -1512,17 +1659,26 @@ def plot_spectrum (filename,
     #ax_kms.yaxis.set_major_locator(ymajorLocator)
     #ax_kms.yaxis.set_minor_locator(yminorLocator)
 
-    if fit['type']=='gauss':
+    if linefit['type']=='gauss':
         """
         TODO : calculate errors for the fit etc, look at Kaper et al (1966)\
                 and Condon (1996).
         TODO : guess parameters?
         TODO : calculate mean and std of the FWHM for the fits
         """
-        if not fit.has_key('error'):
-            errmsg='You have to supply an error to the fit, they\'re kind of important you know.'
-            print colorify(errmsg)
-            return ; sysexit()
+        print '='*40
+        print ' '*11,"Line fitting\n"
+        #
+        fit = linefit.copy()
+        if not linefit.has_key('error'):
+            if nvals!=None:
+                fit['error'] = rms
+                print 'No error supplied, but nvals given and rms calculated.\n\
+                using rms = %2.3f Jy beam-1 channel-1' % rms
+            elif nvals==None:
+                errmsg='You have to supply an error to the fit, they\'re kind of important you know.'
+                print colorify(errmsg)
+                return ; sysexit()
 
         fwhmfromsig = 2*sqrt(2*log(2)) # the constant
         fwhm = lambda x: fwhmfromsig*x
@@ -1579,16 +1735,21 @@ def plot_spectrum (filename,
             lower,upper = (params[i+1] + array([-1,1])*fwhm)
             #
             #channels = where((data.velarr>lower)*(data.velarr<upper))[0]+1
-            channels_half = get_indices(data.velarr,[lower_half,upper_half])
-            channels = get_indices(data.velarr,[lower,upper])
+            channels_half_nobin = get_indices(data.velarr,[lower_half,upper_half])
+            channels_nobin = get_indices(data.velarr,[lower,upper])
+            channels_half = get_indices(velocity,[lower_half,upper_half])
+            channels = get_indices(velocity,[lower,upper])
 
-            print 'Fit number : %i' % j
-            print ' Intensity : %2.4f \t=calculate it=' % (sqrt(2*pi)*sigma(params[i+2])*params[i]) # the area under the 1D Gaussian
+            print  'Fit number : %i' % j
+            print  ' Intensity : %2.4f \t=calculate it=' % (sqrt(2*pi)*sigma(params[i+2])*params[i]) # the area under the 1D Gaussian
             print u' Amplitude : %2.3f (\u00b1%2.3f) \t Jy\u00b7Beam\u207b\u00b9' % (params[i],errors[i])
             print u' Position  : %2.3f (\u00b1%2.3f) \t km\u00b7s\u207b\u00b9' % (params[i+1],errors[i+1])
             print u' Width     : %2.3f (\u00b1%2.3f) \t km\u00b7s\u207b\u00b9 (FWHM, \u03c3=%2.3f)' % (params[i+2],errors[i+2], sigma(params[i+2]))
-            print ' Frequency : %3.9f GHz' % calc_frequency(params[i+1],data.restfreq/1e9)
-            print ' Channels  : %d to %d (2FWHM width : %d to %d (%d) [%.2f to %.2f km/s])\n' % (channels_half.min(), channels_half.max(),channels.min(), channels.max(),(channels.max()-channels.min()+1), lower,upper)
+            print  ' Frequency : %3.9f GHz' % calc_frequency(params[i+1],data.restfreq/1e9)
+            print u' \u00b1FWHM     : %d to %d (%d) [%.2f to %.2f km/s]'% (channels_half_nobin.min(), channels_half_nobin.max(),(channels_half_nobin.max()-channels_half_nobin.min()+1), lower_half, upper_half)
+            print u' \u00b12*FWHM   : %d to %d (%d) [%.2f to %.2f km/s]' % (channels_nobin.min(), channels_nobin.max(), (channels_nobin.max()-channels_nobin.min()+1), lower,upper)
+            print u' Rebinned channels :\n \t FWHM width  : %d to %d (\u00b1FWHM)' % (channels_half.min(), channels_half.max())
+            print  ' \t 2*FWHM width : %d to %d (%d)  \n' % (channels.min(), channels.max(),(channels.max()-channels.min()+1))
             j+=1
         #
         line_widths = array(line_widths)
@@ -1604,7 +1765,9 @@ def plot_spectrum (filename,
                 j+=1
         # draw the fit into the figure
         xarr = arange(X[0],X[-1],(diff(X)[0]/3))
-        ax_kms.plot(xarr, gauss1d(xarr,params), color='#dd0000', lw=3, alpha=0.8)
+        for i in arange(alen(params)/3):
+            ax_kms.plot(xarr, gauss1d(xarr,params[i*3:(i*3+3)]))
+        ax_kms.plot(xarr, gauss1d(xarr,params), color='0.2', lw=5, alpha=0.6)
     #
     if lines!=[]:
         print u'Marking the lines, using %2.2f km\u00b7s\u207b\u00b9' % obj_dict['vsys']
@@ -1631,7 +1794,7 @@ def plot_spectrum (filename,
         for i,j in zip(arange(0, len(lines), 2), arange(0, len(lines),1)):
             # only check for lines behind the new line
             no_dbl = len(where(array(v)[0:j].round(0) == round(v[j],0))[0])
-            put_line_indicator(ax_kms, velocity, spect, v[j], lines[i],lc=colors[x], offset=no_dbl, text_color=colors[x], lw=6)
+            put_line_indicator(ax_kms, velocity, spect, v[j], lines[i],lc=colors[x], offset=no_dbl, text_color=colors[x])
             #put_line_indicator(ax_kms, velocity, spect, v[j], lines[i],lc='k', offset=no_dbl)
             print u'Line %1d : %2.2f\t km\u00b7s\u207b\u00b9 (%2.3f)' % (j+1,v[j],v[j]+obj_dict['vsys'])
             x+=1
@@ -1644,7 +1807,8 @@ def plot_spectrum (filename,
     if ylimits!=None:
         ax_kms.set_ylim(ylimits)
     #ax_kms.set_title(data.obj)
-    ax_kms.set_xlabel('$v_{\mathrm{lsr}}$ [km s$^{-1}$]')
+    ax_kms.text(0.07,0.87,self.obj, transform=ax_kms.transAxes)
+    ax_kms.set_xlabel('$v$ [km s$^{-1}$]')
     if data.unit=='Jy/beam':
         ax_kms.set_ylabel('$I$ [Jy beam$^{-1}$]')
     else:
@@ -1668,6 +1832,7 @@ def plot_spectrum (filename,
         x_1, x_2 = ax_kms.get_xlim()
         # i want the frequency in GHz so, divide by 1e9
         ax_hz.set_xlim(calc_frequency(x_1,data.restfreq/1e9), calc_frequency(x_2,data.restfreq/1e9))
+        pl_top -= 0.2
     #
     #elif lines!=[] and obj_par['vsys']==0:
     #    print('please, input a vsys!=0')
@@ -1687,65 +1852,9 @@ def plot_spectrum (filename,
     #pl.show()
 
     #pl.ioff()
-
-    if send:
-        if nvals!=None and fit['type']!=None: # send everything!
-            txt = '\n sending you spectra, data, noise-spectra, axes instance and the fitted frequencies'
-            print colorify(txt,c='g')
-            return spect, data, spect[get_indices(data.velarr,nvals)], ax_kms, f
-        elif nvals==None and fit['type']=='gauss': # no noise channels supplied
-            txt = '\n sending you spect, data, axes instance and the fitted frequencies'
-            print colorify(txt,c='g')
-            return spect, data, ax_kms, f
-        elif nvals!=None and fit['type']==None: # no fit but noise
-            txt =  '\n sending you spect, data, noise-spectra and axes instance'
-            print colorify(txt,c='g')
-            return spect, data, spect[get_indices(data.velarr,nvals)], ax_kms
-        else: # well non of them are supplied
-            txt =  '\n sending you spectra, data, axes instance'
-            print colorify(txt,c='g')
-            return spect, data, ax_kms
-        return
+    #
 #
-def cubetracking (f):
-    import matplotlib.pyplot as pl
-    pl.ion()
-    class IndexTracker:
-        def __init__(self, ax, X, data):
-            self.ax = ax
-            ax.set_title('Use scroll wheel to navigate images')
-            self.X = X
-            self.data = data
-            self.slices,cols,rows = X.shape
-            self.ind  = self.slices/2
-            self.im = ax.imshow(self.X[self.ind,:,:])
-            pl.show()
-            self.update()
-
-        def onscroll(self, event):
-            #print event.button, event.step
-            if event.button=='up':
-                self.ind = clip(self.ind+1, 0, self.slices-1)
-            else:
-                self.ind = clip(self.ind-1, 0, self.slices-1)
-            self.update()
-
-        def update(self):
-            self.im.set_data(self.X[self.ind,:,:])
-            ax.set_title(r'vel: '+str(round(self.data.velarr[self.ind],2))+' kms$^{-1}$')
-            self.im.axes.figure.canvas.draw()
-
-
-    pl.ioff()
-    X = loadcube(f)
-    fig = pl.figure()
-    ax = fig.add_subplot(111)
-    #ax = pwg.axes(header=X.hdr)
-    tracker = IndexTracker(ax, X.d, X)
-
-    fig.canvas.mpl_connect('scroll_event', tracker.onscroll)
-#
-def plot_moment0 (filename,
+def plot_moment0 (self,
                 cfile=None,
                 chvals=None,
                 nvals=None,
@@ -1756,8 +1865,8 @@ def plot_moment0 (filename,
                 nsig=3,
                 nsjump=2,
                 obj_dict = dict(vsys=0,),
-                font={'family':'sans-serif', 'sans-serif': ['Courier'],
-                'size':16, 'weight':'bold'},
+                font={'family':'serif', 'serif': ['Times New Roman'],
+                'size':18},
                 fit = dict(gauss = None, params = None, continuum = False,
                 interactive = False),
                 send=False,
@@ -1766,8 +1875,8 @@ def plot_moment0 (filename,
                 colormap=True,
                 plot_adjust= [0.12, 0.01, 0.74, 0.99],
                 cpeak=[0,0,'k'],
-                ccol='r',
-                sbar=dict(dist=220,au=200),
+                ccol='k',
+                sbar=dict(dist=250,au=200),
                 locators = [2,1],
                 telescope=None,
                 negcontours=True,
@@ -1787,7 +1896,7 @@ def plot_moment0 (filename,
     # imports
     #import scipy as sp
     from scipy import array, where, median, std, sign, arange, alen, vstack, \
-    concatenate, sqrt, log10, ones
+    concatenate, sqrt, log10, ones, sqrt, flipud
     #import pyfits as pf
     import matplotlib.pyplot as pl
     #from matplotlib.patches import Circle
@@ -1795,16 +1904,6 @@ def plot_moment0 (filename,
     from matplotlib import cm, rc
     #
 
-    ################################
-    # setting global rc properties #
-    ################################
-    rc('savefig', **{'dpi': 300})
-    rc('text', usetex=True)
-    rc('savefig', **{'dpi': quality[0]})
-    rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
-
-    #to set the global font properties
-    rc('font', **font)
 
     ################################
     # setting the tick label font  #
@@ -1816,19 +1915,14 @@ def plot_moment0 (filename,
     label_X = parse_tick_font(font)
     tick_label_formatter = FormatStrFormatter(label_X.replace('X',data_fmt))
     cbar_tick_label_formatter = FormatStrFormatter(label_X.replace('X',cbar_data_fmt))
-    # ticksize
-    rc('xtick',**{'minor.size':3, 'major.size':7})
-    rc('ytick',**{'minor.size':3, 'major.size':7})
 
-    # linewidths
-    rc('axes', linewidth=2)
-    rc('lines', linewidth=1.5, markeredgewidth=1)
 
     pl_left, pl_bottom, pl_right,pl_top = plot_adjust
 
     #
     # first get the fitsfile
-    linedata = loadcube(filename,telescope)
+    #~ linedata = loadcube(filename,telescope)
+    linedata = self
     #
     if not obj_dict.has_key('vsys'):
         obj_dict['vsys'] = 0
@@ -1846,7 +1940,7 @@ def plot_moment0 (filename,
     # INTERACTIVE
     if nvals==None or chvals==None:
         # draw spectrum
-        plot_spectrum(filename,region=region, obj_dict= {'vsys': obj_dict['vsys']})
+        plot_spectrum(filename,region=region, source= {'vsys': source['vsys']})
         #
         # if there is no channels supplied
         if chvals==None:
@@ -1941,10 +2035,29 @@ def plot_moment0 (filename,
     if send==True:
         if cfile!=None:
             print 'sending you things'
-            return {'img': img, 'levs':levs, 'imgs_sigma':img_sigma, 'extent':(left,right,bottom,top), 'data':linedata, 'continuum':contdata}
+            return img, levs,levs_contour, img_sigma, (left,right,bottom,top), linedata, contdata
         if cfile==None:
-			print 'sending you : img, levs, imgs_sigma, extent, data'
-			return {'img': img, 'levs':levs, 'imgs_sigma':img_sigma, 'extent':(left,right,bottom,top), 'data':linedata}
+            print 'sending you : img, levs,levs_contour, imgs_sigma, extent, data'
+            return img, levs, levs_contour,img_sigma, (left,right,bottom,top), linedata
+
+    ################################
+    # setting global rc properties #
+    ################################
+    rc('savefig', **{'dpi': 300})
+    rc('text', usetex=True)
+    rc('savefig', **{'dpi': quality[0]})
+    rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
+
+    #to set the global font properties
+    rc('font', **font)
+    # ticksize
+    rc('xtick',**{'minor.size':3, 'major.size':7})
+    rc('ytick',**{'minor.size':3, 'major.size':7})
+
+    # linewidths
+    rc('axes', linewidth=1)
+    rc('lines', linewidth=1, markeredgewidth=1)
+
 
     pl.ion()
     pl.close()
@@ -1978,9 +2091,9 @@ def plot_moment0 (filename,
         print ' PA \t\t: %2.3f Degrees (0<theta<180) \n' % contdata.bpa
     #
     #
-    if colormap:
+    if colormap and filled==True:
         colormap = cm.bone_r
-    if colormap == None:
+    if colormap == None or filled==False:
         # just contours
         levs = levs.round(3)
         levs_contour = levs_contour.round(3)
@@ -2000,8 +2113,8 @@ def plot_moment0 (filename,
             cbar.ax.set_ylabel(str(linedata.unit))
     else:
         line = ax.contour(img, levels=levs, colors='r', extent=(left,right,bottom,top))
-	
-	#ax.text(0.5,0.5,'test',transform = ax.transAxes)
+    
+    #ax.text(0.5,0.5,'test',transform = ax.transAxes)
     draw_beam(ax, linedata)
     draw_fov(ax, linedata)
 
@@ -2014,13 +2127,13 @@ def plot_moment0 (filename,
     if len(cpeak) == 3:
         mark = cpeak[2]
         xmark, ymark = cpeak[0:2]
-    elif len(cpeak) == 5:
+    elif len(cpeak) >4:
         xmark = cpeak[0:-1:2]
         ymark = cpeak[1:-1:2]
         mark = cpeak[-1]
     else:
         mark = '+k'
-    cross = ax.plot(xmark, ymark, mark, ms=13, mew=2, alpha=0.8)
+    cross = ax.plot(xmark, ymark, mark, ms=13, mew=3, alpha=0.9)
 
 
 
@@ -2036,8 +2149,8 @@ def plot_moment0 (filename,
     #pl.setp(ax.get_xticklabels(),family='sans-serif')
     #pl.setp(ax.get_yticklabels(),family='sans-serif')
 
-    ax.set_xlabel('RA offset ($^{\prime\prime}$)')
-    ax.set_ylabel('Dec offset ($^{\prime\prime}$)')
+    ax.set_xlabel('RA Offset ($^{\prime\prime}$)')
+    ax.set_ylabel('Dec Offset ($^{\prime\prime}$)')
     #fig.suptitle(linedata.obj+' (%s km s$^{-1}$)'% str(linedata.unit))
     #if cfile!=None:
     #    fig.subplots_adjust(bottom=0.08, right=0.77, top=0.90)
@@ -2169,7 +2282,7 @@ def plot_moment0 (filename,
             print ' PA \t\t: %2.3f (degrees)\n' % c
             j+=1
 #
-def plot_moment1 (filename,
+def plot_moment1 (self,
                 cfile=None,
                 chvals=None,
                 nvals=None,
@@ -2180,8 +2293,8 @@ def plot_moment1 (filename,
                 nsig=3,
                 nsjump=2,
                 obj_dict = dict(vsys=0),
-                font={'family':'sans-serif', 'sans-serif': ['Courier'],
-                'size':16, 'weight':'bold'},
+                font={'family':'serif', 'serif': ['Times New Roman'],
+                'size':17},
                 fit = dict(gauss = None, params = None, continuum = False,
                 interactive = False),
                 send=False,
@@ -2193,7 +2306,8 @@ def plot_moment1 (filename,
                 locators = [2,1],
                 telescope=None,
                 type=1,
-                fsize=(9.,7.)):
+                fsize=(9.,7.),
+                negcontours=True,):
     """
     Plot moment1 map of an area
 
@@ -2242,23 +2356,13 @@ def plot_moment1 (filename,
     # imports
     #import scipy as sp
     from scipy import array, where, median, std, sign, arange, alen, vstack, \
-    concatenate, sqrt, log10, ones, nan
+    concatenate, sqrt, log10, ones, nan, flipud
     #import pyfits as pf
     import matplotlib.pyplot as pl
     #from matplotlib.patches import Circle
     from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-    from matplotlib import cm
+    from matplotlib import cm, rc
     #
-
-    set_rc(font=font, quality=quality)
-
-
-    # linewidths
-    rc('axes', linewidth=2)
-    rc('lines', linewidth=1.5, markeredgewidth=1)
-
-
-
 
     ################################
     # setting the tick label font  #
@@ -2271,13 +2375,12 @@ def plot_moment1 (filename,
     tick_label_formatter = FormatStrFormatter(label_X.replace('X',data_fmt))
     cbar_tick_label_formatter = FormatStrFormatter(label_X.replace('X',cbar_data_fmt))
 
-
     pl_left, pl_bottom, pl_right,pl_top = plot_adjust
-
 
     #
     # first get the fitsfile
-    linedata = loadcube(filename,telescope)
+    #~ linedata = loadcube(filename,telescope)
+    linedata = self
     #
     linedata.velarr = linedata.velarr - obj_dict['vsys'] #now all the velocities are based on the LSR
 
@@ -2355,12 +2458,15 @@ def plot_moment1 (filename,
     # or perhaps without dv to save calc?
     moment0 = imgs.sum(axis=0)*abs(linedata.vcdeltkms)
     moment0_sigma = sqrt(alen(imgs))*rms*abs(linedata.vcdeltkms)
-
-    # levels
     moment0_max = moment0.max()
     moment0_min = moment0.min()
-    levels = concatenate((-1*flipud(arange(nsig*moment0_sigma,abs(moment0_min+moment0_sigma),nsjump*moment0_sigma)), arange(nsig*moment0_sigma,moment0_max+moment0_sigma,nsjump*moment0_sigma)))
-
+    
+    # levels
+    if negcontours:        
+        levels = concatenate((-1*flipud(arange(nsig*moment0_sigma,abs(moment0_min+moment0_sigma),nsjump*moment0_sigma)), arange(nsig*moment0_sigma,moment0_max+moment0_sigma,nsjump*moment0_sigma)))
+    else:
+        levels = arange(nsig*moment0_sigma,moment0_max+moment0_sigma,nsjump*moment0_sigma)
+        
     # calculate moment 1 map
 
     velocities = linedata.velarr[img_channels]
@@ -2383,16 +2489,15 @@ def plot_moment1 (filename,
     # tick density
     majorLocator = MultipleLocator(locators[0])
     minorLocator = MultipleLocator(locators[1])
-
-
     if send==True:
-        return {'moment0': moment0,
-                'moment1': moment1,
-                'levels':levels,
-                'moment0_sigma':moment0_sigma,
-                'extent':(left,right,bottom,top),
-                'lims': (i1,i2,j1,j2),
-                'data':linedata}
+        #~ return {'moment0': moment0,
+                #~ 'moment1': moment1,
+                #~ 'levels':levels,
+                #~ 'moment0_sigma':moment0_sigma,
+                #~ 'extent':(left,right,bottom,top),
+                #~ 'lims': (i1,i2,j1,j2),
+                #~ 'data':linedata}
+        return moment0, moment1, levels, moment0_sigma, (left,right,bottom,top), linedata
     #
     #
     # calculating the velocity for vmin and vmax
@@ -2410,6 +2515,13 @@ def plot_moment1 (filename,
     here you should add a histogram calculation, and fit a gaussian or something
     and take some representative width for vmin to vmax
     """
+    
+    set_rc(font=font, quality=quality)
+
+    # linewidths
+    rc('axes', linewidth=1)
+    rc('lines', linewidth=1, markeredgewidth=1)
+    
     pl.ion()
     pl.close()
     fig = pl.figure(1, figsize=fsize)
@@ -2455,13 +2567,13 @@ def plot_moment1 (filename,
     if len(cpeak) == 3:
         mark = cpeak[2]
         xmark, ymark = cpeak[0:2]
-    elif len(cpeak) == 5:
+    elif len(cpeak) >4:
         xmark = cpeak[0:-1:2]
         ymark = cpeak[1:-1:2]
         mark = cpeak[-1]
     else:
         mark = '+k'
-    cross = ax.plot(xmark, ymark, mark, ms=13, mew=2, alpha=0.8)
+    cross = ax.plot(xmark, ymark, mark, ms=13, mew=3, alpha=0.9)
 
     #
     ax.xaxis.set_major_formatter(tick_label_formatter)
@@ -2475,8 +2587,8 @@ def plot_moment1 (filename,
     #pl.setp(ax.get_xticklabels(),family='sans-serif')
     #pl.setp(ax.get_yticklabels(),family='sans-serif')
 
-    ax.set_xlabel('RA offset ($^{\prime\prime}$)')
-    ax.set_ylabel('DEC offset ($^{\prime\prime}$)')
+    ax.set_xlabel('RA Offset ($^{\prime\prime}$)')
+    ax.set_ylabel('Dec Offset ($^{\prime\prime}$)')
 
     #fig.suptitle(linedata.obj+' (%s km s$^{-1}$)'% str(linedata.unit))
     #if cfile!=None:
@@ -2491,12 +2603,8 @@ def plot_moment1 (filename,
     #
     #
     pl.subplots_adjust(left=pl_left, bottom=pl_bottom, right=pl_right, top=pl_top)
-
-
-
-
 #
-def plot_moment2 (filename,
+def plot_moment2 (self,
                 cfile=None,
                 chvals=None,
                 nvals=None,
@@ -2554,7 +2662,8 @@ def plot_moment2 (filename,
 
     #
     # first get the fitsfile
-    linedata = loadcube(filename,telescope)
+    #~ linedata = loadcube(filename,telescope)
+    linedata = self
     #
     linedata.velarr = linedata.velarr - obj_dict['vsys'] #now all the velocities are based on the LSR
 
@@ -2932,7 +3041,6 @@ Future modifications to the PARINFO structure, if any, will involve
     #
     pl.subplots_adjust(left=pl_left, bottom=pl_bottom, right=pl_right, top=pl_top)
 #
-
 def plot_vgradient(radecfile,
                 fitsfile=None,
                 rms=None,
@@ -3306,19 +3414,8 @@ def plot_vgradient(radecfile,
     print '\n','*'*40
     print '\t\tResults for the perpendicular t-axis:\n'
     print u'Velocity gradient: %2.2f km\u00b7s\u207b\u00b9\u00b7arcsec\u207b\u00b9' % p[0]**-1
-    
-    
-    
- 
 #
-
-
-
-
-
-
-
-def plot_pv (filename,
+def plot_pv (self,
                 cfile=None,
                 chvals=None,
                 nvals=None,
@@ -3389,7 +3486,8 @@ def plot_pv (filename,
 
     #
     # first get the fitsfile
-    linedata = loadcube(filename)
+    #~ linedata = loadcube(filename)
+    linedata = self
 
     ############## P-V diagram
     v1, v2 = chvals
@@ -3442,7 +3540,7 @@ def plot_pv (filename,
     pl.xlabel(r'asec')
     pl.ylabel(r'asec')
 #
-def plot_chmap (filename,
+def plot_chmap (self,
                 chvals=None,
                 nvals=None,
                 region=[0,0,0,0],
@@ -3451,22 +3549,23 @@ def plot_chmap (filename,
                 box=[0,0],
                 nsig=3,
                 nsjump=2,
-                object={'vsys':0},
-                font={'family':'serif', 'serif': ['Times', 'Times New Roman'],
-                'size':22, 'weight':'bold'},
+                source={'vsys':0},
+                font={'family':'serif', 'serif': ['Times New Roman', 'Times'],
+                'size':22},
                 nsum=False,
                 plot_adjust= [0.12, 0.09, 0.99, 0.99],
-                quality=[125, 40],
+                quality=[300, 300],
                 send=False,
                 color_map='jet',
                 cpeak = [0,0],
                 locators = [1,0.2],
-                levs_global=True):
+                levs_global=True,
+                fsize=(3, 4)):
     # imports
     #import scipy as sp
     print 'importing...'
     from scipy import array, where, median, std, sign, arange, alen, vstack, \
-    concatenate, sqrt, log10, exp
+    concatenate, sqrt, log10, exp, flipud, ceil
     import pyfits as pf
     import matplotlib.pyplot as pl
     from matplotlib.pyplot import contour, contourf
@@ -3476,16 +3575,7 @@ def plot_chmap (filename,
     print 'done'
     #
 
-    ################################
-    # setting global rc properties #
-    ################################
-    rc('savefig', **{'dpi': quality[0]})
-    rc('text', usetex=1)
-    rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
-    #to set the global font properties
-    rc('font', **font)
-    rc('axes',linewidth=2)
-    rc('lines', linewidth=1, markeredgewidth=1)
+
     ################################
     # setting the tick label font  #
     ################################
@@ -3498,9 +3588,7 @@ def plot_chmap (filename,
     #freq_label_formatter = FormatStrFormatter(label_X.replace('X',freq_data_fmt))
 
     #rc('mathtext',**{'rm':'sans\\-serif'})
-    # ticksize
-    rc('xtick',**{'minor.size':5, 'major.size':7, 'major.pad': 9})
-    rc('ytick',**{'minor.size':5, 'major.size':7, 'major.pad': 5})
+
 
     ################################
     # parsing input                #
@@ -3528,8 +3616,9 @@ def plot_chmap (filename,
     #       get data               #
     ################################
     # first get the fitsfile
-    linedata = loadcube(filename)
-    linedata.velarr = linedata.velarr - object['vsys'] #so that now all the velocities are based on the objects
+    #~ linedata = loadcube(filename)
+    linedata = self
+    linedata.velarr = linedata.velarr - source['vsys'] #so that now all the velocities are based on the objects
     #if cfile!=None:
     #    contdata= loadcube(cfile)
     cfile=None
@@ -3612,7 +3701,7 @@ def plot_chmap (filename,
         # the mean velocity is the middle one
         velocity = array([velocity[x:x+nsum].mean() for x in indices])
         velocity_delta = linedata.vcdeltkms*nsum
-        print u'The velocity interval over which you create the maps is %d to %d km\u207b\u00b9\u00b7s' % (velocity.min(),velocity.max())
+        print u'The velocity interval over which you create the maps is %2.3f to %2.3f km\u207b\u00b9\u00b7s' % (velocity.min()-abs(velocity_delta)/2,velocity.max()+abs(velocity_delta)/2)
         maps = array([data[x:x+nsum].sum(axis=0)*abs(linedata.vcdeltkms) for x in indices])
         N_channels = alen(channels)/nsum
         print colorify('Done, remember that it can change the velocity interval that you specified in chvals. \n',c='g')
@@ -3659,7 +3748,13 @@ def plot_chmap (filename,
     j1,j2 = ylen/2+array([-1,1])*ylen/4
     #
     # RMS
-    rms = sqrt(((noise[:,j1:j2,i1:i2])**2).mean())
+    # since nsum might not be defined i.e. =False
+    # dont really know if it is used later on,
+    # so this is just to be sure 
+    # the rms used above changes with a factor of 1/sqrt(nsunm) for the
+    # new channels in the channel map (since they are summed)
+    nchansum = [1,nsum][nsum != False]
+    rms = sqrt(((noise[:,j1:j2,i1:i2])**2).mean()/nchansum)
     #
     #
     if box == [0,0]:
@@ -3668,12 +3763,11 @@ def plot_chmap (filename,
     elif box != [0,0]:
         x1,x2 = array([-1,1])*box[0]/2.*sign(linedata.ra_cdelt)
         y1,y2 = array([-1,1])*box[1]/2.*sign(linedata.dec_cdelt)
-    #
-    #
-    if nsum != False:
-        sigma = calc_sigma(nsum, rms, linedata.vcdeltkms)
-    else:
-        sigma = calc_sigma(1,rms,linedata.vcdeltkms)
+    # calculate the correct rms and sigma
+    # the rms is per channel, ie with the new
+    # channel widht "velocity_delta"
+    # so the sigma is just rms*abs(velocity_delta) ie. N=1 
+    sigma =  calc_sigma(1,rms,velocity_delta)
     #
     chans_min = array([i.min() for i in maps])
     chans_max = array([i.max() for i in maps])
@@ -3693,9 +3787,9 @@ def plot_chmap (filename,
     majorLocator = MultipleLocator(locators[0])
     minorLocator = MultipleLocator(locators[1])
 
-    print u'RMS \t: %2.3f Jy\u00b7beam\u207b\u00b9\u00b7channel\u207b\u00b9' % rms
-    print u'1 sigma : %2.3f Jy\u00b7beam\u207b\u00b9\u00b7km\u00b7s\u207b\u00b9' % sigma
-    print u'\u0394 vel \t : %2.3f km\u00b7s\u207b\u00b9' % abs(velocity_delta)
+    print u'RMS \t: %2.2f mJy\u00b7beam\u207b\u00b9\u00b7channel\u207b\u00b9' % (rms*1e3)
+    print u'1 sigma : %2.2f mJy\u00b7beam\u207b\u00b9\u00b7km\u00b7s\u207b\u00b9' % (sigma*1e3)
+    print u'\u0394 vel \t : %2.3f km\u00b7s\u207b\u00b9 (channel width in km\u00b7s\u207b\u00b9)' % abs(velocity_delta)
     if send==True:
         if cfile!=None:
             return {'ch_map data': maps, 'levs':levs, 'chans_sig':sigma, 'vels':velocity, 'extent':[left,right,bottom,top], 'data':linedata, 'continuum':contdata}
@@ -3708,19 +3802,36 @@ def plot_chmap (filename,
         levs.reverse()
         velocity = flipud(velocity)
     #
-    def print_vel(ax,x):
-        ax.text(0.038,.885,
+    def print_vel(ax,x,fc='w'):
+        ax.text(0.03,.91,
         str(round(velocity[x],2)),
-        size='small',
-        bbox=dict(edgecolor='k',facecolor='w',pad=10),
+        fontsize=6,
+        bbox=dict(edgecolor='k',facecolor=fc, pad=4, lw=0.5),
         transform = ax.transAxes)
 
 
+    ################################
+    # setting global rc properties #
+    ################################
+    rc('savefig', **{'dpi': quality[0]})
+    rc('text', usetex=1)
+    rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
+    #to set the global font properties
+    rc('font', **font)
+    rc('axes',linewidth=0.5)
+    rc('patch', linewidth=0.5)
+    rc('lines', linewidth=0.3, markeredgewidth=0.5)
+    rc('font', family='serif', serif='Times New Roman', size=8)
+    rc('text', usetex=True)  
+    # ticksize
+    rc('xtick',**{'minor.size':2, 'major.size':4, 'major.pad': -3})
+    rc('ytick',**{'minor.size':2, 'major.size':4, 'major.pad': 1})
+
+
+
     pl.ion()
-    if nx == 5:
-        fig = pl.figure(1, (14., 17.))
-    else:
-        fig = pl.figure(1, (14., 13.))
+    pl.close()
+    fig = pl.figure(1, fsize)
 
     fig.clf()
     
@@ -3763,28 +3874,37 @@ def plot_chmap (filename,
     #
     for i in range(N_channels):
         # plot a cross at pointing centre
-        plt = grid[i].plot(cpeak[0],cpeak[1],'k+', ms=10)
+        plt = grid[i].plot(cpeak[0],cpeak[1],'r+', ms=3, mew=0.7, alpha=0.7)
         # set the locator spacings
         grid[i].xaxis.set_major_locator(majorLocator)
-        #grid[i].xaxis.set_minor_locator(minorLocator)
+        grid[i].xaxis.set_minor_locator(minorLocator)
         grid[i].yaxis.set_major_locator(majorLocator)
-        #grid[i].yaxis.set_minor_locator(minorLocator)
+        grid[i].yaxis.set_minor_locator(minorLocator)
 
 
         draw_fov(grid[i].axes, linedata)
+        #~ if i in [0,1,2]:
+            #~ print_vel(grid[i].axes, i,fc='#FFAAAA')
+        #~ elif i in [12,13,14]:
+            #~ print_vel(grid[i].axes, i,fc='0.8')
+        #~ else:
         print_vel(grid[i].axes, i)
+    #~ fig.text(0.95,0.14,r'SO$_2$', rotation=90)
+    #~ fig.text(0.95,0.86,r'H$_2^{18}$O', rotation=90)
+    
     draw_beam(grid[0].axes, linedata, box=1)
+    
     #
     #grid.axes_llc.set_major_formatter(tick_label_formatter)
     #grid.axes_llc.set_major_formatter(tick_label_formatter)
 
     pl.subplots_adjust(left=pl_left, bottom=pl_bottom, right=pl_right, top=pl_top)
-
+    
 
     grid.axes_llc.set_xlim(x1,x2)
     grid.axes_llc.set_ylim(y1,y2)
 
-    fig.text(0.5,0.05,r'RA offset ($^{\prime\prime}$)', ha='center',va='center')
+    fig.text(0.5,0.02,r'RA offset ($^{\prime\prime}$)', ha='center',va='center')
     fig.text(0.05,0.5,r'Dec offset ($^{\prime\prime}$)', rotation='vertical', va='center', ha='center')
     #fig.suptitle(linedata.obj)
     #pl.show()
@@ -3854,893 +3974,74 @@ def plot_chmap (filename,
 
         levs = [concatenate((arange(x,-nsig*z,nsjump*z),arange(nsig*z,y,nsjump*z))) for x,y,z in zip(maps_min, maps_max, maps_sigma)]
     """
-
 #
-
-
-
-#########################################
-# ASCII TABLE HELP FUNCTIONS
-# table handling help functions. easily reads in
-# simple ascii tables with # as comment character
-def saveatbl(filename, dataList, names):
-    """
-    saves a list of data arrays ("dataList") in to a table with
-    the coloumn names in "names" as an ASCII file with name
-    "filename" (can be a path to a file as well)
-    """
-
-    def fileExists(f):
-        try:
-            file = open(f)
-        except IOError:
-            return False
-        else:
-            return True
-
-    if type(dataList) != type([]):
-        dataList = list(dataList) # if its not a list, make it one
-
-    if len(dataList) != len(names):
-        raise Exception('The number of column names does not match the number of data arrays')
-
-    if fileExists(filename) == False:
-        with open(filename,'w') as f: # force creating "filename"
-            #first line, the column names
-            out = "\t\t".join(['no']+names)
-            f.write('#'+out+'\n')
-            f.write('\n')
-
-            for i in xrange(len(dataList[0])): # make the index as long as
-                # the first array in the list
-                out = "\t\t".join([str(i+1)]+[str(x[i]) for x in dataList])
-                f.write(out+'\n') # add a line break
-
-    elif fileExists(filename) == True:
-        print(' ')
-        print('FILE EXISTS ('+str(filename) +') - SKIPPING SAVE')
-        print(' ')
-#
-def loadatbl(filename, dtype='float64',sep=None):
-    """
-    loads a list of data arrays in "filename", returns an array of the
-    whole shebang (loads arrays saved with the savetable command). just do:
-    (not the number column...)
-    a = loadtable(filename)
-    and then a[0] for first column, a[1] for second column and so on.
-    """
-    from scipy import array
-    try:
-        with open(filename,'r') as f:
-            values = []
-            for line in f:
-                if line.startswith('#') or not line.strip():
-                    continue # skip lines that are comments (# char) and empty
-                cols = line.split(sep)
-                values.append(array(cols,dtype=dtype))
-    except IOError:
-        raise IOError('file ' +str(filename)+' does NOT exist...')
-    except ValueError:
-        raise ValueError('Trying to convert to '+str(dtype)+' while it is a string\
-                        try to change it to \'str\'')
-
-    return array(values,dtype=dtype).transpose()
-#
-def infoatbl(filename, sep=None):
-    """
-    just returns the lines with comments (ie the column names) from a *.atbl file
-    """
-    try:
-        with open(filename,'r') as f:
-            strings = []
-            for line in f:
-                if line.startswith('#'):
-                    strings.append(line.split(sep))
-    except IOError:
-        raise IOError('file' + str(filename)+'does not exist...')
-
-    return strings
-#
-
-#########################################
-# leftovers
-
-def showmoment0 (filename, \
-                cfile=None,\
-                rvals=None,\
-                bvals=None,\
-                chvals=None,\
-                nvals=None,\
-                region=[0,0,0,0],\
-                type='mom0',\
-                nx=6,\
-                filled=True,\
-                box=[0,0],\
-                nsig=3,\
-                nsjump=2,\
-                object={'vsys':0},\
-                show_channels=False,\
-                font=['serif','Times',12,'bold'],\
-                bin=False,\
-                quality=[125, 50],\
-                fit = {'gauss': None, 'params': None, 'guess': False, 'interactive': False},\
-                send=False):
-    """
-    def showmoment0(filename, \ # the line cube to use
-                cfile=None, \ # continuum file (same size)
-                rvals=None, \ # red velocity values
-                bvals=None, \ # blue velocity values
-                chvals=None, \ #
-                nvals=None, \ # noise velocity limits
-                region=[0,0,0,0], \ # miriad region type key
-                type='mom0', \ # which plot to plot
-                nx=6, \ #
-                filled=True, \ #
-                box=[0,0], \ # box to use for spectra etc
-                nsig=3, \ # lowest contour level in sigmas
-                nsjump=2, \ # distance between contour levels in sigmas
-                font=['serif','Times',10,'bold'],\
-                send=False,\ # send back the computed arrays/classes etc rather than plotting them
-                ):
-
-    usage: showmoment0(fitsfile, rvals=[r1,r2], bvals=[b1,b2])
-
-    OR
-
-    showmoment0(filename, cfile='cfilename') for completely interactive mode
-
-
-    To change the box from where the spectra is plotted, change the
-    region keyword, it is given as arcseconds in x and y (ra & dec)
-    e.g region=[-2,-2,5,5] takes a box from x,y=-2,-2 to x,y=5,5 asecs
-    centerd around the center of the map.
-
-    type='mom0'
-    means
-
-    type='3range'
-    means that it will create a channel map (3 maps for red
-    and blue region respectively) instead of just the blueshifted
-    and redshifted in one.
-
-    type='chan'
-    means it will create a channel map, i.e. one channel one image
-
-    """
-
-    # imports
-    #import scipy as sp
-    from scipy import array, where, median, std, sign, arange, alen, vstack, concatenate, sqrt, log10, exp
-    import pyfits as pf
+def cubetracking (self,box=False, nsum=False):
     import matplotlib.pyplot as pl
-    from mpl_toolkits.axes_grid import AxesGrid
-    #from matplotlib.patches import Circle
-    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-    from matplotlib import cm, rc
+    from matplotlib import cm
+    from scipy import clip, array, sign, alen, arange
+    pl.ioff()
+    class IndexTracker:
+        def __init__(self, ax, data, velocity):
+            self.ax = ax
+            ax.set_title('Use scroll wheel to navigate images')
+            self.X = data
+            self.vel = velocity
+            #self.data = dobject
+            self.slices,cols,rows = data.shape
+            self.ind  = self.slices/2
+            self.im = ax.imshow(self.X[self.ind,:,:],interpolation='nearest',origin='lower', cmap=cm.jet)
+            pl.show()
+            self.update()
+
+        def onscroll(self, event):
+            #print event.button, event.step
+            if event.button=='up':
+                self.ind = clip(self.ind+1, 0, self.slices-1)
+            elif event.button=='down':
+                self.ind = clip(self.ind-1, 0, self.slices-1)
+            self.update()
+
+        def update(self):
+            self.im.set_data(self.X[self.ind,:,:])
+            ax.set_title(r'vel: '+str(round(self.vel[self.ind],2))+' kms$^{-1}$')
+            self.im.axes.figure.canvas.draw()
     #
-
-    rc('font',**{'family':font[0],font[0]:[font[1]],'size':font[2], 'weight': font[3]})
-
-    rc('axes',linewidth=2)
-    rc('lines', linewidth=1)
-
-    rc('savefig', **{'dpi': quality[0]})
-    rc('text', usetex=True)
-    rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
-
-    type1 = 'mom0'
-    type2 = '3range'
-    type3 = 'chan'
-    type4 = 'spectra'
-
-    #sigma levels etc
-    nsig = nsig
-    nsjump = nsjump
-    #
-    # first check the type1 and type2 plots
-    if type in [type1, type2] and rvals==None and bvals==None:
-        ion=True
-    elif type in [type1, type2] and rvals!=None and bvals!=None:
-        ion=False
-        r1, r2 = rvals
-        b1, b2 = bvals
-    elif type in [type4] and chvals==None:
-        ion=False
-    # now check the type3 plots
-    elif type in [type3] and chvals==None:
-        ion=True
-    elif type in [type3, type4] and chvals!=None:
-        ion=False
-        v1, v2 = chvals
-    else: # input error
-        print 'parse error: correct your input'
-    #
-
-    # first get the fitsfile
-    data = loadcube(filename)
-    data.velarr = data.velarr - object['vsys'] #so that now all the velocities are based on the objects
-    if cfile!=None:
-        continuum = loadcube(cfile)
-    #
-
-
-    if ion==True:
-        pl.ion()
-        x1,x2,y1,y2 = parse_region(data, region)
-        if x1==x2 and y1==y2:
-            spect = data.d[:,data.dec_npix/2,data.ra_npix/2]
-        else:
-            spect = data.d[:,y1:y2,x1:x2].sum(axis=1).sum(axis=1)
-        # now correct so that negative values are to the left
-        fig = pl.figure(1)
-        fig.clf()
-        ax = fig.add_subplot(111)
-        if data.vcdelt<0:
-            ax.step(flipud(data.velarr),flipud(spect),'k')
-            xmin, xmax = round(flipud(data.velarr)[0]-1),round(flipud(data.velarr)[-1]+1)
-            ymin, ymax = round(min(flipud(spect)*0.95)),round(max(flipud(spect)*1.05))
-        elif data.vcdelt>=0:
-            ax.step(data.velarr,spect,'k')
-            xmin, xmax = round(data.velarr[0]-1),round(data.velarr[-1]+1)
-            ymin, ymax = round(min(spect)*0.95),round(max(spect)*1.05)
-        ax.plot([xmin,xmax],[0,0],'k:',[0,0],[ymin,ymax],'k:')
-        ax.set_xlim(xmin,xmax); pl.ylim(ymin,ymax)
-        ax.set_xlabel('km/s'); pl.ylabel('intensity')
-        if type==type3:
-            # if it is just a channel map
-            v1, v2 = array(raw_input('input the limits, comma separated: ').split(','), dtype ='float')
-        elif type==type1 or type==type2:
-            # if mom0 or 3range
-            b1, b2 = array(raw_input('input the blueshifted limits: ').split(','), dtype='float')
-            r1, r2 = array(raw_input('input the redshifted limits, comma separated: ').split(','), dtype='float')
-        if nvals==None:
-            # ask for noise calculation velocity limits
-            try:
-                nvals = array(raw_input('input the noise limits (velocity). comma separated: ').split(','), dtype='float')
-                if len(nvals)==4:
-                    n1, n2, n3, n4 = nvals
-                elif len(nvals)==2:
-                    n1, n2 = nvals
-            except (ValueError):
-                print "Since you did not input any or input was wrong we will guess some values..."
-                nvals = None
-        pl.close(1)
-        pl.ioff()
-    #
-    if type==type1 or type==type2:
-        # we are separating the red and blue channels
-        red_channels = where((data.velarr>r1)*(data.velarr<r2))[0]
-        blue_channels = where((data.velarr>b1)*(data.velarr<b2))[0]
-        red = data.d[red_channels]
-        blue = data.d[blue_channels]
-    if type==type3:
-        #we are making a channel map
-        map_channels = where((data.velarr>v1)*(data.velarr<v2))[0]
-        channels = data.d[map_channels]
-    #
-    # calculate common stuff
-    ### for the plotting box
-    ylen, xlen = data.d[0].shape
-    ycoords = arange(-ylen/2,ylen/2,1)*data.dec_cdelt
-    xcoords = arange(-xlen/2,xlen/2,1)*data.ra_cdelt
-
-    # for the extent keyword
-    left, right = xcoords[0],xcoords[-1]
-    bottom, top = ycoords[0],ycoords[-1]
-
-    if nvals!=None:
-        # if noise has been input
-        if len(nvals)==4:
-            n1,n2,n3,n4 = nvals
-            # if the user wants two velocity areas to calculate noise
-            low = where((data.velarr>n1)*(data.velarr<n2))[0]
-            high = where((data.velarr>n3)*(data.velarr<n4))[0]
-            noise_channels = concatenate((low,high))
-        elif len(nvals)==2:
-            n1,n2 = nvals
-            #  if input just want one velocity area to calculate noise
-            noise_channels = where((data.velarr>n1)*(data.velarr<n2))
-
-    elif nvals==None and type in [type1, type2, type3]:
-        # if user didnt input noise velocity limits
-        # choose channels away from the choosen (red blue) lines
-
-        if type==type3:
-            # if you have choosen just a min and max to plot all channels
-            b2 = v2
-            r1 = v1
-
-        low = where((data.velarr>(data.velarr.min()+10))*(data.velarr<(r1-10)))[0]
-        high = where((data.velarr>(b2+10))*(data.velarr<(data.velarr.max()-10)))[0]
-        noise_channels = concatenate((low, high))
-    elif nvals==None and type in [type4]:
-        noise_channels = array([1,2])
-    #
-
-    # the region to calculate the rms in
-    i1,i2 = xlen/2+array([-1,1])*xlen/4
-    j1,j2 = ylen/2+array([-1,1])*ylen/4
-
-    # the noise, rms
-    noise = data.d[noise_channels]
-    rms = sqrt(((noise[:,j1:j2,i1:i2])**2).mean())
-
-    if box == [0,0]:
-        x1,x2 = left,right
-        y1,y2 = bottom,top
-    elif box != [0,0]:
-        x1,x2 = array([-1,1])*box[0]/2.*sign(data.ra_cdelt)
-        y1,y2 = array([-1,1])*box[1]/2.*sign(data.dec_cdelt)
-    #
-    # MOM0 MAPS
-    if type==type1:
-        #mom0
-
-        rc('axes',linewidth=2)
-        rc('lines', linewidth=1)
-
-        # one map for red and one for blue
-        red = red.sum(axis=0)*abs(data.vcdeltkms)
-        blue = blue.sum(axis=0)*abs(data.vcdeltkms)
-
-        red_sigma = calc_sigma(len(red_channels),rms,data.vcdeltkms)
-        blue_sigma = calc_sigma(len(blue_channels),rms,data.vcdeltkms)
-
-        ############## the moment 0 maps
-
-        # imstat
-        #red_3sig = median(red)+2*std(red)
-        #blue_3sig = median(blue)+2*std(blue)
-        blue_min = blue.min(); blue_max = blue.max()
-        #blue_levs = concatenate((arange(blue_min, -nsig*blue_sigma,nsjump*blue_sigma), arange(nsig*blue_sigma, blue_max,nsjump*blue_sigma)))
-        blue_levs = arange(nsig*blue_sigma, blue_max,nsjump*blue_sigma)
-        red_min = red.min(); red_max = red.max()
-        #red_levs = concatenate((arange(red_min, -nsig*red_sigma,nsjump*red_sigma), arange(nsig*red_sigma, red_max,nsjump*red_sigma)))
-        red_levs = arange(nsig*red_sigma, red_max,nsjump*red_sigma)
-        if send==True:
-            if cfile!=None:
-                return {'blue': blue, 'blue_levs':blue_levs, 'blue_sigma':blue_sigma, 'red':red, 'red_levs':red_levs, 'red_sigma':red_sigma, 'extent':[left,right,bottom,top], 'data':data, 'continuum':continuum}
-            if cfile==None:
-                return {'blue': blue, 'blue_levs':blue_levs, 'blue_sigma':blue_sigma, 'red':red, 'red_levs':red_levs, 'red_sigma':red_sigma, 'extent':[left,right,bottom,top], 'data':data}
-        pl.ion()
-        fig = pl.figure(1)
-        fig.clf()
-
-
-        #ax = pwg.axes(header=data.hdr)d
-        ax = fig.add_subplot(111)
-        #ax.update_wcsgrid_params(label_density=(4,4))
-        #blue_levs = arange(N*blue_sigma, blue_max,2*blue_sigma)
-        ax.contour(blue,\
-                    blue_levs,\
-                    extent=(left,right,bottom,top),\
-                    cmap=cm.winter)
-        #red_levs = arange(N*red_sigma, red_max,2*red_sigma)
-        ax.contour(red,\
-                    red_levs,\
-                    extent=(left,right,bottom,top), cmap=cm.hot)
-        if cfile!=None:
-            cont = ax.imshow(continuum.d,cmap=cm.Greys, extent=(left,right,bottom,top)) # remove [0] when fits files are OK
-            #cbar = pl.colorbar(cont)
-            #cbar.set_label(continuum.unit)
-            draw_beam(ax, continuum,loc=4)
-        draw_beam(ax,data)
-        draw_fov(ax, data)
-        draw_sizebar(ax, data,au=1000)
-        #ax.plot([0],[0],'k*',ms=10)
-
-        ax.set_xlabel('RA Offset ($^{\prime\prime}$)')
-        ax.set_ylabel('DEC Offset ($^{\prime\prime}$)')
-        #ax.set_title(data.obj+' (3sig red: ' +str(3*red_sigma.round(2))+'- 3sig blue: '+str(3*blue_sigma.round(2))+data.unit+' kms)')
-        #print x1,x2,y1,y2
-        ax.axis('image')
-        ax.set_xlim(x1,x2)
-        ax.set_ylim(y1,y2)
-        pl.ioff()
-        #pl.show()
-
-    #
-    #  3 RANGES
-    elif type==type2:
+    pl.ioff()
+    X = self
+    if box!=False:
+        i1,i2 = array([-1,1])*box[0]/2.*sign(self.ra_cdelt)
+        j1,j2 = array([-1,1])*box[1]/2.*sign(self.dec_cdelt)
+        i1, i2, j1, j2 = parse_region(self,[i1,i2,j1,j2])
+        data = self.d[:, j1:j2, i1:i2]
+    else:
+        data = self.d
+    if nsum!=False:
+        if alen(data)%nsum!=0:
+            raise ParError(nsum)
+        channels = arange(0,alen(data),1)
         #
-        # 3range
-        #
-
-        # 3 maps for red and blue each
-        rc('axes',linewidth=1)
-        rc('lines', linewidth=1)
-
-        ### blue
-        # if divided by 3, any rest?
-        brest = len(blue)%3
-        inc = (len(blue)-brest)/3
-        bincrement = array([inc, inc, inc+brest])
-        if data.vcdelt>0:
-            bincrement = flipud(bincrement)
-        bindices = arange(0,(len(blue)-brest),bincrement[0])
-
-        # create the first 2 maps
-        bmaps = array([blue[x:x+y].sum(axis=0)*abs(data.vcdeltkms) for x,y in zip(bindices,bincrement)])
-        # calculate the center positions and their width
-        bwidth = bincrement*abs(data.vcdeltkms)*.5
-        bcenter = [data.velarr[x:x+y].mean() for x,y in zip(blue_channels[bindices],bincrement)]
-        if data.vcdelt>0:
-            bmaps = flipud(bmaps)
-            bwidth = flipud(bwidth)
-            bcenter = flipud(bcenter)
-        # calculate the sigmas for each set of data
-        bsigma = calc_sigma(bincrement, rms, data.vcdeltkms)
-
-        ### red
-        rrest = len(red)%3
-        inc = (len(red)-rrest)/3
-
-        # now flip the arrays (if vcdelt<0) so that the highest speeds swallow the
-        # most channels, if  multiple of 3 no channels
-        rincrement = array([inc, inc, inc+rrest])
-        if data.vcdelt<0: # so that the last channel is still the one with the rest
-            rincrement = flipud(rincrement)
-        # the two middle indices
-        # a bit tricky with the first being the biggest here
-        rindices = array([0, rincrement[0], rincrement[0]+rincrement[1]])
-
-        # get the maps, the last one (first if vcelt<0) takes the leftovers
-        rmaps = array([red[x:x+y].sum(axis=0)*abs(data.vcdeltkms) for x,y in zip(rindices,rincrement)])
-
-        #get the widht & center of each channelsum
-        # flipud so that the channels are the same in blue and red (ie low med high velocity)
-        rwidth = rincrement*abs(data.vcdeltkms)*.5
-        rcenter = array([data.velarr[x:x+y].mean() for x,y in zip(red_channels[rindices],rincrement)])
-        if data.vcdelt<0:
-            rmaps = flipud(rmaps)
-            rwidth = flipud(rwidth)
-            rcenter = flipud(rcenter)
-
-        rsigma = calc_sigma(rincrement,rms,data.vcdeltkms)
-
-        ### put them together now
-        centers = concatenate((bcenter,rcenter)).round(2)
-        widths = concatenate((bwidth,rwidth)).round(2)
-        maps_sigma = concatenate((bsigma,rsigma))
-
-        maps = vstack((bmaps,rmaps))
-
-        maps_max = array([i.max() for i in maps])
-        maps_min = array([i.min() for i in maps])
-
-        # now create the levels for each image
-
-
-        levs = [concatenate((arange(x,-nsig*z,nsjump*z),arange(nsig*z,y,nsjump*z))) for x,y,z in zip(maps_min, maps_max, maps_sigma)]
-
-        def print_velrange(ax,x):
-            """
-            pl.text(0.05,0.05,\
-            str(round(rcenter[x-1],1))+'$\pm$'+str(round(rwidth[x-1],2))+' kms$^{-1}$',\
-            bbox=dict(edgecolor='red',facecolor='red', alpha=0.7),\
-            transform = ax.transAxes)
-
-            """
-            if x>2:
-                fcolor='red'
-                #ax.text(0.1,.9,\
-                #str(round(centers[x],1))+'$\pm$'+str(round(widths[x],2))+' kms$^{-1}$',\
-                #size='medium',\
-                #bbox=dict(edgecolor='red',facecolor='red', alpha=0.7),\
-                #transform = ax.transAxes)
-            else:
-                fcolor='blue'
-                #ax.text(0.1,.9,\
-                #str(round(centers[x],1))+'$\pm$'+str(round(widths[x],2))+' kms$^{-1}$',\
-                #size='medium', weight='black',\
-                #bbox=dict(edgecolor='blue',facecolor='blue', alpha=0.5),\
-                #transform = ax.transAxes)
-            ax.text(0.1,.9,\
-            str(round(centers[x],1))+'$\pm$'+str(round(widths[x],2))+' kms$^{-1}$',\
-            size='medium', weight='extra bold',\
-            bbox=dict(edgecolor=fcolor,facecolor=fcolor, alpha=0.7),\
-            transform = ax.transAxes)
-        #
-
-        # tick density and size
-        # these are inserted later in:
-        # grid[i].xaxis.set_major_locator(majorLocator)
-        # grid[i].xaxis.set_minor_locator(minorLocator)
-
-        majorLocator = MultipleLocator(10)
-        minorLocator = MultipleLocator(2)
-
-        from matplotlib import rc
-        rc('xtick',**{'minor.size':2.5, 'major.size':5})
-        rc('ytick',**{'minor.size':2.5, 'major.size':5})
-
-        if send==True:
-            if cfile!=None:
-                return {'maps': maps, 'levs':levs, 'maps_sigma':maps_sigma, 'centers':centers, 'widths':widths, 'extent':(left,right,bottom,top), 'data':data, 'continuum':continuum}
-            if cfile==None:
-                return {'maps': maps, 'levs':levs, 'maps_sigma':maps_sigma, 'centers':centers, 'widths':widths, 'extent':(left,right,bottom,top), 'data':data}
-
-        pl.ion()
-        fig = pl.figure(1, (9., 7.))
-        fig.clf()
-
-
-        if cfile!=None:
-            # if cfile entered, add cbars
-            grid = AxesGrid(fig, 111, # similar to subplot(111)
-                            nrows_ncols = (2, 3), # creates 2x3 grid of axes
-                            axes_pad=0.2, # pad between axes in inch.
-                            label_mode = "L",
-                            share_all=True,
-                            cbar_mode="single",
-                            cbar_location="top",
-                            cbar_size="2%",
-                            )
-        else:
-            # if no cfile, no colorbar
-            grid = AxesGrid(fig, 111, # similar to subplot(111)
-                            nrows_ncols = (2, 3), # creates 2x3 grid of axes
-                            axes_pad=0.2, # pad between axes in inch.
-                            label_mode = "L",
-                            share_all=True,
-                            )
-
-        for i in range(6):
-
-            col = ['b','b','b','r','r','r']
-            im = grid[i].contour(maps[i], levs[i], colors=col[i], extent=(left,right,bottom,top))
-            if cfile!=None:
-                # if there is a continuum file
-                cont = grid[i].imshow(continuum.d,cmap=cm.Greys, extent=(left,right,bottom,top)) # remove [0] when fits files are OK
-                grid.cbar_axes[i].colorbar(cont)
-                # add a unit to the colorbar
-                grid.cbar_axes[i].set_xlabel(str(continuum.unit))
-                grid.cbar_axes[i].axis["top"].toggle(label=True, ticks=True, ticklabels=True)
-                draw_beam(grid[i].axes, continuum,loc=4)
-                # end
-            plt = grid[i].plot([0],[0],'k+', ms=10)
-            grid[i].xaxis.set_major_locator(majorLocator)
-            grid[i].xaxis.set_minor_locator(minorLocator)
-            grid[i].yaxis.set_major_locator(majorLocator)
-            grid[i].yaxis.set_minor_locator(minorLocator)
-        for i in range(6):
-            draw_beam(grid[i].axes, data)
-            print_velrange(grid[i],i)
-            draw_fov(grid[i].axes, data)
-        grid.axes_llc.set_xlim(x1,x2)
-        grid.axes_llc.set_ylim(y1,y2)
-        #grid.axes_llc.set_aspect(1)
-        #grid.axes_llc.set_axes('image')
-        grid[4].set_xlabel('RA offset')
-        #grid[4].text(-0.5,-0.1,'string')
-        #grid.cbar_axes[0].axis["top"].set_title(data.obj)
-        #fig.text(0.51,0.03,'RA offset (asec)', ha='center',va='center')
-        fig.text(0.05,0.5,'DEC offset (asec)', rotation='vertical', va='center', ha='center')
-        #fig.suptitle(data.obj)
-        #pl.show()
-        pl.ioff()
-
+        # getting the data to sum
+        indices = arange(0, alen(data), nsum)
+        #data = linedata.d[channels]
+        velocity = self.velarr
+        # the mean velocity is the middle one
+        velocity = array([velocity[x:x+nsum].mean() for x in indices])
+        velocity_delta = self.vcdeltkms*nsum
+        print u'The velocity interval over which you create the maps is %2.3f to %2.3f km\u207b\u00b9\u00b7s' % (velocity.min()-abs(velocity_delta)/2,velocity.max()+abs(velocity_delta)/2)
+        print 'Velocity delta : %2.3f' % velocity_delta
+        data = array([data[x:x+nsum].sum(axis=0)*abs(self.vcdeltkms) for x in indices])
+        N_channels = alen(data)/nsum
+    else:
+        velocity = self.velarr
+    fig = pl.figure(1)
+    ax = fig.add_subplot(111)
+    #ax = pwg.axes(header=X.hdr)
+    tracker = IndexTracker(ax, data, velocity)
     #
-    # CHANNEL MAP
-    elif type==type3:
-        # map_channels - the index of the channels used
-        # channels - the data
-        channels = channels*abs(data.vcdeltkms)
-        vels = data.velarr[map_channels]
-
-        # if we are plotting channel maps
-        chans_sig = calc_sigma(1,rms,data.vcdeltkms)
-        chans_min = array([i.min() for i in channels])
-        chans_max = array([i.max() for i in channels])
-
-        # calculate the levels of the contours
-        levs = [concatenate((arange(x,-nsig*chans_sig,nsjump*chans_sig), arange(nsig*chans_sig,y,nsjump*chans_sig))) for x,y in zip(chans_min, chans_max)]
-        vmin, vmax = chans_min.min(),chans_max.max()
-        levs_stat = concatenate((arange(vmin,-nsig*chans_sig,nsjump*chans_sig), arange(nsig*chans_sig,vmax,nsjump*chans_sig)))
-
-        majorLocator = MultipleLocator(1)
-        minorLocator = MultipleLocator(0.2)
-
-        from matplotlib import rc
-        rc('xtick',**{'minor.size':0, 'major.size':2.5})
-        rc('ytick',**{'minor.size':0, 'major.size':2.5})
-        rc('axes',linewidth=1)
-        rc('lines', linewidth=1)
-
-        if send==True:
-            if cfile!=None:
-                return {'channels': channels, 'levs':levs, 'chans_sig':chans_sig, 'vels':vels, 'extent':[left,right,bottom,top], 'data':data, 'continuum':continuum}
-            if cfile==None:
-                return {'channels': channels, 'levs':levs, 'chans_sig':chans_sig, 'vels':vels, 'extent':[left,right,bottom,top], 'data':data}
-
-
-        if data.vcdelt<0:
-            channels = flipud(channels)
-            levs.reverse()
-            vels = flipud(vels)
-        def print_vel(ax,x):
-            ax.text(0.08,.9,\
-            str(round(vels[x],1))+r'kms$^{-1}$',\
-            size='small',\
-            bbox=dict(edgecolor='white',facecolor='white', alpha=0.7),\
-            transform = ax.transAxes)
-
-
-        pl.ion()
-        fig = pl.figure(1, (14., 9.))
-
-        fig.clf()
-
-        ny = int(ceil(len(map_channels)/float(nx)))
-
-        if filled==False:
-            grid = AxesGrid(fig, 111, # similar to subplot(111)
-                    nrows_ncols = (ny, nx), # creates nyx6 grid of axes
-                    axes_pad=0.2, # pad between axes in inch.
-                    label_mode = "L",
-                    share_all=True,
-                    )
-                # plot data contours
-
-            for i in range(len(map_channels)):
-                grid[i].set_aspect('equal')
-                im = grid[i].contour(channels[i],\
-                                    levs[i],\
-                                    cmap=cm.Greens,\
-                                    extent=(left,right,bottom,top))
-        #
-
-        elif filled==True:
-            grid = AxesGrid(fig, 111, # similar to subplot(111)
-                    nrows_ncols = (ny, nx), # creates 2x3 grid of axes
-                    axes_pad=0, # pad between axes in inch.
-                    label_mode = "L",
-                    share_all=True,
-                    cbar_mode="single",
-                    cbar_location="top",
-                    cbar_size="2%",)
-            # plot data contours
-            for i in range(len(map_channels)):
-                grid[i].set_aspect('equal')
-                im = grid[i].contourf(channels[i],\
-                                    levs_stat,\
-                                    extent=(left,right,bottom,top))
-            grid.cbar_axes[0].colorbar(im)
-            # add a unit to the colorbar
-            grid.cbar_axes[0].set_xlabel(str(data.unit)+r' kms$^{-1}$')
-            grid.cbar_axes[0].axis["top"].toggle(label=True, ticks=True, ticklabels=True)
-        #
-
-        for i in range(len(map_channels)):
-            # plot a cross at pointing centre
-            plt = grid[i].plot([0],[0],'k+', ms=5)
-            # set the locator spacings
-            grid[i].xaxis.set_major_locator(majorLocator)
-            grid[i].xaxis.set_minor_locator(minorLocator)
-            grid[i].yaxis.set_major_locator(majorLocator)
-            grid[i].yaxis.set_minor_locator(minorLocator)
-            # beam, fov and velocity info
-            draw_beam(grid[i].axes, data, box=False)
-            draw_fov(grid[i].axes, data)
-            print_vel(grid[i].axes, i)
-
-
-
-
-        grid.axes_llc.set_xlim(x1,x2)
-        grid.axes_llc.set_ylim(y1,y2)
-
-        fig.text(0.5,0.05,'RA offset (asec)', ha='center',va='center')
-        fig.text(0.05,0.5,'DEC offset (asec)', rotation='vertical', va='center', ha='center')
-        fig.suptitle(data.obj)
-        #pl.show()
-        pl.ioff()
-    #
-    # SPECTRA
-    elif type==type4:
-        # spectra
-        import matplotlib.transforms as mtransforms
-        from mpl_toolkits.axes_grid.parasite_axes import SubplotHost
-        #
-        x1,x2,y1,y2 = parse_region(data, region)
-        pl.ion()
-        area_region = ((y2-y1)*(x2-x1))
-        spect = data.d[:,y1:y2,x1:x2].sum(axis=1).sum(axis=1)/area_region
-        # shift the velocity array so that 0 is at system velocity (if supplied)
-        velocity = data.velarr
-
-
-        # Binning.
-        # So
-        #
-        if send==True:
-            return spect, velocity
-        if bin!=False:
-            j = int(bin)
-            indices = arange(0,alen(spect),j)
-            spect = array([spect[x:x+j].sum(axis=0)/j for x in indices])
-            velocity = array([velocity[x:x+j].sum(axis=0)/j for x in indices])
-            # use congridding???
-        #
-        # set ticklocations
-        xmajorLocator = MultipleLocator(5)
-        xminorLocator = MultipleLocator(1)
-        ymajorLocator = MultipleLocator(0.02)
-        yminorLocator = MultipleLocator(0.01)
-        #xTopMajorLocator = MultipleLocator(5)
-        xTopMajorFormatter = FormatStrFormatter('%5.6f')
-
-        rc('axes',linewidth=2)
-        rc('lines', linewidth=1)
-
-        fig = pl.figure(1,figsize=(10.5,8))
-        fig.clf()
-        ax_kms = fig.add_subplot(111)
-        #ax_kms = SubplotHost(fig, 1,1,1)
-        # kms_to_hz - kms to hz convertion
-        #kms_to_hz =
-        # now correct so that negative values are to the left
-        if data.vcdelt<0:
-            ax_kms.step(flipud(velocity), flipud(spect), 'k', lw=2,  where='mid')
-            xmin, xmax = round(flipud(velocity)[0]-data.vcdeltkms), round(flipud(velocity)[-1]+data.vcdeltkms)
-            ymin, ymax = round(min(flipud(spect)),2)*1.01, round(max(flipud(spect)),2)*1.01
-        elif data.vcdelt>=0:
-            ax_kms.step(velocity, spect, 'k', lw=2, where='mid')
-            xmin, xmax = round(velocity[0]-1),round(velocity[-1]+1)
-            ymin, ymax = round(min(spect),2)*1.01,round(max(spect),2)*1.01
-        if nvals!=None:
-            #rms = sqrt(((data.d[noise_channels,y1:y2,x1:x2])**2).mean())
-            rms = sqrt(((spect[noise_channels])**2).mean())
-            #sig = calc_sigma(1/0.12,rms,0.12)
-            ax_kms.plot([xmin, xmax],[rms,rms],'b')
-        #ax.xaxis.set_major_locator(xmajorLocator)
-        #ax.xaxis.set_minor_locator(xminorLocator)
-        #ax.yaxis.set_major_locator(ymajorLocator)
-        #ax.yaxis.set_minor_locator(yminorLocator)
-        ax_kms.plot([xmin,xmax],[0,0],'k:',[0,0],[ymin,ymax],'k:')
-        if fit['gauss']=='1d':
-            # fits up to five (5) 1D gaussian(s) to the spectral data
-            #
-            #
-            #
-            if chvals!=None:
-                ch = where((velocity>v1)*(velocity<v2))[0]
-                Y = spect[ch]
-                X = velocity[ch]
-            else:
-                Y = spect
-                X = velocity
-            p = fit['params'] # fitting 2 gaussians
-            param, errors, success, no_fits = gaussfit1d((X,Y), params=p)
-            ### test
-            #fitfunc = lambda p, x: p[0]*cos(2*pi/p[1]*x+p[2]) + p[3]*x # Target function
-            #errfunc = lambda p, x, y: fitfunc(p, x) - y # Distance to the target function
-            #p0 = [-15., 0.8, 0., -1.] # Initial guess for the parameters
-            #p1, success = optimize.leastsq(errfunc, p0[:], args=(Tx, tX))
-            ### test
-            ax_kms.plot(X,gaussian(param,X),'r-', lw=2)
-        #
-        ax_kms.set_xlim(xmin,xmax)
-        ax_kms.set_ylim(ymin,ymax)
-        #ax.set_title(data.obj)
-        ax_kms.set_xlabel('km/s')
-        ax_kms.set_ylabel('Intensity ('+data.unit+')')
-        # to show the channel numbers
-        if show_channels==True:
-            ax_hz = ax_kms.twiny()
-            ax_hz.xaxis.set_major_formatter(xTopMajorFormatter)
-            def frequency (v):
-                return (1-v/299792.458)*203.407520000
-            #def update_ax_hz(ax_kms):
-            #   x_1, x_2 = ax_kms.get_xlim()
-            #   ax_hz.set_xlim(frequency(x_1), frequency(x_2))
-            #   ax_hz.figure.canvas.draw()
-
-            #ax_hz.xaxis.set_major_locator(xTopMajorLocator = MultipleLocator(5))
-            #raise Exception ("\n\n\n This function does not work properly yet\n The channels are not correctly marked\n\n")
-
-            #ax_kms.callbacks.connect("xlim_changed", update_ax_hz)
-
-            from scipy import NaN
-            #print data.restfreq
-
-            x_1, x_2 = ax_kms.get_xlim()
-            ax_hz.set_xlim(frequency(x_1), frequency(x_2))
-            #rax_hz.figure.canvas.draw()
-
-                #ax_hz.plot(flipud(data.freqarr/1e9),arange(alen(data.freqarr))*0)
-            #elif data.vcdelt>=0:
-            #    ax_hz.set_xlim(data.freqarr[0]/1e9, data.freqarr[-1]/1e9)
-            #    ax_hz.figure.canvas.draw()
-                #ax_hz.plot(data.freqarr,arange(alen(data.freqarr))*0)
-        pl.ioff()
+    fig.canvas.mpl_connect('scroll_event', tracker.onscroll)
 #
-def showchannelmap(filename,v_sys):
-    ############## moment maps
-    """
-    make it divide it in to three components
-    low, medium and high velocity around
-    the systemvelocity
-
-    """
-    #vel_maps = [] # empty list to store the maps
-    # vcdeltkms is one channel
-    # number of channels (vcdelt) to sum for each map
-    def maps(v1,v2):
-
-
-        #increment = Nincr*vcdeltkms # in kms, not m
-        # the velocity boundaries have to be an even number
-        # pair of velocities determining the boundaries
-        #v1=-11; v2=0 # red part
-        #v1=9; v2=24 # blue part
-        #list_vel = [-11,0,9,24] # pair of velocities determining the  boundaries
-
-        a1 = where((velarr-.49).round()==v1)[0][0]
-        a2 = where((velarr+.49).round()==v2)[0][0]
-        if a1>a2:
-            lower = a2
-            upper = a1
-        elif a2>a1:
-            lower = a1
-            upper = a2
-
-
-        vels = velarr[lower:upper+1]
-        if Nincr>1:
-            vel_maps = array(d[lower:upper+1]).reshape((upper-lower+1)/Nincr,Nincr,y_npix,x_npix).sum(axis=1)/(vcdeltkms*Nincr)
-        elif Nincr==1:
-            vel_maps = array(d[lower:upper+1])
-        # calculate the center velocity
-        vels = velarr[lower:upper+1:Nincr]+Nincr/2*vcdeltkms
-        width = Nincr*vcdeltkms
-        return vel_maps, vels, width
-
-    #v1=-11; v2=0 # red part
-    #v1=9; v2=24 # blue part
-    vsys=8.3
-    a1,b1,c1 = test(vsys,vsys+14)
-    a2,b2,c2 = test(vsys-14,vsys)
-    b1 = b1.round(2)-vsys # round of the velocities
-    b2 = b2.round(2)-vsys
-    levs = arange(.25,2.5,0.1)
-    pl.figure(1,figsize=(10,5))
-    j=1
-    for i in arange(1,len(a1)+1):
-        pl.subplot(3,4,j)
-        pl.contour(a1[i-1],levs)
-        if i in [2,3,4,6,7,8,10,11,12]:
-            loc,lab = pl.yticks()
-            pl.yticks(loc,[])
-        if i in arange(1,9):
-            loc,lab = pl.xticks()
-            pl.xticks(loc,[])
-        pl.text(x1+2,y2-8,str(b1[i-1])+'km/s', bbox=dict(edgecolor='white',facecolor='blue', alpha=0.7))
-        pl.axis('image')
-        pl.xlim(x1,x2)
-        pl.ylim(y1,y2)
-        j+=1
-
-    j=len(a1)+1
-    for i in arange(0,len(a2)):
-        pl.subplot(3,4,j)
-        pl.contour(a2[i],levs)
-        if j in [2,3,4,6,7,8,10,11,12]:
-            loc,lab = pl.yticks()
-            pl.yticks(loc,[])
-        if j in arange(1,5):
-            loc,lab = pl.xticks()
-            pl.xticks(loc,[])
-        pl.text(x1+2,y2-8,str(b2[i])+'km/s', bbox=dict(edgecolor='white',facecolor='red', alpha=0.7))
-        pl.axis('image')
-        pl.xlim(x1,x2)
-        pl.ylim(y1,y2)
-        j+=1
-
-    pl.subplots_adjust(left=0.1, bottom=0.1, right=0.97, top=0.97, wspace=0, hspace=0)
-
 #
-# 
+# CMD line implementation
 if __name__ == '__main__':
     # statements that you want to be executed only when the
     # module is executed from the command line
@@ -4816,4 +4117,15 @@ if __name__ == '__main__':
     #
     a = str(raw_input('Press any key to exit...'))
     # put Jes, optparser here!
+    
+
+
+
+
+
+
+
+
+
+
 
