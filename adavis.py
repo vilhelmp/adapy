@@ -56,6 +56,8 @@ TODO : Separate the loadcube function, so that one can work with data
 
 TODO : obj_dict -> source
 
+TODO : when supplying source=dict(vsys=X) the DataObject velarr is changed, not good
+
 Lastly:
 - Check Jes functions how they work and try to merge/replace them.
 - How to divide it into a runnable program
@@ -110,26 +112,43 @@ def draw_beam(ax, data,loc=3, box=True):
     ax.add_artist(ae)
 #
 def colorify (txt, c='r'):
-    """
-    Sends back the string 'txt' with the correct unicode color
-    start and finish.
+    """ 
+    
+    Sends back the string 'txt' with the correct foreground unicode 
+    color start and finish (reset color).
 
     Current avaliable colors:
         'r' : red
         'g' : green
+        'y' : yellow
         'b' : blue
+        'm' : magenta
+        'c' : cyan
+        'w' : white
     """
     CSI = "\x1B["
 
     if c=='r':
-        # sets, red text color (31) and black background (40)
+        # sets, red text color (31)
         start =CSI+'31m'
     elif c=='g':
-        # sets, green text color (32) and black background (40)
+        # sets, green text color (32)
         start =CSI+'32m'
+    elif c=='y':
+        # sets, yellow text color (32)
+        start =CSI+'33m'
     elif c=='b':
-        # sets, blue text color (34) and black background (40)
+        # sets, blue text color (34)
         start =CSI+'34m'
+    elif c=='m':
+        # sets, magenta text color (34)
+        start =CSI+'35m'
+    elif c=='c':
+        # sets, cyan text color (34)
+        start =CSI+'36m'
+    elif c=='w':
+        # sets, white text color (34)
+        start =CSI+'37m'
     #
     end = CSI+'m'
     return start+txt+end
@@ -180,7 +199,7 @@ def draw_highlight_box(ax, xpos, xwidth):
     ax.add_patch(rect)
 #
 def put_line_indicator(ax, velocity, spect, xpos, text_string, \
-            text_size='medium', text_weight='extra bold', text_color='black',\
+            text_size=3, text_weight='extra bold', text_color='black',\
              lc='b', offset=0):
     """
     Put text in figure, the positon is in axes data coordinates
@@ -197,7 +216,7 @@ def put_line_indicator(ax, velocity, spect, xpos, text_string, \
         maxval = spect.max()
     line_ypos = maxval + maxval*0.15
     text_ypos = line_ypos + line_height + line_height*0.5
-    text_ypos = text_ypos + len(text_string)*offset*3e-3
+    text_ypos = text_ypos + len(text_string)*offset*3e-2
     # plot line
     ax.plot([xpos, xpos],[line_ypos,line_ypos+line_height],lc)
     # print text
@@ -521,7 +540,7 @@ def gauss1d(x, params=None, height=None):
     *using numpy instead of scipy
 
     """
-    from numpy import exp, array, alen, array, log, sqrt
+    from numpy import exp, array, alen, array, log, sqrt, arange
     #
     # Check the input parameters, since this is for plotting, we check them
     #
@@ -616,9 +635,6 @@ def fit_gauss1d((X,Y),\
            to machine precision.
 
 
-    TODO : move code over to MPFIT
-    TODO : fixing of parameters
-    TODO : limits to parameters
     TODO : initial guesses for params
                     o intereactive - point and clic
                     o 1D : add a 1 gaussian guessing alorithm
@@ -626,7 +642,7 @@ def fit_gauss1d((X,Y),\
     """
     #from scipy import optimize
     from numpy import exp, hstack, array, log, sqrt, diag, alen, zeros, \
-                        where
+                        where, arange
     from mpfit import mpfit
     print '\n Fitting Gaussians'
     #
@@ -1369,7 +1385,7 @@ def plot_spectrum (self,
                 nvals=None,
                 region=[0,0,0,0],
                 source = dict(vsys=0),
-                freq=False,
+                show_freq=False,
                 font={'family':'serif', 'serif': ['Times New Roman'],
                 'size':8},
                 bin=1,
@@ -1380,11 +1396,12 @@ def plot_spectrum (self,
                 send=False,
                 quality=[300, 300],
                 plot_adjust= [0.15, 0.17, 0.98, 0.95],
-                lines = [],\
+                lines = [],
                 axspace = [1.01, 1.01, 1.01, 1.05],
                 ylimits=None,
                 telescope=None,
-                fsize=(3.,2.)):
+                fsize=(3.,2.),
+                **kwargs):
     """
     Function documentation
 
@@ -1445,7 +1462,7 @@ def plot_spectrum (self,
     print 'importing...'
     from scipy import array, where, median, std, sign, arange, alen, vstack, \
                     concatenate, sqrt, log10, exp, log, ceil, floor, diff, \
-                    flipud
+                    flipud, pi, nan
     import matplotlib.pyplot as pl
     from mpl_toolkits.axes_grid import AxesGrid
     #from matplotlib.patches import Circle
@@ -1484,7 +1501,8 @@ def plot_spectrum (self,
     ###################################
     #data = loadcube(filename,telescope)
     data = self
-    data.velarr = data.velarr - obj_dict['vsys'] #now all the velocities are based on the LSR
+    
+    velocity = data.velarr - obj_dict['vsys'] #now all the velocities are based on the LSR
     #data.freqarr = calc_frequency(data.velarr,data.restfreq)
     #
     # parse the region parameter
@@ -1515,7 +1533,7 @@ def plot_spectrum (self,
         # congridding, proper resampling of data
         #
         spect = congrid(spect,(alen(spect)/bin,),centre=True,method='neighbour')
-        velocity = congrid(data.velarr,(alen(data.velarr)/j,))
+        velocity = congrid(velocity,(alen(velocity)/j,))
         #
         velocity_delta = data.vcdeltkms*bin
     elif bin>1 and bintype=='mean':
@@ -1526,11 +1544,11 @@ def plot_spectrum (self,
         #  Old method - simple binning, just average
         indices = arange(0,alen(spect),j)
         spect = array([spect[x:x+j].sum(axis=0)/j for x in indices])
-        velocity = array([data.velarr[x:x+j].sum(axis=0)/j for x in indices])
+        velocity = array([velocity[x:x+j].sum(axis=0)/j for x in indices])
         #
         velocity_delta = data.vcdeltkms*bin
     elif bin==1:
-        velocity = data.velarr
+        velocity = velocity
         velocity_delta = data.vcdeltkms
     elif bin<1:
         print colorify("\nERROR:\n Variable \"bin\" has to be 1 for no binning, or above 1 \n\
@@ -1695,7 +1713,6 @@ def plot_spectrum (self,
         #
         #
         p = fit['params'] # parameters for the fit
-
         #
         if not fit.has_key('limmin'):
             fit['limmin'] = None
@@ -1724,6 +1741,7 @@ def plot_spectrum (self,
         # now, parse output of fitting and print it out on screen
         j = 1
         line_widths = []
+        frequencies = []
         for i in arange(0,len(params),3):
             # add 1 because channel 1 is in pos 0
             half_fwhm = params[i+2]/2
@@ -1734,22 +1752,24 @@ def plot_spectrum (self,
             lower_half, upper_half = (params[i+1] + array([-1,1])*half_fwhm)
             lower,upper = (params[i+1] + array([-1,1])*fwhm)
             #
-            #channels = where((data.velarr>lower)*(data.velarr<upper))[0]+1
-            channels_half_nobin = get_indices(data.velarr,[lower_half,upper_half])
-            channels_nobin = get_indices(data.velarr,[lower,upper])
+            #channels = where((velocity>lower)*(velocity<upper))[0]+1
+            channels_half_nobin = get_indices(velocity,[lower_half,upper_half])
+            channels_nobin = get_indices(velocity,[lower,upper])
             channels_half = get_indices(velocity,[lower_half,upper_half])
             channels = get_indices(velocity,[lower,upper])
-
+            frequency = calc_frequency(params[i+1],data.restfreq/1e9)
+            frequencies.append(frequency)
             print  'Fit number : %i' % j
             print  ' Intensity : %2.4f \t=calculate it=' % (sqrt(2*pi)*sigma(params[i+2])*params[i]) # the area under the 1D Gaussian
             print u' Amplitude : %2.3f (\u00b1%2.3f) \t Jy\u00b7Beam\u207b\u00b9' % (params[i],errors[i])
             print u' Position  : %2.3f (\u00b1%2.3f) \t km\u00b7s\u207b\u00b9' % (params[i+1],errors[i+1])
             print u' Width     : %2.3f (\u00b1%2.3f) \t km\u00b7s\u207b\u00b9 (FWHM, \u03c3=%2.3f)' % (params[i+2],errors[i+2], sigma(params[i+2]))
-            print  ' Frequency : %3.9f GHz' % calc_frequency(params[i+1],data.restfreq/1e9)
+            print  ' Frequency : %3.9f GHz' % frequency
             print u' \u00b1FWHM     : %d to %d (%d) [%.2f to %.2f km/s]'% (channels_half_nobin.min(), channels_half_nobin.max(),(channels_half_nobin.max()-channels_half_nobin.min()+1), lower_half, upper_half)
             print u' \u00b12*FWHM   : %d to %d (%d) [%.2f to %.2f km/s]' % (channels_nobin.min(), channels_nobin.max(), (channels_nobin.max()-channels_nobin.min()+1), lower,upper)
-            print u' Rebinned channels :\n \t FWHM width  : %d to %d (\u00b1FWHM)' % (channels_half.min(), channels_half.max())
-            print  ' \t 2*FWHM width : %d to %d (%d)  \n' % (channels.min(), channels.max(),(channels.max()-channels.min()+1))
+            if bin!=1:
+                print u' Rebinned channels :\n \t FWHM width  : %d to %d (\u00b1FWHM)' % (channels_half.min(), channels_half.max())
+                print  ' \t 2*FWHM width : %d to %d (%d)  \n' % (channels.min(), channels.max(),(channels.max()-channels.min()+1))
             j+=1
         #
         line_widths = array(line_widths)
@@ -1764,10 +1784,47 @@ def plot_spectrum (self,
                 print '%3.9f' % nu
                 j+=1
         # draw the fit into the figure
+        # X is the velocity array
+        # xarr has more 3 times more datapoints than velocity array
+        # the plotted lines looks smoother and nicer that way
         xarr = arange(X[0],X[-1],(diff(X)[0]/3))
-        for i in arange(alen(params)/3):
-            ax_kms.plot(xarr, gauss1d(xarr,params[i*3:(i*3+3)]))
-        ax_kms.plot(xarr, gauss1d(xarr,params), color='0.2', lw=5, alpha=0.6)
+        for i in arange(0,len(params),3):
+            lower,upper = (params[i+1] + array([-1,1])*fwhm*4)
+            channels = get_indices(xarr,[lower,upper])
+            ax_kms.plot(xarr[channels], gauss1d(xarr[channels],params[i:i+3]))
+        ax_kms.plot(xarr, gauss1d(xarr,params), color='0.2', lw=1, alpha=0.6)
+        #
+        # TODO : define a new "lines" list that is accepted in the if 
+        #        loop after this
+        # Just get the name and frequency of the line
+        # remember to sort out the ones with no freq (and one hit per freq)
+        #
+        # what if results only contain ONE (1) hit, not an iterator huh
+        if kwargs.has_key('lineid'):
+            import splatsearch as spl
+            print 'Trying to indentify candidates for the fitted lines.'
+            list_of_names = []
+            list_of_frequencies = []
+            number = 1
+            for f in frequencies:
+                df=5e-3 # range to find line
+                print 'Line number %d' % number
+                print 'Frequency : %f  GHz (+/-%f MHz)' % (f,df*1e3)
+                result = spl.splatsearch(freq=float(f), dfreq=df, send=1, display=1)
+                if result!=None:
+                    name, freq = result[1],result[3]
+                    for i in arange(len(freq)):
+                        if str(freq[i])!='nan':
+                            if i>0 and freq[i]!=freq[i-1]: # remove duplicates
+                                list_of_names.append(name[i])
+                                list_of_frequencies.append(freq[i])
+                            elif i==0:
+                                list_of_names.append(name[i])
+                                list_of_frequencies.append(freq[i])
+                
+                number+=1
+            # done now define the linelist
+            lines=[list_of_names,list_of_frequencies]
     #
     if lines!=[]:
         print u'Marking the lines, using %2.2f km\u00b7s\u207b\u00b9' % obj_dict['vsys']
@@ -1814,7 +1871,7 @@ def plot_spectrum (self,
     else:
         ax_kms.set_ylabel('$I$ ['+data.unit+']')
     # to show the channel numbers
-    if freq==True:
+    if show_freq==True:
         # create the frequency axis
         ax_hz = ax_kms.twiny()
         # change the font of the ticks
@@ -1926,6 +1983,7 @@ def plot_moment0 (self,
     #
     if not obj_dict.has_key('vsys'):
         obj_dict['vsys'] = 0
+    # this will make it add vsys to the object everytime, not good!!
     linedata.velarr = linedata.velarr - obj_dict['vsys'] #now all the velocities are based on the LSR
 
     # and the continuum data, if existent
