@@ -149,6 +149,13 @@ def colorify (txt, c='r'):
     elif c=='w':
         # sets, white text color (34)
         start =CSI+'37m'
+    elif c=='rand':
+        # white not included
+        from scipy import rand
+        #colors = ['r','g','y','b','m','c']
+        codes = ['31m','32m','33m','34m','35m','36m']
+        i = int(round((rand()*len(codes))))
+        start = CSI+codes[i]
     #
     end = CSI+'m'
     return start+txt+end
