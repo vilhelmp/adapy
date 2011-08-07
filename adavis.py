@@ -36,11 +36,14 @@ Needs : scipy (and numpy), mpfit.py (optional), congridding.py (optional)
 ######################################################
     for the main funcitons that is
 
-TODO : Function to bin in spatial (2D) regime (congrid map), change ra/dec_delt etc
 
-TODO : P-V diagram - rotatable
+TODO : P-V diagram - rotatable 
+       what happens with the coordinates? 
+       need to calc an offset, but call them x and y or something
 
-TODO : Moment 2 maps - with MPFIT Gaussian fitting
+TODO : RMS units, e.g. when using SD data, Kelvin instead of Jy...
+
+TODO : Moment 2 maps - with MPFIT Gaussian fitting (check Jes mom2 IDL function)
 
 TODO : Calculate common stuff in a function, use in moment 0/1/2 maps
 
@@ -51,12 +54,17 @@ TODO : Clean up code again, remove font handler, or inactivate it
 TODO : Tick locators are good for small regions/narrow spectra, but not for big/wide
         -Perhaps change it with the 'box' keyword
 
-TODO : Separate the loadcube function, so that one can work with data
-       objects instead of a function that allways reads the file
-
-TODO : obj_dict -> source
+TODO : obj_dict -> source, for all functions
 
 TODO : when supplying source=dict(vsys=X) the DataObject velarr is changed, not good
+        check this for all function, so that it does not happens
+
+TODO : change to handle **kwargs
+
+TODO : Function to bin in spatial (2D) regime (congrid map), change ra/dec_delt etc
+
+TODO : splatsearch in plot_spectra
+       integrate the splatsearch function in adavis.py?
 
 Lastly:
 - Check Jes functions how they work and try to merge/replace them.
@@ -64,6 +72,25 @@ Lastly:
 - implement it as command line program
 
 """
+
+# define true fig_size
+#
+# 255.76535 pt column width equals 88 mm (from aa.doc.pdf section 3.4)
+# one inch in mm = 25.4 mm/inch
+#one_col_fig_width_pt = 249.448819
+one_col_fig_width_mm = 88
+two_col_fig_width_mm = 180
+side_caption_fig_width_mm = 120
+inches_per_pt = 1.0/72.27               # Convert pt to inches
+inches_per_mm = 1/25.4                    # Convert mm to inches
+golden_mean = (5**0.5-1.0)/2.0         # Aesthetic ratio
+one_col_fig_width = one_col_fig_width_mm*inches_per_mm  # width in inches roughly = 3.54
+one_col_fig_height = one_col_fig_width*golden_mean       # height in inches
+two_col_fig_width = two_col_fig_width_mm*inches_per_mm
+side_caption_fig_width = side_caption_fig_width_mm*inches_per_mm
+fig_size = [one_col_fig_width,one_col_fig_height]
+
+
 
 ###########################################
 # ERRORS
@@ -1024,9 +1051,9 @@ def gauss2d_decon ((bmaj1, bmin1, theta1, bmaj2, bmin2, theta2), ang='rad'):
     # send back the results
     return (bmaj, bmin, bpa, success)
 #
-def set_rc(font={'family':'sans-serif', 'sans-serif': ['Arial', 'Helvetica'],
-        'size':22, 'weight':'bold'},
-        quality=[150, 72]):
+def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
+        'size':8},
+        quality=[300, 300]):
 
     from matplotlib import rc
     ################################
@@ -1039,12 +1066,13 @@ def set_rc(font={'family':'sans-serif', 'sans-serif': ['Arial', 'Helvetica'],
     #to set the global font properties
     rc('font', **font)
     # ticksize
-    rc('xtick',**{'minor.size':3, 'major.size':7})
-    rc('ytick',**{'minor.size':3, 'major.size':7})
+    #rc('xtick',**{'minor.size':3, 'major.size':7})
+    #rc('ytick',**{'minor.size':3, 'major.size':7})
 
     # linewidths
-    rc('axes', linewidth=2)
-    rc('lines', linewidth=1.5, markeredgewidth=1)
+    rc('axes', linewidth=1)
+    rc('patch', linewidth=1)
+    rc('lines', linewidth=1, markeredgewidth=1)
 #
 def parse_tick_font (font):
     """
@@ -1463,6 +1491,8 @@ def plot_spectrum (self,
                     # change x1,x2,y1,y2 to quarter region (line 2350)
                     # change so that when binning, the rms i calculated
             Remove the most weird font-settings
+            
+    TODO : RMS units, e.g. when using SD data, Kelvin instead of Jy...
     """
     # imports
     #import scipy as sp
@@ -1488,7 +1518,7 @@ def plot_spectrum (self,
     ################################
     # the following set the ticklabel format string
     data_fmt = '%g'         # for normal y and x axis
-    freq_data_fmt = '%5.5f' # for the frequency array
+    freq_data_fmt = '%5.2f' # for the frequency array
     label_X = parse_tick_font(font)
     tick_label_formatter = FormatStrFormatter(label_X.replace('X',data_fmt))
     freq_label_formatter = FormatStrFormatter(label_X.replace('X',freq_data_fmt))
@@ -1513,9 +1543,9 @@ def plot_spectrum (self,
     #data.freqarr = calc_frequency(data.velarr,data.restfreq)
     #
     # parse the region parameter
-    print region
+    #print region
     x1,x2,y1,y2 = parse_region(data, region)
-    print x1,x2,y1,y2
+    #print x1,x2,y1,y2
     # now start the plotting
     ###################################
     #      extract the spectra        #
@@ -1600,9 +1630,9 @@ def plot_spectrum (self,
     rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
     #to set the global font properties
     rc('font', **font)
-    rc('axes',linewidth=0.3)
-    rc('lines', linewidth=0.3, markeredgewidth=0.5)
-    rc('patch',linewidth=0.3)
+    rc('axes',linewidth=1)
+    rc('lines', linewidth=0.5, markeredgewidth=0.8)
+    rc('patch',linewidth=0.5)
     # ticksize
     rc('xtick',**{'minor.size':2, 'major.size':4, 'major.pad': 3})
     rc('ytick',**{'minor.size':2, 'major.size':4, 'major.pad': 1})
@@ -1782,7 +1812,7 @@ def plot_spectrum (self,
         line_widths = array(line_widths)
         print 20*'- '
         print u'Mean FWHM : %2.1f \u00b1%2.2f km\u00b7s\u207b\u00b9' % (line_widths.mean(),line_widths.std())
-        if send:
+        if send: # does this clause do anything? sending this way earlier...
             j = 1
             f = []
             for i in arange(1,len(params),3):
@@ -1790,7 +1820,7 @@ def plot_spectrum (self,
                 f.append(nu)
                 print '%3.9f' % nu
                 j+=1
-        # draw the fit into the figure
+        # draw the fit(s) into the figure
         # X is the velocity array
         # xarr has more 3 times more datapoints than velocity array
         # the plotted lines looks smoother and nicer that way
@@ -1801,37 +1831,50 @@ def plot_spectrum (self,
             ax_kms.plot(xarr[channels], gauss1d(xarr[channels],params[i:i+3]))
         ax_kms.plot(xarr, gauss1d(xarr,params), color='0.2', lw=1, alpha=0.6)
         #
-        # TODO : define a new "lines" list that is accepted in the if 
-        #        loop after this
-        # Just get the name and frequency of the line
-        # remember to sort out the ones with no freq (and one hit per freq)
-        #
-        # what if results only contain ONE (1) hit, not an iterator huh
         if kwargs.has_key('lineid'):
+            # later when the kwargs is implemented...
+            # checks that we have done a fit first
+            #if not kwargs['linefit']:
+            #    print 'If you want lineid you need linefit'
+            #    raise ParError(kwargs['lineid'], kwargs['linefit'])
             import splatsearch as spl
             print 'Trying to indentify candidates for the fitted lines.'
-            list_of_names = []
+            frequency_pairs = []
+            for i in arange(0,len(params),3):
+                vel_lower, vel_upper = (params[i+1] + array([-1,1])*fwhm*1.3)
+                # frequency increases when velocity decreases...
+                freq_lower = calc_frequency(vel_upper,data.restfreq/1e9)
+                freq_upper = calc_frequency(vel_lower,data.restfreq/1e9)
+                frequency_pairs.append([freq_lower,freq_upper])
+            list_of_species = []
             list_of_frequencies = []
             number = 1
-            for f in frequencies:
-                df=5e-3 # range to find line
-                print 'Line number %d' % number
-                print 'Frequency : %f  GHz (+/-%f MHz)' % (f,df*1e3)
-                result = spl.splatsearch(freq=float(f), dfreq=df, send=1, display=1)
-                if result!=None:
-                    name, freq = result[1],result[3]
+            for i in arange(len(frequency_pairs)):
+                df=8e-3 # range to find line
+                CSI = "\x1b["
+                start =CSI+'1m'+CSI+'32m'+CSI+'40m'
+                end = CSI+'m'
+                print '\n'+start+'Line number : '+str(number)+'\t\t\t\t'+end
+                print 'Frequency : %f  GHz' % (frequencies[i])
+                result = spl.splatsearch(freq=frequency_pairs[i], send=1, display=1, linelist=['jpl','cdms'], e_to=500)
+                if result!=None:  
+                    species, freq = result[1],result[3]
                     for i in arange(len(freq)):
-                        if str(freq[i])!='nan':
-                            if i>0 and freq[i]!=freq[i-1]: # remove duplicates
-                                list_of_names.append(name[i])
-                                list_of_frequencies.append(freq[i])
-                            elif i==0:
-                                list_of_names.append(name[i])
-                                list_of_frequencies.append(freq[i])
+                        list_of_species.append(species[i])
+                        list_of_frequencies.append(freq[i])
+                    #~ for i in arange(len(freq)):
+                        #~ if i>0 and freq[i]!=freq[i-1]: # remove duplicates
+                            #~ list_of_species.append(species[i])
+                            #~ list_of_frequencies.append(freq[i])
+                        #~ elif i==0:
+                            #~ list_of_species.append(species[i])
+                            #~ list_of_frequencies.append(freq[i])
+                        #~ else:
+                            #~ pass
                 
                 number+=1
             # done now define the linelist
-            lines=[list_of_names,list_of_frequencies]
+            lines=[list_of_species,list_of_frequencies]
     #
     if lines!=[]:
         print u'Marking the lines, using %2.2f km\u00b7s\u207b\u00b9' % obj_dict['vsys']
@@ -1860,7 +1903,8 @@ def plot_spectrum (self,
             no_dbl = len(where(array(v)[0:j].round(0) == round(v[j],0))[0])
             put_line_indicator(ax_kms, velocity, spect, v[j], lines[i],lc=colors[x], offset=no_dbl, text_color=colors[x])
             #put_line_indicator(ax_kms, velocity, spect, v[j], lines[i],lc='k', offset=no_dbl)
-            print u'Line %1d : %2.2f\t km\u00b7s\u207b\u00b9 (%2.3f)' % (j+1,v[j],v[j]+obj_dict['vsys'])
+            # verbose output
+            #print u'Line %1d : %2.2f\t km\u00b7s\u207b\u00b9 (%2.3f)' % (j+1,v[j],v[j]+obj_dict['vsys'])
             x+=1
     #
     ax_kms.set_xlim(xmin,xmax)
@@ -1896,7 +1940,8 @@ def plot_spectrum (self,
         x_1, x_2 = ax_kms.get_xlim()
         # i want the frequency in GHz so, divide by 1e9
         ax_hz.set_xlim(calc_frequency(x_1,data.restfreq/1e9), calc_frequency(x_2,data.restfreq/1e9))
-        pl_top -= 0.2
+        pl_top -= 0.1
+        pl.xticks(rotation=40,horizontalalignment ='left')
     #
     #elif lines!=[] and obj_par['vsys']==0:
     #    print('please, input a vsys!=0')
@@ -1934,7 +1979,7 @@ def plot_moment0 (self,
                 fit = dict(gauss = None, params = None, continuum = False,
                 interactive = False),
                 send=False,
-                quality=[150, 72],
+                quality=[300, 300],
                 cbar=True,
                 colormap=True,
                 plot_adjust= [0.12, 0.01, 0.74, 0.99],
@@ -3883,9 +3928,9 @@ def plot_chmap (self,
     rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
     #to set the global font properties
     rc('font', **font)
-    rc('axes',linewidth=0.5)
+    rc('axes',linewidth=0.7)
     rc('patch', linewidth=0.5)
-    rc('lines', linewidth=0.3, markeredgewidth=0.5)
+    rc('lines', linewidth=0.3, markeredgewidth=0.6)
     rc('font', family='serif', serif='Times New Roman', size=8)
     rc('text', usetex=True)  
     # ticksize
@@ -3946,16 +3991,22 @@ def plot_chmap (self,
         grid[i].yaxis.set_major_locator(majorLocator)
         grid[i].yaxis.set_minor_locator(minorLocator)
 
-
         draw_fov(grid[i].axes, linedata)
-        #~ if i in [0,1,2]:
-            #~ print_vel(grid[i].axes, i,fc='#FFAAAA')
-        #~ elif i in [12,13,14]:
-            #~ print_vel(grid[i].axes, i,fc='0.8')
-        #~ else:
-        print_vel(grid[i].axes, i)
-    #~ fig.text(0.95,0.14,r'SO$_2$', rotation=90)
-    #~ fig.text(0.95,0.86,r'H$_2^{18}$O', rotation=90)
+        if i in [0,1,2]:
+            print_vel(grid[i].axes, i,fc='#FFAAAA')
+        elif i in [12,13,14]:
+            print_vel(grid[i].axes, i,fc='0.8')
+        else:
+            print_vel(grid[i].axes, i)
+    fig.text(0.95,0.14,r'SO$_2$', rotation=90)
+    fig.text(0.95,0.86,r'H$_2^{18}$O', rotation=90)
+    
+    grid[2].plot([21,-2], [-1.8,-1.3],'-', color='#FFAAAA', lw=3, alpha=0.7 ,clip_on=False)
+    #grid[2].plot([21,-2], [-1.8-1.7,-1.3-1.7],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    grid[8].plot([21,-2], [-3.76,-2.53],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    grid[11].plot([21,-2], [-2.16,-0.93],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    grid[14].plot([21,-2], [-0.56,0.67],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    #grid[12].axhline(y=-2.64, xmin=0.1, xmax=1.4 ,clip_on=False )
     
     draw_beam(grid[0].axes, linedata, box=1)
     
@@ -3969,10 +4020,11 @@ def plot_chmap (self,
     grid.axes_llc.set_xlim(x1,x2)
     grid.axes_llc.set_ylim(y1,y2)
 
-    fig.text(0.5,0.02,r'RA offset ($^{\prime\prime}$)', ha='center',va='center')
-    fig.text(0.05,0.5,r'Dec offset ($^{\prime\prime}$)', rotation='vertical', va='center', ha='center')
+    fig.text(0.53,0.02,r'RA offset ($^{\prime\prime}$)', ha='center',va='center')
+    fig.text(0.03,0.53,r'Dec offset ($^{\prime\prime}$)', rotation='vertical', va='center', ha='center')
     #fig.suptitle(linedata.obj)
     #pl.show()
+
     """
     from showmoment the 3range procedure.
     Use this to correct the binning!
@@ -4150,6 +4202,12 @@ if __name__ == '__main__':
     def convert_to_list(a):
         return [float(x) for x in (a).split(',')]
     #
+    #
+    # create a dictionary!
+    # have to change the functions, to handle **kwargs first
+    # the everything except infile and type of plotting function can be **kwargs
+    #
+    
     if options.v != None:
         v = convert_to_list(options.v)
     else:

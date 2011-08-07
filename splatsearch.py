@@ -94,22 +94,35 @@ def splatsearch(**kwargs):
                 type : string
                 example transition = '1-0'
         
+        OUTPUT
+        Display output
+        Frequency
+        
+        
+        
+        
+        freq measured if exist otherwise computed
         
     """
     arg = kwargs
     #
     if arg.has_key('display'):
         if arg['display'] == 1:
-            text_splat_colors = [colorify(i,c='rand') for i in 'SPLATSEARCH']
-            text_splat_colors = ''.join(text_splat_colors)
-            print "\n    "+"*"*40
-            print "    *"+" "*38+"*"
-            print "    *\t           "+text_splat_colors+"             *"
-            print "    *\t  Splatalogue.net search script    *"
-            print "    *\t    Magnus Vilhelm Persson         *"
-            print "    *\t        magnusp@nbi.dk             *"
-            print "    *"+" "*38+"*"
-            print "    "+"*"*40+"\n"    
+            def print_greeting():
+                text_splat_colors = [colorify(i,c='rand') for i in 'SPLATSEARCH']
+                text_splat_colors = ''.join(text_splat_colors)
+                print "\n    "+"*"*40
+                print "    *"+" "*38+"*"
+                print "    *\t           "+text_splat_colors+"             *"
+                print "    *\t  Splatalogue.net search script    *"
+                print "    *\t    Magnus Vilhelm Persson         *"
+                print "    *\t        magnusp@nbi.dk             *"
+                print "    *"+" "*38+"*"
+                print "    "+"*"*40+"\n"
+            if not arg.has_key('send'):
+                print_greeting()
+            elif arg.has_key('send') and not arg['send']:
+                print_greeting()
     ### import dependencies
     try:
         from urllib2 import urlopen
@@ -132,7 +145,7 @@ def splatsearch(**kwargs):
     response.close()
     form = forms[0]
     
-    if arg.has_key('dbg_snd_form'):
+    if arg.has_key('dbg_snd_form'): # for test purposes
         return form
     ####################################################################
     ####                                                            ####
@@ -142,6 +155,44 @@ def splatsearch(**kwargs):
     #
     #### FREQUENCY
     #
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    #
+    #
+    #
+    #           No frequency given, what then?
+    #           a looooot of hits then, perhaps pause and ask to continue??
+    #
+    #
+    #
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    print len(arg.keys()) != 0
     if arg.has_key('freq'):
         if type(arg['freq']) == type([1,2]):
             if len(arg['freq']) == 1:
@@ -166,6 +217,9 @@ def splatsearch(**kwargs):
     elif not arg.has_key('freq') and arg.has_key('dfreq'):
         print 'Only delta-frequency (dfreq) given, no frequency to look for'
         raise ParError('freq=None and dfreq='+str(arg['dfreq']))
+    elif not arg.has_key('freq') and not arg.has_key('dfreq') and len(arg.keys()) != 0:
+        f1 = ''
+        f2 = ''
     else: 
         # if no frequency is given, just run example
         # this is not visible when running from outside python
@@ -187,7 +241,7 @@ def splatsearch(**kwargs):
     #
     #### MOLECULAR SPECIES
     #
-    #get species molecular number, ordered by mass
+    #Get species molecular number, ordered by mass
     # TODO : perhaps be able to search in this one
     #        either by mass or by species, text of chem formula
     # TODO : after getting it, should sort the list of dictionaries
@@ -271,11 +325,6 @@ def splatsearch(**kwargs):
         form['tran'] = str(arg['transition'])
     #
     ### Line Intensity Lower Limits
-    #
-    #<RadioControl(lill=[on, on, on])>          # only one can be on
-    #<TextControl(lill_cdms_jpl=) (disabled)>   # enter energy limit (log)
-    #<TextControl(lill_sijmu2=) (disabled)>     # debye**2
-    #<TextControl(lill_aij=) (disabled)>        # log
     if arg.has_key('lill'):
         if lower(arg['lill'][1]) == 'cdms_jpl':
             form.find_control('lill_cdms_jpl').disabled = False
@@ -313,14 +362,17 @@ def splatsearch(**kwargs):
     ####                                                            ####
     ####################################################################
     print colorify('** SEARCH PARAMETERS **',c='b')
-    print colorify('Frequency range : ',c='g')+str(f1)+' - '+str(f2)
-    print colorify('Frequency unit \t: ',c='g')+arg['funit']
+    if arg.has_key('freq'):
+        print colorify('Frequency range : ',c='g')+str(f1)+' - '+str(f2)
+        print colorify('Frequency unit \t: ',c='g')+arg['funit']
+    else:
+        print 'No frequency range specified'
     print colorify('Line list(s) \t:\n',c='g')+', '.join(arg['linelist'])
     if arg.has_key('e_from') or arg.has_key('e_to'):
         if arg.has_key('e_from') and not arg.has_key('e_to'):
-            print colorify('Energy range \t:',c='g')+'from '+str(arg['e_from'])+'( Type : %s)' % str([arg['e_type'],'yes'][e_type_default])
+            print colorify('Energy range \t:',c='g')+'from '+str(arg['e_from'])+'( Type : %s)' % str([arg['e_type'],'def (EU(K))'][e_type_default])
         elif not arg.has_key('e_from') and arg.has_key('e_to'):
-            print colorify('Energy range \t:',c='g')+'to '+str(arg['e_to'])+'( Type : %s)' % str([arg['e_type'],'yes'][e_type_default])
+            print colorify('Energy range \t:',c='g')+'to '+str(arg['e_to'])+'( Type : %s)' % str([arg['e_type'],'def (EU(K))'][e_type_default])
         else:
             #print colorify('Energy range \t:',c='g')+upper(arg['e_type'][:2])+' from '+str(arg['e_from'])+' to '+str(arg['e_to'])+' 'upper(arg['e_type'][3:])+'( Type : %s)' % str([arg['e_type'],'yes'][e_type_default])
             print colorify('Energy range \t:',c='g')+' %s from %s to %s %s (Type : %s)' % (upper(arg['e_type'][:2]),str(arg['e_from']),str(arg['e_to']),upper(arg['e_type'][3:]), str([arg['e_type'],'yes'][e_type_default]))
@@ -390,6 +442,24 @@ def splatsearch(**kwargs):
     cfreq = array(cfreq, dtype='float')
     mfreqerr = array(mfreqerr, dtype='float')
     mfreq = array(mfreq, dtype='float')
+    # create global frequency array, and a 
+    # array telling if it is measured or computed
+    # empty arrays
+    from scipy import zeros
+    freq = zeros(cfreq.shape)
+    freqerr  = zeros(cfreqerr.shape)
+    freqtype = []
+    # use measured frequency if exists
+    # otherwise use computed
+    for i in arange(hits):
+        if str(mfreq[i]) == 'nan':
+            freq[i] = cfreq[i]
+            freqerr[i] = cfreqerr[i]
+            freqtype.append('C')
+        else:
+            freq[i] = mfreq[i]
+            freqerr[i] = mfreqerr[i]
+            freqtype.append('M')
     N = arange(hits)+1
     ####################################################################
     ####                                                            ####
@@ -399,17 +469,19 @@ def splatsearch(**kwargs):
     if arg.has_key('display') and arg['display']:
         print colorify('** RESULTS **',c='b')
         print 'Got %s hits!' % colorify(str(hits),c='r')
-        print '{0:2} {1:15}\t{2:10}\t{3:9}\t{4:6} '.format('N', 'Form', \
-        'Freq', 'FErr', 'List')
-        for i in arange(len(N)):
-            print '{0:2} {1:15}\t{2:10}\t{3:9}\t{4:6} '.format(N[i], \
-            species[i], cfreq[i], cfreqerr[i], llist[i])
+        print '{0:2} {1:13}\t{2:10}\t{3:9}\t{4:10}\t{5:3}\t{6:6}'.format('N', 'Form', \
+        'Freq', 'Smu^2', 'EU(K)','C/M', 'List')
+        for i in arange(hits):
+            print '{0:2} {1:13}\t{2:10}\t{3:9}\t{4:10}\t{5:3}\t{6:6} '.format(N[i], \
+            species[i], freq[i], Smu2[i], EUK[i], freqtype[i], llist[i])
     if arg.has_key('send'):
         if arg['send']=='dict':
             # TODO : change the output dictionary keys, a bit complicated now
             return {'N': N, 'Chem. Species': species, 'Chem. Name': name, \
             'Comp. Freq': cfreq,'Comp.Freq Err': cfreqerr, \
             'Meas. Freq': mfreq, 'Meas.Freq Err': mfreqerr,  \
+            'Freq': freq, 'Freq Err': freqerr,  \
+            'FreqType': freqtype, \
             'Res. QNr': res_qns,  'URes. QNr': ures_qns, \
             'CDMS/JPL I': cdmsjpl_I, 'Smu2': Smu2, 'Sij': Sij, \
             'log10Aij': log10Aij, 'Lovas/AST I': lovasAST_I, \
@@ -426,7 +498,7 @@ def splatsearch(**kwargs):
              CDMS/JPL Intensity\n Smu**2\n Sij\n log10(Aij)\n Lovas/AST Intensity'
                 elif arg['silent']:
                     pass
-            return N, species, name, cfreq, cfreqerr, mfreq, mfreqerr, res_qns, ures_qns, cdmsjpl_I, \
+            return N, species, name, freq, freqerr, freqtype, cfreq, cfreqerr, mfreq, mfreqerr, res_qns, ures_qns, cdmsjpl_I, \
             Smu2, Sij, log10Aij, lovasAST_I, ELcm, ELK, EUcm, EUK, u_degen, \
             mol_tag, QNr, llist
     else:
@@ -517,35 +589,112 @@ if __name__ == '__main__':
     # module is executed from the command line
     # (not when importing the code by an import statement)
     # wee hooo...
-    from optparse import OptionParser as op
+    try:
+        from optparse import OptionParser as op
+    except (ImportError):
+        print colorify('ImportError',c='r')+' Make sure you have optparse installed.'
+    
+    from sys import exit as sysexit
     
     #version
-    ver = 1.0
+    ver = '1.0beta'
     
-    desc="""Search the splatalogue compilation"""
-    usage = "usage: %prog [options]"
-    epilog = """usage: %prog [options]"""
+    desc="""Script to quickly search the splatalogue compilation                      
+    Magnus Vilhelm Persson                                                            
+    magnusp@nbi.dk""" 
+    usage = "Usage: %prog [options]" 
+    epilog = """----------------------------------------------------------------------------
+General information :                                                       
+
+The script uses the modules 'urllib2' and 'ClientForm' to fetch,
+fill in and submit the search form from Splatalogue.net. Then the
+results are parsed and displayed. This script can be imported into
+existing python code. After import the function has parameters to
+send the results to the user as lists or a dictionary for
+integration into line identification code, calculations etc.                        
+
+Complete dependency list:                                                   
+SciPy, urllib2, ClientForm                                        
+----------------------------------------------------------------------------"""
     
-    parser = op(usage=usage,description=desc,epilog=epilog, version="%prog " + str(ver))
+    parser = op(usage=usage, description=desc, epilog=epilog, version="%prog " + str(ver))
     
     # the options permitted
-    parser.add_option("-f", "--frequency", dest="f", help="frequency range given as f1,f2" , metavar="FREQUENCY")
-    #parser.add_option("-v", "--velocities", dest="v", help="between what velocities to plot", metavar="VELOCITIES")
-    #parser.add_option("-b", "--box", dest="b", help="zoom to a box X,Y size", metavar="BOX")
-    #parser.add_option("-l", "--list", action="store_true", dest="l", help="list the header", metavar="LIST")
-    #parser.add_option("-k", "--force", action="store_true", dest="k", help="force overwriting of keyword", metavar="FORCE")
+    parser.add_option("-f", \
+        dest="f", 
+        help="frequency range given as 'F1 F2', if -w flag given, F2 is the width around F1 to look for line. Mandatory." , 
+        metavar="<F1> <F2>",
+        nargs=2,
+        action="store")
+    parser.add_option("-w", 
+        dest="w", 
+        help="is the f2 parameter (given in -f) the frequency width?",
+        default=False,
+        action="store_true")
+    parser.add_option("-u", 
+        dest="u",
+        metavar="<UNIT>",
+        help="frequency unit, GHz or MHz.",
+        action="store")
+    parser.add_option("-l", 
+        dest="l", 
+        metavar="<LIST1>,<LIST2>,...",
+        help="molecular line list database(s) to search. \
+        possible values : Lovas, SLAIM, JPL, CDMS, ToyaMA, OSU, Recomb, Lisa, RFI.",
+        action="store")
+    parser.add_option("-e", 
+        dest="e", 
+        metavar="<FROM> <TO> <TYPE>",
+        nargs=3,
+        help="Energy range, given as 'from to type' where E_type is one of EL_cm1, EU_cm1, EL_K, EU_K.",
+        action="store")
+    parser.add_option("-t", 
+        dest="t",
+        metavar="<TRANSITION>",
+        help="Specify transition e.g. '1-0'.",
+        action="store")
+    parser.add_option("-i", 
+        dest="i", 
+        metavar="<LIMIT> <UNIT>",
+        nargs=2,
+        help="Line intensity lower limit, given as 'LIMIT UNIT' where UNIT is one of CDMS_JPL, Sijmu2, Aij",
+        action="store")
     
     # time to parse
-    (options, args) = parser.parse_args()
-
-    if options.f == None:
-        print 'No frequencies input, running example with (-f) f1,f2 = 203.406,203.408'
-        parser.print_usage()
-        f1 = str(203.406)
-        f2 = str(203.408)
+    (opts, args) = parser.parse_args()
+    
+    # create the search dictionary
+    params = {}
+    
+    # one mandatory argument
+    if opts.f == None:
+        print colorify('\nError :',c='r')+' No frequencies input.\n'
+        parser.print_help()
+        print ''
+        sysexit()
     else:
-        # the options
-        f1,f2 = [x for x in (options.f).split(',')]
-    # dont want to send anything back from the CLI
-    # only display results
-    splatsearch(freq=[f1,f2], display=1, send=0)
+        f1,f2 = opts.f
+        if opts.w:
+            params['freq'] = float(f1)
+            params['dfreq'] = float(f2)
+        elif not opts.w:
+            params['freq'] = [float(f1),float(f2)]
+    if opts.u != None:
+        params['funit'] = opts.u
+    if opts.l != None:
+        l = (opts.l).split(',')
+        params['linelist'] = list(l)
+    if opts.e != None:
+        params['e_from'] = float(opts.e[0])
+        params['e_to'] = float(opts.e[1])
+        params['e_type'] = opts.e[2]
+    if opts.t != None:
+        params['transition'] = opts.t
+    if opts.i != None:
+        params['lill'] = [float(opts.i[0]), opts.i[1]]
+    #
+    params['display'] = True
+    params['send'] = False
+    # search!
+    splatsearch(**params)
+    
