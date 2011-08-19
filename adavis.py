@@ -1415,28 +1415,28 @@ class DataObject:
 ###########################################
 # MAIN FUNCTIONS
 
-def plot_spectrum (self,
-                chvals=None,
-                nvals=None,
-                region=[0,0,0,0],
-                source = dict(vsys=0),
-                show_freq=False,
-                font={'family':'serif', 'serif': ['Times New Roman'],
-                'size':8},
-                bin=1,
-                bintype='mean',
-                linefit = dict(type=None, params=[(0.09, 7.3, 3.6)],
-                guess=False, interactive=False, fixlist=None, error=None,
-                limmin=None, minpar=None, limmax=None, maxpar=None, tie=None),
-                send=False,
-                quality=[300, 300],
-                plot_adjust= [0.15, 0.17, 0.98, 0.95],
-                lines = [],
-                axspace = [1.01, 1.01, 1.01, 1.05],
-                ylimits=None,
-                telescope=None,
-                fsize=(3.,2.),
-                **kwargs):
+def plot_spectrum (self,**kwargs):
+                #~ chvals=None,
+                #~ nvals=None,
+                #~ region=[0,0,0,0],
+                #~ source = dict(vsys=0),
+                #~ show_freq=False,
+                #~ font={'family':'serif', 'serif': ['Times New Roman'],
+                #~ 'size':8},
+                #~ bin=1,
+                #~ bintype='mean',
+                #~ linefit = dict(type=None, params=[(0.09, 7.3, 3.6)],
+                #~ guess=False, interactive=False, fixlist=None, error=None,
+                #~ limmin=None, minpar=None, limmax=None, maxpar=None, tie=None),
+                #~ send=False,
+                #~ quality=[300, 300],
+                #~ plot_adjust= [0.15, 0.17, 0.98, 0.95],
+                #~ lines = [],
+                #~ axspace = [1.01, 1.01, 1.01, 1.05],
+                #~ ylimits=None,
+                #~ telescope=None,
+                #~ fsize=(3.,2.),
+                #~ **kwargs):
     """
     Function documentation
 
@@ -1483,6 +1483,29 @@ def plot_spectrum (self,
     axspace = []
 
 
+    TODO : take care of these parameters
+                chvals=None,
+                nvals=None,
+                region=[0,0,0,0],
+                source = dict(vsys=0),
+                show_freq=False,
+                font={'family':'serif', 'serif': ['Times New Roman'],
+                'size':8},
+                bin=1,
+                bintype='mean',
+                linefit = dict(type=None, params=[(0.09, 7.3, 3.6)],
+                guess=False, interactive=False, fixlist=None, error=None,
+                limmin=None, minpar=None, limmax=None, maxpar=None, tie=None),
+                send=False,
+                quality=[300, 300],
+                plot_adjust= [0.15, 0.17, 0.98, 0.95],
+                lines = [],
+                axspace = [1.01, 1.01, 1.01, 1.05],
+                ylimits=None,
+                telescope=None,
+                fsize=(3.,2.),
+
+
 
     TODO : What is the RMS when binning and giving a area_region>1?
                     # RMS is not accounting for binning in vel. axis
@@ -1494,12 +1517,15 @@ def plot_spectrum (self,
             
     TODO : RMS units, e.g. when using SD data, Kelvin instead of Jy...
     """
+    arg = kwargs
+    
     # imports
     #import scipy as sp
     print 'importing...'
     from scipy import array, where, median, std, sign, arange, alen, vstack, \
                     concatenate, sqrt, log10, exp, log, ceil, floor, diff, \
                     flipud, pi, nan
+    from string import lower
     import matplotlib.pyplot as pl
     from mpl_toolkits.axes_grid import AxesGrid
     #from matplotlib.patches import Circle
@@ -1517,35 +1543,59 @@ def plot_spectrum (self,
     # setting the tick label font  #
     ################################
     # the following set the ticklabel format string
+    plot_adjust= [0.15, 0.17, 0.98, 0.95]
+    region=[0,0,0,0]
+    data = self
+    send=False
+    quality = [300, 300]
+    fsize=(3.,2.)
+    axspace = [1.01, 1.01, 1.01, 1.05]
+    show_freq=False
+    nvals=kwargs['nvals']
+    bin = 1
+    linefit = kwargs['linefit']
+    chvals = None
+    obj_dict = kwargs['source']
+    source = kwargs['source']
+    lines = []
+    ylimits = None
+    
+
+    # formatting
     data_fmt = '%g'         # for normal y and x axis
     freq_data_fmt = '%5.2f' # for the frequency array
-    label_X = parse_tick_font(font)
+    if kwargs.has_key('font'):
+        label_X = parse_tick_font(font)
+    elif not kwargs.has_key('font'):
+        # set standard font family, type and size, if none given
+        label_X = parse_tick_font({'family':'serif', 'serif': ['Times New Roman'], 'size':8})
     tick_label_formatter = FormatStrFormatter(label_X.replace('X',data_fmt))
     freq_label_formatter = FormatStrFormatter(label_X.replace('X',freq_data_fmt))
     #rc('mathtext',**{'rm':'sans\\-serif'})
-    #
-    # just rename it...
-    obj_dict= source
+
     
     # set the subplot_adjust parameters, if not given a standard set will
     # be used
     pl_left, pl_bottom, pl_right,pl_top = plot_adjust
     # save the channel values (in velocity)
-    if chvals!=None:
-        v1, v2 = chvals
-    ###################################
-    #          Load the data          #
-    ###################################
-    #data = loadcube(filename,telescope)
-    data = self
-    
-    velocity = data.velarr - obj_dict['vsys'] #now all the velocities are based on the LSR
+    if arg.has_key('chvals'):
+        v1, v2 = arg['chvals']
+    if arg.has_key('source'):
+        velocity = self.velarr - arg['source']['vsys'] #now all the velocities are based on the LSR
+    else:
+        velocity = self.velarr
+    velocity_delta = self.vcdeltkms
     #data.freqarr = calc_frequency(data.velarr,data.restfreq)
     #
     # parse the region parameter
-    #print region
-    x1,x2,y1,y2 = parse_region(data, region)
-    #print x1,x2,y1,y2
+    # does it exist?
+    if arg.has_key('region'):
+        pass
+    elif not arg.has_key('region'):
+        arg['region'] = [0,0,0,0]
+    # now parse the region keyword
+    x1,x2,y1,y2 = parse_region(self, region)
+    #
     # now start the plotting
     ###################################
     #      extract the spectra        #
@@ -1554,44 +1604,43 @@ def plot_spectrum (self,
     Extracting spectra, the region keyword gives the region to sum over.
     BUT we have to devide by that area to get back to the correct units(?).
     """
-    area_region = ((y2-y1)*(x2-x1))
-    if data.datatype[0] != 'SDSPECT':
-        spect = (data.d[:,y1:y2,x1:x2].sum(axis=1).sum(axis=1))/float(area_region)
+    if self.datatype[0] != 'SDSPECT':
+        area_region = ((y2-y1)*(x2-x1))
+        spect = (self.d[:,y1:y2,x1:x2].sum(axis=1).sum(axis=1))/float(area_region)
     elif data.datatype[0] == 'SDSPECT':
-        print "SD-SPECTRUM - area keyword not doing anything"
+        area_region = 1
+        print colorify("SD-SPECTRUM - region keyword not doing anything.",c='r')
         spect = data.d
     ####################################
     #          binning of data         #
     ####################################
-    if bin>1 and bintype=='resample':
-        from congridding import congrid
-        j = int(bin)
-
-        # congridding, proper resampling of data
-        #
-        spect = congrid(spect,(alen(spect)/bin,),centre=True,method='neighbour')
-        velocity = congrid(velocity,(alen(velocity)/j,))
-        #
-        velocity_delta = data.vcdeltkms*bin
-    elif bin>1 and bintype=='mean':
-        j = int(bin)
-        if alen(spect)%j!=0:
-            print 'bin has to be evenly devide the number of channels: %d' % alen(spect)
-            sysexit()
-        #  Old method - simple binning, just average
-        indices = arange(0,alen(spect),j)
-        spect = array([spect[x:x+j].sum(axis=0)/j for x in indices])
-        velocity = array([velocity[x:x+j].sum(axis=0)/j for x in indices])
-        #
-        velocity_delta = data.vcdeltkms*bin
-    elif bin==1:
-        velocity = velocity
-        velocity_delta = data.vcdeltkms
-    elif bin<1:
-        print colorify("\nERROR:\n Variable \"bin\" has to be 1 for no binning, or above 1 \n\
+    if arg.has_key('bin') and arg.has_key('bintype'):
+        # it has to be an integer, for now at least
+        arg['bin'] = int(arg['bin'])
+        if arg['bin'] == 1:
+            pass
+        elif lower(arg['bintype']) == 'resample':
+            from congridding import congrid
+            # congridding, proper resampling of data
+            #
+            spect = congrid(spect,(alen(spect)/arg['bin'],),centre=True,method='neighbour')
+            velocity = congrid(velocity,(alen(velocity)/arg['bin'],))
+            #
+            velocity_delta = data.vcdeltkms*arg['bin']
+        elif lower(arg['bintype']) == 'mean':
+            if alen(spect)%arg['bin']!=0:
+                print 'Bin has to be evenly devide the number of channels: %d' % alen(spect)
+                sysexit()
+            #  Old method - simple binning, just average
+            indices = arange(0,alen(spect),arg['bin'])
+            spect = array([spect[x:x+j].sum(axis=0)/arg['bin'] for x in indices])
+            velocity = array([velocity[x:x+j].sum(axis=0)/arg['bin'] for x in indices])
+            #
+            velocity_delta = self.vcdeltkms*bin
+        elif arg['bin'] == 0:
+            print colorify("\nERROR:\n Variable \"bin\" has to be 1 for no binning, or above 1 \n\
             for the number of channels to bin")
-    # print out information about the binning
-    if bin>1:
+        # print out information about the binning
         print '='*40
         print ' '*11,"Binning of data\n"
         print "No channels to bin : %d" % bin
@@ -1600,7 +1649,9 @@ def plot_spectrum (self,
             print 'Type of binning : Simple mean over selected no. bin channels'
         elif bintype=='resample':
             print 'Type of binning : Resampling - 1D interpolation'
-    #
+    ####################################
+    #            return data           #
+    ####################################
     if send:
         if nvals!=None and linefit['type']!=None: # send everything!
             txt = '\n sending you spectra, velarr, data, noise-spectra'
@@ -1618,10 +1669,31 @@ def plot_spectrum (self,
             txt =  '\n sending you spectra, velarr, data'
             print colorify(txt,c='g')
             return spect, velocity, data
-    #
-    # From here on the velocity array is 'velocity'
-    # and the vcdelt is 'velocity_delta'
-    #
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    #print 'HERE!'
+
+
+
+
+
+
+
+    # use set_rc here!
+
+
     ################################
     # setting global rc properties #
     ################################
@@ -1973,11 +2045,11 @@ def plot_moment0 (self,
                 box=[0,0],
                 nsig=3,
                 nsjump=2,
-                obj_dict = dict(vsys=0,),
+                source = dict(vsys=0,),
                 font={'family':'serif', 'serif': ['Times New Roman'],
                 'size':18},
                 fit = dict(gauss = None, params = None, continuum = False,
-                interactive = False),
+                    interactive = False),
                 send=False,
                 quality=[300, 300],
                 cbar=True,
@@ -2033,10 +2105,10 @@ def plot_moment0 (self,
     #~ linedata = loadcube(filename,telescope)
     linedata = self
     #
-    if not obj_dict.has_key('vsys'):
-        obj_dict['vsys'] = 0
+    if not source.has_key('vsys'):
+        source['vsys'] = 0
     # this will make it add vsys to the object everytime, not good!!
-    linedata.velarr = linedata.velarr - obj_dict['vsys'] #now all the velocities are based on the LSR
+    linedata.velarr = linedata.velarr - source['vsys'] #now all the velocities are based on the LSR
 
     # and the continuum data, if existent
     if cfile != None:
@@ -2050,7 +2122,7 @@ def plot_moment0 (self,
     # INTERACTIVE
     if nvals==None or chvals==None:
         # draw spectrum
-        plot_spectrum(filename,region=region, source= {'vsys': source['vsys']})
+        plot_spectrum(linedata,region=region, source= {'vsys': source['vsys']})
         #
         # if there is no channels supplied
         if chvals==None:

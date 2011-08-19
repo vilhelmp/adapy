@@ -17,8 +17,8 @@ TODO : solve the parsing, the removal of tags...
 
 TODO : get the export-to-file-form directly?
 
-TODO : add so that one can enter the wavelength in m,cm,m-1,cm-1
-        just translate to frequency
+TODO : add so that one can enter the wavelength/wavenumber in m, cm, m-1, cm-1
+        just translate to frequency after input
 
 TODO : figure out prettier printing of linelists... colors, web-adresses?
         so when linelists choose, print e.g.
@@ -27,7 +27,6 @@ TODO : figure out prettier printing of linelists... colors, web-adresses?
         CDMS        http://cologne.de/CDMS/whatever"
 
 TODO : Change dictionary key-names in return-dictionary
-
 """
 ###########################################
 # MAIN FUNCTION
@@ -132,8 +131,7 @@ def splatsearch(**kwargs):
         from ClientForm import ParseResponse
     except (ImportError):
         print 'You need the module \'ClientForm\' get it at http://wwwsearch.sourceforge.net/old/ClientForm/'
-        print 'If you instead have the \'mechanize\' module (http://wwwsearch.sourceforge.net/mechanize/)\
-        contact the programmer for implementation...'
+        print 'If you instead have the newer \'mechanize\' module (http://wwwsearch.sourceforge.net/mechanize/) contact the programmer for implementation...'
     
     #from BeautifulSoup import BeautifulSoup as bfs
     from scipy import array, where, nan, arange
@@ -156,17 +154,6 @@ def splatsearch(**kwargs):
     #### FREQUENCY
     #
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     #
     #
     #
@@ -184,15 +171,6 @@ def splatsearch(**kwargs):
     
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    print len(arg.keys()) != 0
     if arg.has_key('freq'):
         if type(arg['freq']) == type([1,2]):
             if len(arg['freq']) == 1:
@@ -200,7 +178,6 @@ def splatsearch(**kwargs):
             f1, f2 = arg['freq']
             form['from'] = str(f1)
             form['to'] = str(f2)
-            print 'Got frequency interval from %f to %f' % (f1, f2)
         elif type(arg['freq']) == type(1) or type(arg['freq']) == type(1.):
             if type(arg['freq']) == type(1):
                 arg['freq'] = float(arg['freq'])
@@ -218,6 +195,8 @@ def splatsearch(**kwargs):
         print 'Only delta-frequency (dfreq) given, no frequency to look for'
         raise ParError('freq=None and dfreq='+str(arg['dfreq']))
     elif not arg.has_key('freq') and not arg.has_key('dfreq') and len(arg.keys()) != 0:
+        # no frequency given, but other parameters
+        tmp = str(raw_input('No frequency limits given, continue? Press Enter to continue, Ctrl+C to abort.'))
         f1 = ''
         f2 = ''
     else: 
@@ -363,11 +342,11 @@ def splatsearch(**kwargs):
     ####################################################################
     print colorify('** SEARCH PARAMETERS **',c='b')
     if arg.has_key('freq'):
-        print colorify('Frequency range : ',c='g')+str(f1)+' - '+str(f2)
-        print colorify('Frequency unit \t: ',c='g')+arg['funit']
+        print colorify('Frequency range :',c='g')+' '+str(f1)+' - '+str(f2)
+        print colorify('Frequency unit \t:',c='g')+' '+arg['funit']
     else:
         print 'No frequency range specified'
-    print colorify('Line list(s) \t:\n',c='g')+', '.join(arg['linelist'])
+    print colorify('Line list(s) \t:',c='g')+' '+', '.join(arg['linelist'])
     if arg.has_key('e_from') or arg.has_key('e_to'):
         if arg.has_key('e_from') and not arg.has_key('e_to'):
             print colorify('Energy range \t:',c='g')+'from '+str(arg['e_from'])+'( Type : %s)' % str([arg['e_type'],'def (EU(K))'][e_type_default])
@@ -380,9 +359,12 @@ def splatsearch(**kwargs):
         if lower(arg['lill'][1]) == 'cdms_jpl':
             print colorify('Line lower lim \t:',c='g')+' 1E('+str(arg['lill'][0])+') - CDMS/JPL Intensity'
         elif lower(arg['lill'][1]) == 'sijmu2':
-            print colorify('Line lower lim \t:',c='g')+' '+str(arg['lill'][0])+'Debye^2 - Sij mu^2'
+            print colorify('Line lower lim \t:',c='g')+' '+str(arg['lill'][0])+' Debye^2 - Sijmu^2'
         elif lower(arg['lill'][1]) == 'aij':
             print colorify('Line lower lim \t:',c='g')+' 1E('+str(arg['lill'][0])+') - Aij'
+    if arg.has_key('transition'):
+        print colorify('Transition \t:',c='g')+' '+arg['transition']
+    #~ if arg.has_key(''):
     print ''
     
     ####################################################################
@@ -469,7 +451,7 @@ def splatsearch(**kwargs):
     if arg.has_key('display') and arg['display']:
         print colorify('** RESULTS **',c='b')
         print 'Got %s hits!' % colorify(str(hits),c='r')
-        print '{0:2} {1:13}\t{2:10}\t{3:9}\t{4:10}\t{5:3}\t{6:6}'.format('N', 'Form', \
+        print colorify('{0:2} {1:13}\t{2:10}\t{3:9}\t{4:10}\t{5:3}\t{6:6}',c='m').format('N', 'Form', \
         'Freq', 'Smu^2', 'EU(K)','C/M', 'List')
         for i in arange(hits):
             print '{0:2} {1:13}\t{2:10}\t{3:9}\t{4:10}\t{5:3}\t{6:6} '.format(N[i], \
