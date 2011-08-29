@@ -1,13 +1,27 @@
 #! /usr/bin/env python
 #
-# Simple script to search Splatalogue from cli
+#       Simple script to search Splatalogue from cli
 #
-# Magnus Vilhelm Persson 19.05.2011.
+#       Copyright 2011 Magnus Persson <magnusp@nbi.dk>
+#
+#       This program is free software; you can redistribute it and/or modify
+#       it under the terms of the GNU General Public License as published by
+#       the Free Software Foundation; either version 2 of the License, or
+#       (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#       ver. 1.0beta
+#
+#       Magnus Vilhelm Persson 19.05.2011.
 
 
 
 """
-Module with a function to  query Splatalogue.net
+Module with a function to query Splatalogue.net
 
 TODO : page output if it is long, i.e. input a pause and clear screen
 
@@ -15,13 +29,13 @@ TODO : control display-output more
 
 TODO : solve the parsing, the removal of tags...
 
-TODO : get the export-to-file-form directly?
+TODO : get the export-to-file directly from splatalogue?
 
 TODO : add so that one can enter the wavelength/wavenumber in m, cm, m-1, cm-1
         just translate to frequency after input
 
 TODO : figure out prettier printing of linelists... colors, web-adresses?
-        so when linelists choose, print e.g.
+        so when linelists choosen, print e.g.
         "Line lists choosen:
         JPL         http://jpl.nasa.gov/molecules/etc
         CDMS        http://cologne.de/CDMS/whatever"
@@ -40,7 +54,7 @@ def splatsearch(**kwargs):
     Usage:
         splatsearch(**kwargs)
         
-    Needs internet connection to work.
+    Needs internet connection to work (duh!).
     
     Keyword arguments (kwargs)
         
@@ -153,24 +167,12 @@ def splatsearch(**kwargs):
     #
     #### FREQUENCY
     #
-    
-    #
-    #
     #
     #           No frequency given, what then?
-    #           a looooot of hits then, perhaps pause and ask to continue??
+    #           a looooot of hits returned, perhaps pause and ask if user wants to continue??
     #
     #
     #
-    
-    
-    
-    
-    
-    
-    
-    
-    
     if arg.has_key('freq'):
         if type(arg['freq']) == type([1,2]):
             if len(arg['freq']) == 1:
@@ -225,6 +227,7 @@ def splatsearch(**kwargs):
     #        either by mass or by species, text of chem formula
     # TODO : after getting it, should sort the list of dictionaries
     #        clean it up a bit
+    # get the avaliable species from the form
     sel_species = [i.attrs for i in form.find_control('sid[]').items]
     #
     #### LINE LIST
@@ -472,7 +475,7 @@ def splatsearch(**kwargs):
             'Molecular Tag': mol_tag, 'Quantum Nr': QNr, \
             'Line List': llist}
         if arg['send'] == 'list' or arg['send']:
-            if arg.has_key('silen'):
+            if arg.has_key('silent'):
                 if not arg['silent']:
                     print 'Sending:\n\
              Number\n Chemical Species\n Chemical Name\n Computed Frequency\n Computed Frequency Error\n\
@@ -490,6 +493,7 @@ def get_mol_species():
     """Function to get the molecular species...
     only started...
     Best to take the list/dictionary as input (more like a matching function)?
+    Should return a structure compilant with the form input
     """
 
 

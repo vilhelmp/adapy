@@ -3,7 +3,7 @@
 #
 #       adavis.py
 #
-#       Copyright 2011 Magnus Persson <magnusp@snm.ku.dk>
+#       Copyright 2011 Magnus Persson <magnusp@nbi.dk>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -22,58 +22,65 @@
 #
 
 """
-Script with functions to perform different actions on
-our data.
+Script with functions to perform different actions on interferometric/SD
+radio fits cubes/arrays.
 
-Needs : scipy (and numpy), mpfit.py (optional), congridding.py (optional)
-
-
-
-######################################################
-#                                                    #
-#  move all suggestions to the respective function   #
-#                                                    #
-######################################################
-    for the main funcitons that is
-
+Needs : scipy (and numpy), 
+        mpfit.py (optional, for Gaussian fitting), 
+        congridding.py (optional, for regridding)
 
 TODO : P-V diagram - rotatable 
-       what happens with the coordinates? 
+       what happens with the coordinates?
        need to calc an offset, but call them x and y or something
 
-TODO : RMS units, e.g. when using SD data, Kelvin instead of Jy...
+TODO : RMS and other units, e.g. when using SD data, Kelvin instead of Jy.
 
 TODO : Moment 2 maps - with MPFIT Gaussian fitting (check Jes mom2 IDL function)
 
 TODO : Calculate common stuff in a function, use in moment 0/1/2 maps
+       Perhaps calculate and store in the object?
 
-TODO : What does the VELREF keyword in the header mean? check GILDAS 'fits' manual
+TODO : What does the VELREF keyword in the GILDAS fits header mean? 
+       Check GILDAS manual
 
 TODO : Clean up code again, remove font handler, or inactivate it
+       All fonts should be Times New Roman, to big of a hassle to change
+       to Sans-serif font, i.e. for the tick labels mostly.
 
 TODO : Tick locators are good for small regions/narrow spectra, but not for big/wide
-        -Perhaps change it with the 'box' keyword
+       Perhaps change it with the 'box' keyword.
+       Implemented a locator=[major,minor], this is perhaps better?
 
 TODO : obj_dict -> source, for all functions
+       Make this more unified, perhaps pass other info here, name etc?
 
-TODO : when supplying source=dict(vsys=X) the DataObject velarr is changed, not good
-        check this for all function, so that it does not happens
+TODO : When supplying source=dict(vsys=X) the DataObject velarr is changed, not good
+       Check this for all function, so that it does not happens.
+       The DataObject should be reusable, perhaps store vsys in DataObject?
 
-TODO : change to handle **kwargs
+TODO : Change to handle **kwargs and DataObject in all functions.
 
-TODO : Function to bin in spatial (2D) regime (congrid map), change ra/dec_delt etc
+(TODO : Function to bin in spatial (2D) regime (congrid map), change ra/dec_delt etc)
 
-TODO : splatsearch in plot_spectra
-       integrate the splatsearch function in adavis.py?
+TODO : Splatsearch in plot_spectra
+       Integrate the splatsearch function in adavis.py?
 
-Lastly:
-- Check Jes functions how they work and try to merge/replace them.
-- How to divide it into a runnable program
-- implement it as command line program
+TODO : Interactive splatsearch.
+
+TODO : Interactive multiple Gaussian fitting
+
+TODO : Check Jes functions how they work and try to merge/replace them.
+
+TODO : How to divide it into a runnable program.
+
+TODO : Implement it as command line program.
 
 """
 
-# define true fig_size
+
+
+# ASTRONOMY & ASTROPHYSICS figure width
+#
 #
 # 255.76535 pt column width equals 88 mm (from aa.doc.pdf section 3.4)
 # one inch in mm = 25.4 mm/inch
@@ -81,11 +88,11 @@ Lastly:
 one_col_fig_width_mm = 88
 two_col_fig_width_mm = 180
 side_caption_fig_width_mm = 120
-inches_per_pt = 1.0/72.27               # Convert pt to inches
-inches_per_mm = 1/25.4                    # Convert mm to inches
-golden_mean = (5**0.5-1.0)/2.0         # Aesthetic ratio
-one_col_fig_width = one_col_fig_width_mm*inches_per_mm  # width in inches roughly = 3.54
-one_col_fig_height = one_col_fig_width*golden_mean       # height in inches
+inches_per_pt = 1.0/72.27                               # Convert pt to inches
+inches_per_mm = 1/25.4                                  # Convert mm to inches
+golden_mean = (5**0.5-1.0)/2.0                          # Aesthetic ratio
+one_col_fig_width = one_col_fig_width_mm*inches_per_mm  # width in inches, roughly = 3.54
+one_col_fig_height = one_col_fig_width*golden_mean      # height in inches
 two_col_fig_width = two_col_fig_width_mm*inches_per_mm
 side_caption_fig_width = side_caption_fig_width_mm*inches_per_mm
 fig_size = [one_col_fig_width,one_col_fig_height]
@@ -1149,7 +1156,7 @@ def saveatbl(filename, dataList, names):
         print('FILE EXISTS ('+str(filename) +') - SKIPPING SAVE')
         print(' ')
 #
-def loadatbl(filename, dtype='float64',sep=None):
+def loadatbl(filename, dtype='float64', rtype='array',sep=None, c_char=['#', '!', '|', '/']):
     """
     loads a list of data arrays in "filename", returns an array of the
     whole shebang (loads arrays saved with the savetable command). just do:
@@ -1162,19 +1169,23 @@ def loadatbl(filename, dtype='float64',sep=None):
         with open(filename,'r') as f:
             values = []
             for line in f:
-                if line.startswith('#') or not line.strip():
-                    continue # skip lines that are comments (# char) and empty
+                start_test = [line.startswith(x) for x in c_char]
+                if True in start_test or not line.strip():
+                    continue # skip lines that are comments and empty
+                line = line.strip('\n')
                 cols = line.split(sep)
-                values.append(array(cols,dtype=dtype))
+                values.append(cols)
     except IOError:
         raise IOError('file ' +str(filename)+' does NOT exist...')
     except ValueError:
         raise ValueError('Trying to convert to '+str(dtype)+' while it is a string\
                         try to change it to \'str\'')
-
-    return array(values,dtype=dtype).transpose()
+    if rtype=='array':
+        return array(values,dtype=dtype).transpose()
+    elif rtype=='native':
+        return values
 #
-def infoatbl(filename, sep=None):
+def infoatbl(filename, sep=None, c_char=['#', '!', '|', '/']):
     """
     just returns the lines with comments (ie the column names) from a *.atbl file
     """
@@ -1182,7 +1193,8 @@ def infoatbl(filename, sep=None):
         with open(filename,'r') as f:
             strings = []
             for line in f:
-                if line.startswith('#'):
+                start_test = [line.startswith(x) for x in c_char]
+                if True in start_test:
                     strings.append(line.split(sep))
     except IOError:
         raise IOError('file' + str(filename)+'does not exist...')
@@ -1193,6 +1205,7 @@ def infoatbl(filename, sep=None):
 # MAIN DATA CLASS
 # Main data object, needs fits file as input
 # keywords can be appended to object later
+# to complement fits header information
 
 class DataObject:
     """
@@ -1204,7 +1217,7 @@ class DataObject:
     
     ------------------------------------------
     
-    Reads:
+    Should be able to read:
     Maps, cubes, SD-spectra
     
     
@@ -1404,6 +1417,9 @@ class DataObject:
         #return data
 
     def calc_fov(self):
+        # method to calculate FOV after the correct telescope name/diameter
+        # has been input and thus correcting the current FOV of 
+        # the DataObject
         if self.telescope!=None:
             self.diameter = get_telescope_diameter(self.telescope)
         elif self.diameter == 1:
@@ -1533,66 +1549,124 @@ def plot_spectrum (self,**kwargs):
     from matplotlib import cm, rc, rc_params
     print 'done'
     #
+    #       Default values of key words
+    #
+    def_font = {'family':'serif', 'serif': ['Times New Roman'], 'size':8}
+    def_plot_adjust = [0.15, 0.17, 0.98, 0.95]
+    def_region = [0,0,0,0]
+    def_send = False
+    def_quality = [300, 300]
+    def_fsize = (3.,2.)
+    def_axspace = [1.01, 1.01, 1.01, 1.05]
+    def_show_freq = False
+    def_chvals = None
+    def_nvals = None
+    def_binning = 1
+    def_bintype = 'mean'
+    def_linefit = linefit = dict(type=None, params=[(0.09, 7.3, 3.6)],
+                guess=False, interactive=False, fixlist=None, error=None,
+                limmin=None, minpar=None, limmax=None, maxpar=None, tie=None)
+    def_source = dict(vsys=0)
+    def_lines = []
+    def_ylimits = None
+    
     #font={'family':'serif','serif':['Times', 'Palatino', 'New Century Schoolbook', 'Bookman', 'Computer Modern Roman'],'size':12, 'weight':'bold'}
     #font=['serif','Times',12,'bold'],\
     #font = {'family':'sans-serif','sans-serif':['Arial', 'Helvetica', 'Avant Garde', 'Computer Modern Sans Serif'], 'cursive':['Zapf Chancery']}
     #'monospace':['Courier','Computer Modern Typewriter'], },\
     #from matplotlib.font_manager import FontProperties
     #FontProperties(family=None, style=None, variant=None, weight=None, stretch=None, size=None, fname=None, _init=None)
-    ################################
-    # setting the tick label font  #
-    ################################
-    # the following set the ticklabel format string
-    plot_adjust= [0.15, 0.17, 0.98, 0.95]
-    region=[0,0,0,0]
-    data = self
-    send=False
-    quality = [300, 300]
-    fsize=(3.,2.)
-    axspace = [1.01, 1.01, 1.01, 1.05]
-    show_freq=False
-    nvals=kwargs['nvals']
-    bin = 1
-    linefit = kwargs['linefit']
-    chvals = None
-    obj_dict = kwargs['source']
-    source = kwargs['source']
-    lines = []
-    ylimits = None
+    #### 
+    #### PARSE INPUT
+    #### 
     
+    data = self
+    
+    if kwargs.has_key('font'):
+        font = kwargs['font']
+    elif not kwargs.has_key('font'):
+        font = def_font
+    if kwargs.has_key('plot_adjust'):
+        plot_adjust = kwargs['plot_adjust']
+    elif not kwargs.has_key('plot_adjust'):
+        plot_adjust = def_plot_adjust
+    if kwargs.has_key('region'):
+        region = kwargs['region']
+    elif not kwargs.has_key('region'):
+        region = def_region
+    if kwargs.has_key('send'):
+        send = kwargs['send']
+    elif not kwargs.has_key('send'):
+        send = def_send
+    if kwargs.has_key('quality'):
+        quality = kwargs['quality']
+    elif not kwargs.has_key('quality'):
+        quality  = def_quality
+    if kwargs.has_key('fsize'):
+        fsize = kwargs['fsize']
+    elif not kwargs.has_key('fsize'):
+        fsize = def_fsize
+    if kwargs.has_key('axspace'):
+        axspace = kwargs['axspace']
+    elif not kwargs.has_key('axspace'):
+        axspace = def_axspace
+    if kwargs.has_key('show_freq'):
+        show_freq = kwargs['show_freq']
+    elif not kwargs.has_key('show_freq'):
+        show_freq = def_show_freq         
+    if kwargs.has_key('chvals'):
+         chvals = kwargs['chvals']
+    elif not kwargs.has_key('chvals'):
+         chvals = def_chvals
+    if kwargs.has_key('nvals'):
+         nvals = kwargs['nvals']
+    elif not kwargs.has_key('nvals'):
+         nvals = def_nvals
+    if kwargs.has_key('binning'):
+        binning = kwargs['binning']
+    elif not kwargs.has_key('binning'):
+        binning = def_binning         
+    if kwargs.has_key('bintype'):
+        bintype = kwargs['bintype']
+    elif not kwargs.has_key('bintype'):
+        bintype = def_bintype
+    if kwargs.has_key('linefit'):
+        linefit = kwargs['linefit']
+    elif not kwargs.has_key('linefit'):
+        linefit = def_linefit
+    if kwargs.has_key('source'):
+        source = kwargs['source']
+    elif not kwargs.has_key('source'):
+        source = def_source
+    if kwargs.has_key('lines'):
+        lines = kwargs['lines']
+    elif not kwargs.has_key('lines'):
+        lines = def_lines
+    if kwargs.has_key('ylimits'):
+        ylimits = kwargs['ylimits']
+    elif not kwargs.has_key(''):
+        ylimits = def_ylimits
 
     # formatting
     data_fmt = '%g'         # for normal y and x axis
     freq_data_fmt = '%5.2f' # for the frequency array
-    if kwargs.has_key('font'):
-        label_X = parse_tick_font(font)
-    elif not kwargs.has_key('font'):
-        # set standard font family, type and size, if none given
-        label_X = parse_tick_font({'family':'serif', 'serif': ['Times New Roman'], 'size':8})
+    label_X = parse_tick_font(font)
     tick_label_formatter = FormatStrFormatter(label_X.replace('X',data_fmt))
     freq_label_formatter = FormatStrFormatter(label_X.replace('X',freq_data_fmt))
     #rc('mathtext',**{'rm':'sans\\-serif'})
-
-    
+   
     # set the subplot_adjust parameters, if not given a standard set will
     # be used
     pl_left, pl_bottom, pl_right,pl_top = plot_adjust
     # save the channel values (in velocity)
-    if arg.has_key('chvals'):
-        v1, v2 = arg['chvals']
-    if arg.has_key('source'):
-        velocity = self.velarr - arg['source']['vsys'] #now all the velocities are based on the LSR
-    else:
-        velocity = self.velarr
+    if chvals!=None:
+        v1, v2 = chvals
+    velocity = self.velarr - source['vsys'] #now all the velocities are based on the LSR
     velocity_delta = self.vcdeltkms
     #data.freqarr = calc_frequency(data.velarr,data.restfreq)
     #
     # parse the region parameter
     # does it exist?
-    if arg.has_key('region'):
-        pass
-    elif not arg.has_key('region'):
-        arg['region'] = [0,0,0,0]
     # now parse the region keyword
     x1,x2,y1,y2 = parse_region(self, region)
     #
@@ -1614,36 +1688,33 @@ def plot_spectrum (self,**kwargs):
     ####################################
     #          binning of data         #
     ####################################
-    if arg.has_key('bin') and arg.has_key('bintype'):
-        # it has to be an integer, for now at least
-        arg['bin'] = int(arg['bin'])
-        if arg['bin'] == 1:
-            pass
-        elif lower(arg['bintype']) == 'resample':
+    # it has to be an integer, for now at least
+    if binning != 1:
+        binning = int(binning)
+        if lower(bintype) == 'resample':
             from congridding import congrid
             # congridding, proper resampling of data
+            spect = congrid(spect,(alen(spect)/binning,),centre=True, method='neighbour')
+            velocity = congrid(velocity,(alen(velocity)/binning,))
             #
-            spect = congrid(spect,(alen(spect)/arg['bin'],),centre=True,method='neighbour')
-            velocity = congrid(velocity,(alen(velocity)/arg['bin'],))
-            #
-            velocity_delta = data.vcdeltkms*arg['bin']
-        elif lower(arg['bintype']) == 'mean':
-            if alen(spect)%arg['bin']!=0:
+            velocity_delta = data.vcdeltkms*binning
+        elif lower(bintype) == 'mean':
+            if alen(spect)%binning!=0:
                 print 'Bin has to be evenly devide the number of channels: %d' % alen(spect)
                 sysexit()
             #  Old method - simple binning, just average
-            indices = arange(0,alen(spect),arg['bin'])
-            spect = array([spect[x:x+j].sum(axis=0)/arg['bin'] for x in indices])
-            velocity = array([velocity[x:x+j].sum(axis=0)/arg['bin'] for x in indices])
+            indices = arange(0,alen(spect),binning)
+            spect = array([spect[x:x+j].sum(axis=0)/binning for x in indices])
+            velocity = array([velocity[x:x+j].sum(axis=0)/binning for x in indices])
             #
-            velocity_delta = self.vcdeltkms*bin
-        elif arg['bin'] == 0:
+            velocity_delta = self.vcdeltkms*binning
+        elif binning == 0 or binning <0:
             print colorify("\nERROR:\n Variable \"bin\" has to be 1 for no binning, or above 1 \n\
             for the number of channels to bin")
         # print out information about the binning
         print '='*40
         print ' '*11,"Binning of data\n"
-        print "No channels to bin : %d" % bin
+        print "No channels to bin : %d" % binning
         print "Velocity step : %f" % velocity_delta
         if bintype=='mean':
             print 'Type of binning : Simple mean over selected no. bin channels'
@@ -1669,30 +1740,8 @@ def plot_spectrum (self,**kwargs):
             txt =  '\n sending you spectra, velarr, data'
             print colorify(txt,c='g')
             return spect, velocity, data
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    #print 'HERE!'
-
-
-
-
-
-
-
     # use set_rc here!
-
+    #set_rc
 
     ################################
     # setting global rc properties #
@@ -1701,7 +1750,7 @@ def plot_spectrum (self,**kwargs):
     rc('text', usetex=True)
     rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
     #to set the global font properties
-    rc('font', **font)
+    #rc('font', **font)
     rc('axes',linewidth=1)
     rc('lines', linewidth=0.5, markeredgewidth=0.8)
     rc('patch',linewidth=0.5)
@@ -1740,7 +1789,7 @@ def plot_spectrum (self,**kwargs):
         # change so that when binning, the rms i calculated
         # x1,x2
         if data.datatype[0] == 'SDSPECT':
-            rms = sqrt(((data.d[get_indices(velocity,nvals)])**2).mean()/float(bin))
+            rms = sqrt(((data.d[get_indices(velocity,nvals)])**2).mean()/float(binning))
         else:
             zlen, ylen, xlen = data.d.shape
             ydelt = ylen/6
