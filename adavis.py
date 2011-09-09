@@ -1,5 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
+
+
 #
 #       adavis.py
 #
@@ -81,7 +83,6 @@ TODO : Implement it as command line program.
 
 # ASTRONOMY & ASTROPHYSICS figure width
 #
-#
 # 255.76535 pt column width equals 88 mm (from aa.doc.pdf section 3.4)
 # one inch in mm = 25.4 mm/inch
 #one_col_fig_width_pt = 249.448819
@@ -113,7 +114,14 @@ class ParError(Exception):
 #
 ###########################################
 # HELP FUNCTIONS
-
+def print_warning(s):
+    import sys
+    sys.stderr.write(stylify('WARNING:',f='b',fg='r')+stylify(' '+s,f='b',fg='k'))
+def print_error(s):
+    # Dont know if this works as intended
+    import sys
+    sys.stderr.write(stylify('ERROR:',f='b',fg='r')+stylify(' '+s,f='b',fg='k'))
+    sys.exit()
 def calc_frequency(vlsr, freq0):
     """
     vlsr in kms
@@ -121,12 +129,10 @@ def calc_frequency(vlsr, freq0):
     """
     from scipy import constants
     return (1-vlsr/(constants.c*1e-3))*freq0
-#
 def calc_vlsr (f,f0):
     """ calc vlsr in km/s from two freq """
     from scipy import constants
     return (1-f/f0)*constants.c*1e-3
-#
 def draw_beam(ax, data,loc=3, box=True):
     """
     function that draws the beam
@@ -144,56 +150,92 @@ def draw_beam(ax, data,loc=3, box=True):
                             frameon=box)
 
     ax.add_artist(ae)
-#
-def colorify (txt, c='r'):
+def stylify (s='Test text', f='n', fg='r', bg='d'):
     """ 
     
     Sends back the string 'txt' with the correct foreground unicode 
     color start and finish (reset color).
-
-    Current avaliable colors:
-        'r' : red
-        'g' : green
-        'y' : yellow
-        'b' : blue
-        'm' : magenta
-        'c' : cyan
-        'w' : white
+        
+        Formatting style of text (f)
+        f = 
+            "n" normal
+            "b" bold
+            "u" underline
+            "l" blinking
+            "i" inverse
+        Forground color of text (fg)
+        fg = 
+             "k" black
+             "r" red
+             "g" green
+             "y" yellow
+             "b" blue
+             "m" magenta
+             "c" cyan
+             "a" gray
+             "d" default
+        Background color of text (fg)
+        bg = 
+            "k" black
+            "r" red
+            "g" green
+            "y" yellow
+            "b" blue
+            "m" magenta
+            "c" cyan
+            "a" gray
+            "d" default
+    
+    TODO : add a value for randomizing a color
+    
     """
-    CSI = "\x1B["
+    
+    # needed them in this order for it to work,
+    # styles, fg color, bg color
+    format_and_colors = {"n_f": 0, #
+                         "b_f": 1, #
+                         "u_f": 4,
+                         "l_f": 5,
+                         "i_f": 7,
+                         "k": 30,
+                         "r": 31,
+                         "g": 32,
+                         "y": 33,
+                         "b": 34,
+                         "m": 35,
+                         "c": 36,
+                         "a": 37,
+                         "d": 39,
+                         "k_bg": 40,
+                         "r_bg": 41,
+                         "g_bg": 42,
+                         "y_bg": 43,
+                         "b_bg": 44,
+                         "m_bg": 45,
+                         "c_bg": 46,
+                         "a_bg": 47,
+                         "d_bg": 49}
 
-    if c=='r':
-        # sets, red text color (31)
-        start =CSI+'31m'
-    elif c=='g':
-        # sets, green text color (32)
-        start =CSI+'32m'
-    elif c=='y':
-        # sets, yellow text color (32)
-        start =CSI+'33m'
-    elif c=='b':
-        # sets, blue text color (34)
-        start =CSI+'34m'
-    elif c=='m':
-        # sets, magenta text color (34)
-        start =CSI+'35m'
-    elif c=='c':
-        # sets, cyan text color (34)
-        start =CSI+'36m'
-    elif c=='w':
-        # sets, white text color (34)
-        start =CSI+'37m'
-    elif c=='rand':
-        # white not included
-        from scipy import rand
-        #colors = ['r','g','y','b','m','c']
-        codes = ['31m','32m','33m','34m','35m','36m']
-        i = int(round((rand()*len(codes))))
-        start = CSI+codes[i]
-    #
+    CSI = "\x1B["
     end = CSI+'m'
-    return start+txt+end
-#
+    
+    if f == 'b' and fg =='a':
+        print stylify('\n Warning : This combination of colors/styles does not work\n','b','r','d')
+        raise ParError((f,fg,bg))
+    bg +='_bg' # append to the list, the "_bg" ending
+    f += "_f" # append "_f" to the formatting list
+    
+    try:
+        style = [format_and_colors[f.lower()],
+                format_and_colors[fg.lower()],
+                format_and_colors[bg.lower()]]
+        style = [str(x) for x in style]
+        formatted_text = CSI+';'.join(style)+'m'
+        formatted_text += s + end
+    except KeyError, ex:
+        raise ParError((f,fg,bg))
+
+    return formatted_text
 def draw_fov(ax, data):
     """
     Function to draw the field of view into the
@@ -203,7 +245,6 @@ def draw_fov(ax, data):
     from matplotlib.patches import Circle
     cir = Circle( (0,0), transform=ax.transData, fill=False, ec='k', lw=1, ls='dashed', radius=data.fov/2)
     ax.add_patch(cir)
-#
 def draw_sizebar(ax, data, dist=220, au=200):
     """
     distance in pc
@@ -219,7 +260,6 @@ def draw_sizebar(ax, data, dist=220, au=200):
                             pad=0.1, borderpad=0.5, sep=5,
                             frameon=False)
     ax.add_artist(asb)
-#
 def draw_highlight_box(ax, xpos, xwidth):
     """
     adds a highlight box that spans whole y-axes space and specified data
@@ -238,7 +278,6 @@ def draw_highlight_box(ax, xpos, xwidth):
                              alpha=0.3)
 
     ax.add_patch(rect)
-#
 def put_line_indicator(ax, velocity, spect, xpos, text_string, \
             text_size=3, text_weight='extra bold', text_color='black',\
              lc='b', offset=0):
@@ -266,11 +305,9 @@ def put_line_indicator(ax, velocity, spect, xpos, text_string, \
     size=text_size, weight=text_weight, color=text_color,\
     ha='center',va='bottom',rotation='vertical',\
     transform = ax.transData)
-#
 def calc_sigma(N,rms,vcdelt):
     from scipy import sqrt
     return sqrt(N)*rms*abs(vcdelt)
-#
 def calc_cooffset(ra,dec,offset):
     """ 
     calculates new coordinates from old ones
@@ -296,7 +333,6 @@ def calc_cooffset(ra,dec,offset):
     print 'Offset: %s, %s' % offset_inp
     print 'New coordinates:'
     print 'RA:\t%s\nDEC:\t%s' % ((parse_ra(new_ra,string=True),parse_dec(new_dec,string=True)))
-#
 def parse_region(data, region, f=False):
     """
     Parser for the region parameter, three different possibilities to supply
@@ -370,13 +406,11 @@ def parse_region(data, region, f=False):
     if f==False:
         x1,x2,y1,y2 = array([x1,x2,y1,y2]).round().astype('int')
     return x1,x2,y1,y2
-#
 def parse_pxlcoord (data, x, y):
     """ Function doc """
     xoffset = (x-data.ra_crpix)*data.ra_cdelt
     yoffset = (y-data.dec_crpix)*data.dec_cdelt
     return xoffset, yoffset
-#
 def parse_ra (ra,string=False):
     """
 
@@ -402,7 +436,6 @@ def parse_ra (ra,string=False):
     if string:
         return str(hours)+':'+str(minutes)+':'+str(seconds)
     return hours,minutes,seconds
-#
 def parse_dec (dec, string=False):
     """
 
@@ -427,11 +460,10 @@ def parse_dec (dec, string=False):
     if string:
         return str(degrees)+':'+str(minutes)+':'+str(seconds)
     return degrees,minutes,seconds
-#
 def parse_linelist(linelist):
     """
 
-    Parses a linelist/CSV file of the lines, so that it is easier to just
+    Parse a linelist/CSV file of the lines, so that it is easier to just
     use a lot of lines from Splatalogue or create a list with the lines.
 
     Input
@@ -466,6 +498,10 @@ def parse_linelist(linelist):
     *2010/12
         Doc written
 
+    TODO : when list is  [['Name'],[203.45654]] it cannot output the right format.
+    
+    
+
     """
     from scipy import size, arange, zeros, array
     def get_lines(linelist):
@@ -484,7 +520,7 @@ def parse_linelist(linelist):
         # if it is a list with two lists in it
         # that is, the second element is (strictly) longer than 1
         return get_lines(linelist)
-    elif size(linelist[1])==1 and type(linelist)==type(''):
+    elif size(linelist[1])==1 and type(linelist) == type(''):
         # in case it is the path to a CSV file
         # load the table with the load ascii table function loadatbl
         names, freqs = loadatbl(linelist, dtype='string', sep=':')[0:3:2]
@@ -499,7 +535,6 @@ def parse_linelist(linelist):
         names = n
         freqs = freqs.astype('float64')
     return get_lines([names,freqs])
-#
 def get_indices (arr,vals,disp=False):
     """
 
@@ -554,7 +589,6 @@ def get_indices (arr,vals,disp=False):
         n = last-first+1
         print '\nFirst: %d,\n Last: %d\n Nchan: %d\n' % (first, last, n)
     return channels
-#
 def gauss1d(x, params=None, height=None):
     """
 
@@ -623,7 +657,6 @@ def gauss1d(x, params=None, height=None):
     #
     #
     return func(x, params)
-#
 def fit_gauss1d((X,Y),\
                 params,\
                 err = None,\
@@ -830,7 +863,6 @@ def fit_gauss1d((X,Y),\
         return pfit, pfit_err, chi2, mpfit_out
     else:
        return pfit, pfit_err
-#
 def gauss2d (a, X, Y):
     """ Gaussian 2D """
     #
@@ -842,7 +874,6 @@ def gauss2d (a, X, Y):
     #
     f = a[0]*exp(-.5*(((xp - xp0)/a[3])**2 + ((yp - yp0)/a[4])**2))
     return f
-#
 def gaussfit2d((X,Y,Z), params=None, err=None):
     """
 
@@ -962,7 +993,6 @@ def gaussfit2d((X,Y,Z), params=None, err=None):
         #if p1[i+2]>180: p1[i+2] -= ceil(abs(p1[i+2]/180))*180
     #
     return p1,success,no_fits
-#
 def parse_gau2dfit (fwhm1, fwhm2, sfwhm1, sfwhm2, pa, spa):
     """ Function doc
 
@@ -994,7 +1024,6 @@ def parse_gau2dfit (fwhm1, fwhm2, sfwhm1, sfwhm2, pa, spa):
     if pa>90: pa -= 180
 
     return (fwhm1, fwhm2, sfwhm1, sfwhm2, pa, spa)
-#
 def gauss2d_decon ((bmaj1, bmin1, theta1, bmaj2, bmin2, theta2), ang='rad'):
     """
     Deconvolves one gaussian  with parameters bmaj1, bmin1, theta1 (major,
@@ -1057,7 +1086,6 @@ def gauss2d_decon ((bmaj1, bmin1, theta1, bmaj2, bmin2, theta2), ang='rad'):
     #
     # send back the results
     return (bmaj, bmin, bpa, success)
-#
 def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
         'size':8},
         quality=[300, 300]):
@@ -1075,12 +1103,10 @@ def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
     # ticksize
     #rc('xtick',**{'minor.size':3, 'major.size':7})
     #rc('ytick',**{'minor.size':3, 'major.size':7})
-
     # linewidths
     rc('axes', linewidth=1)
-    rc('patch', linewidth=1)
-    rc('lines', linewidth=1, markeredgewidth=1)
-#
+    rc('patch', linewidth=0.5)
+    rc('lines', linewidth=0.5, markeredgewidth=0.8)
 def parse_tick_font (font):
     """
     You have to add your formatter yourself with:
@@ -1102,7 +1128,6 @@ def parse_tick_font (font):
         label_X = '$\mathrm{X}$'
     #return label_X
     return 'X'
-#
 def get_telescope_diameter(telescope):
     from string import upper
     from scipy import where, array
@@ -1155,7 +1180,6 @@ def saveatbl(filename, dataList, names):
         print(' ')
         print('FILE EXISTS ('+str(filename) +') - SKIPPING SAVE')
         print(' ')
-#
 def loadatbl(filename, dtype='float64', rtype='array',sep=None, c_char=['#', '!', '|', '/']):
     """
     loads a list of data arrays in "filename", returns an array of the
@@ -1184,7 +1208,6 @@ def loadatbl(filename, dtype='float64', rtype='array',sep=None, c_char=['#', '!'
         return array(values,dtype=dtype).transpose()
     elif rtype=='native':
         return values
-#
 def infoatbl(filename, sep=None, c_char=['#', '!', '|', '/']):
     """
     just returns the lines with comments (ie the column names) from a *.atbl file
@@ -1249,7 +1272,7 @@ class DataObject:
     
         # create the class, but without any init script.
         # a class (object) the easy way
-        print u'Loading fitsfile :  %s ' % colorify(str(fitsfile),c='g')
+        print u'Loading fitsfile :  %s ' % stylify(str(fitsfile),fg='g')
         s  = getsize(fitsfile)
         print " Size %0.2f MB" % (s/(1024.*1024.))
         f = fitsopen(fitsfile)
@@ -1425,102 +1448,129 @@ class DataObject:
         elif self.diameter == 1:
             print 'You have not changed either the diameter of the telescope or the telescope name'
         self.fov = 58.4*(3.e8/self.restfreq)/float(self.diameter)*3600.
+    #~ def add_line(self, name, frequency=None, channels=None):
+        #~ try:
+            #~ 
+        #~ except AttributeError, ex:
+            
 
 
     
 ###########################################
 # MAIN FUNCTIONS
 
-def plot_spectrum (self,**kwargs):
-                #~ chvals=None,
-                #~ nvals=None,
-                #~ region=[0,0,0,0],
-                #~ source = dict(vsys=0),
-                #~ show_freq=False,
-                #~ font={'family':'serif', 'serif': ['Times New Roman'],
-                #~ 'size':8},
-                #~ bin=1,
-                #~ bintype='mean',
-                #~ linefit = dict(type=None, params=[(0.09, 7.3, 3.6)],
-                #~ guess=False, interactive=False, fixlist=None, error=None,
-                #~ limmin=None, minpar=None, limmax=None, maxpar=None, tie=None),
-                #~ send=False,
-                #~ quality=[300, 300],
-                #~ plot_adjust= [0.15, 0.17, 0.98, 0.95],
-                #~ lines = [],
-                #~ axspace = [1.01, 1.01, 1.01, 1.05],
-                #~ ylimits=None,
-                #~ telescope=None,
-                #~ fsize=(3.,2.),
-                #~ **kwargs):
+def plot_spectrum (self,
+                   chvals=None,
+                   nvals=None,
+                   region=[0,0,0,0],
+                   source = dict(vsys=0),
+                   show_freq=False,
+                   font={'family':'serif', 'serif': ['Times New Roman'],
+                   'size':8},
+                   binning=1,
+                   bintype='mean',
+                   linefit = dict(type=None, params=[(0.09, 7.3, 3.6)],
+                   guess=False, interactive=False, fixlist=None, error=None,
+                   limmin=None, minpar=None, limmax=None, maxpar=None, tie=None,
+                   lineid=False),
+                   send=False,
+                   quality=[300, 300],
+                   plot_adjust= [0.15, 0.17, 0.98, 0.95],
+                   lines = None,
+                   axspace = [1., 1., 1., 1.],
+                   ylimits=None,
+                   telescope=None,
+                   fsize=(fig_size)):
     """
-    Function documentation
-
-    Required input:
-    filename
-        name of fits-file input and if needed the path to it
-
-    Optional parameters:
-
-    chvals = [a, b]
-
-    nvals = [a, b]
-
-    region = [x1]
-
-    obj_dict = {'vsys' : 0}
-
-    freq = True/False (1/0)
-
-    font = {'family':'sans-serif', 'sans-serif': ['Arial', 'Helvetica'],'size': 20, 'weight':'bold'}
-
-    bin = True/False (1/0)
-
-    fit = {'type' : 'gauss', 'params' : ((a1, v1, w1),(a2, v2, w2)),
-        'guess' : True/False, interactive : , fixlist : , error : ,
-        limmin : , limmax : ,minpar :, limmax : , maxpar :, tie : }
-
-    send = True/False
-
-
-    quality = [a, b]
-        set the quality of the saved figure (a) and the displayed figure (b)
-        in dpi normal is quality = [150, 72], for prints, quality = [300, 72]?
-
-    plot_adjust = [a, b, c, d]
-        set the left, bottom, right, top of the axes, if none is given the
-        standard [0.08, 0.07, 0.98, 0.92] is set.
-
-    lines = ['a', b, 'c', d]
+    Plot the spectrum of a DataObject
+    
+    List of available parameters
+    and their default value
+    ----------
+    DataObject
+    chvals = None
+    nvals = None
+    region = [0,0,0,0]
+    source = dict(vsys=0)
+    show_freq = False
+    font = {'family':'serif', 'serif': ['Times New Roman'],'size':8}
+    bin = 1
+    bintype ='mean'
+    linefit = dict(type=None, params=[(0.09, 7.3, 3.6)],
+        guess=False, interactive=False, fixlist=None, error=None,
+        limmin=None, minpar=None, limmax=None, maxpar=None, tie=None)
+    send = False
+    quality = [300, 300]
+    plot_adjust = [0.15, 0.17, 0.98, 0.95]
+    lines = None
+    axspace = [1.01, 1.01, 1.01, 1.05]
+    ylimits = None
+    telescope = None
+    fsize = (fig_size)
+    
+    Description of parameters
+    ----------
+    DataObject : 
+        Optional
+        
+    chvals : 
+        Default : Default = None
+        
+    nvals : 
+        Default : None
+        
+    region : 
+        Default : [0,0,0,0]
+        
+    source :
+        Default : dict(vsys=0)
+        
+    show_freq :
+        Default : False
+        
+    font : 
+        Default : {'family':'serif', 'serif': ['Times New Roman'],'size':8}
+        
+    bin :
+        Default : 1
+        
+    bintype :
+        Default : 'mean'
+        
+    linefit :
+        Default : dict(type=None, params=[(0.09, 7.3, 3.6)],
+        guess=False, interactive=False, fixlist=None, error=None,
+        limmin=None, minpar=None, limmax=None, maxpar=None, tie=None)
+    
+    send :
+        Default : False
+        
+    quality : [int. int]
+        Default : [300, 300] 
+        Set the quality of the saved figure (a) and the displayed figure (b), where [a, b]
+        
+    plot_adjust :
+        Default : [0.15, 0.17, 0.98, 0.95]
+        Set the left, bottom, right, top of the axes
+    
+    lines :
+        Default : None
         draw lines with name 'a' & 'c' and rest frequencies b & d.
         if obj_dict=dict(vsys=x) is not null, then it will shift the positions
         of the lines accordingly.
-
-    axspace = []
-
-
-    TODO : take care of these parameters
-                chvals=None,
-                nvals=None,
-                region=[0,0,0,0],
-                source = dict(vsys=0),
-                show_freq=False,
-                font={'family':'serif', 'serif': ['Times New Roman'],
-                'size':8},
-                bin=1,
-                bintype='mean',
-                linefit = dict(type=None, params=[(0.09, 7.3, 3.6)],
-                guess=False, interactive=False, fixlist=None, error=None,
-                limmin=None, minpar=None, limmax=None, maxpar=None, tie=None),
-                send=False,
-                quality=[300, 300],
-                plot_adjust= [0.15, 0.17, 0.98, 0.95],
-                lines = [],
-                axspace = [1.01, 1.01, 1.01, 1.05],
-                ylimits=None,
-                telescope=None,
-                fsize=(3.,2.),
-
+    
+    axspace :
+        Default : [1.01, 1.01, 1.01, 1.05]
+        
+    ylimits :
+        Default : None
+        
+    fsize :
+        Default : (fig_size)
+    
+    lineid : boolean
+        Default : False
+        Use splatsearch module to search the splatalogue for lines?
 
 
     TODO : What is the RMS when binning and giving a area_region>1?
@@ -1532,9 +1582,9 @@ def plot_spectrum (self,**kwargs):
             Remove the most weird font-settings
             
     TODO : RMS units, e.g. when using SD data, Kelvin instead of Jy...
-    """
-    arg = kwargs
     
+    TODO : Fix the axspace implementation, must be a better way
+    """
     # imports
     #import scipy as sp
     print 'importing...'
@@ -1548,27 +1598,6 @@ def plot_spectrum (self,**kwargs):
     from matplotlib.ticker import MultipleLocator, FormatStrFormatter
     from matplotlib import cm, rc, rc_params
     print 'done'
-    #
-    #       Default values of key words
-    #
-    def_font = {'family':'serif', 'serif': ['Times New Roman'], 'size':8}
-    def_plot_adjust = [0.15, 0.17, 0.98, 0.95]
-    def_region = [0,0,0,0]
-    def_send = False
-    def_quality = [300, 300]
-    def_fsize = (3.,2.)
-    def_axspace = [1.01, 1.01, 1.01, 1.05]
-    def_show_freq = False
-    def_chvals = None
-    def_nvals = None
-    def_binning = 1
-    def_bintype = 'mean'
-    def_linefit = linefit = dict(type=None, params=[(0.09, 7.3, 3.6)],
-                guess=False, interactive=False, fixlist=None, error=None,
-                limmin=None, minpar=None, limmax=None, maxpar=None, tie=None)
-    def_source = dict(vsys=0)
-    def_lines = []
-    def_ylimits = None
     
     #font={'family':'serif','serif':['Times', 'Palatino', 'New Century Schoolbook', 'Bookman', 'Computer Modern Roman'],'size':12, 'weight':'bold'}
     #font=['serif','Times',12,'bold'],\
@@ -1579,73 +1608,6 @@ def plot_spectrum (self,**kwargs):
     #### 
     #### PARSE INPUT
     #### 
-    
-    data = self
-    
-    if kwargs.has_key('font'):
-        font = kwargs['font']
-    elif not kwargs.has_key('font'):
-        font = def_font
-    if kwargs.has_key('plot_adjust'):
-        plot_adjust = kwargs['plot_adjust']
-    elif not kwargs.has_key('plot_adjust'):
-        plot_adjust = def_plot_adjust
-    if kwargs.has_key('region'):
-        region = kwargs['region']
-    elif not kwargs.has_key('region'):
-        region = def_region
-    if kwargs.has_key('send'):
-        send = kwargs['send']
-    elif not kwargs.has_key('send'):
-        send = def_send
-    if kwargs.has_key('quality'):
-        quality = kwargs['quality']
-    elif not kwargs.has_key('quality'):
-        quality  = def_quality
-    if kwargs.has_key('fsize'):
-        fsize = kwargs['fsize']
-    elif not kwargs.has_key('fsize'):
-        fsize = def_fsize
-    if kwargs.has_key('axspace'):
-        axspace = kwargs['axspace']
-    elif not kwargs.has_key('axspace'):
-        axspace = def_axspace
-    if kwargs.has_key('show_freq'):
-        show_freq = kwargs['show_freq']
-    elif not kwargs.has_key('show_freq'):
-        show_freq = def_show_freq         
-    if kwargs.has_key('chvals'):
-         chvals = kwargs['chvals']
-    elif not kwargs.has_key('chvals'):
-         chvals = def_chvals
-    if kwargs.has_key('nvals'):
-         nvals = kwargs['nvals']
-    elif not kwargs.has_key('nvals'):
-         nvals = def_nvals
-    if kwargs.has_key('binning'):
-        binning = kwargs['binning']
-    elif not kwargs.has_key('binning'):
-        binning = def_binning         
-    if kwargs.has_key('bintype'):
-        bintype = kwargs['bintype']
-    elif not kwargs.has_key('bintype'):
-        bintype = def_bintype
-    if kwargs.has_key('linefit'):
-        linefit = kwargs['linefit']
-    elif not kwargs.has_key('linefit'):
-        linefit = def_linefit
-    if kwargs.has_key('source'):
-        source = kwargs['source']
-    elif not kwargs.has_key('source'):
-        source = def_source
-    if kwargs.has_key('lines'):
-        lines = kwargs['lines']
-    elif not kwargs.has_key('lines'):
-        lines = def_lines
-    if kwargs.has_key('ylimits'):
-        ylimits = kwargs['ylimits']
-    elif not kwargs.has_key(''):
-        ylimits = def_ylimits
 
     # formatting
     data_fmt = '%g'         # for normal y and x axis
@@ -1663,7 +1625,7 @@ def plot_spectrum (self,**kwargs):
         v1, v2 = chvals
     velocity = self.velarr - source['vsys'] #now all the velocities are based on the LSR
     velocity_delta = self.vcdeltkms
-    #data.freqarr = calc_frequency(data.velarr,data.restfreq)
+    #self.freqarr = calc_frequency(self.velarr,self.restfreq)
     #
     # parse the region parameter
     # does it exist?
@@ -1681,10 +1643,10 @@ def plot_spectrum (self,**kwargs):
     if self.datatype[0] != 'SDSPECT':
         area_region = ((y2-y1)*(x2-x1))
         spect = (self.d[:,y1:y2,x1:x2].sum(axis=1).sum(axis=1))/float(area_region)
-    elif data.datatype[0] == 'SDSPECT':
+    elif self.datatype[0] == 'SDSPECT':
         area_region = 1
-        print colorify("SD-SPECTRUM - region keyword not doing anything.",c='r')
-        spect = data.d
+        print stylify("SD-SPECTRUM - region keyword not doing anything.",fg='r')
+        spect = self.d
     ####################################
     #          binning of data         #
     ####################################
@@ -1697,19 +1659,19 @@ def plot_spectrum (self,**kwargs):
             spect = congrid(spect,(alen(spect)/binning,),centre=True, method='neighbour')
             velocity = congrid(velocity,(alen(velocity)/binning,))
             #
-            velocity_delta = data.vcdeltkms*binning
+            velocity_delta = self.vcdeltkms*binning
         elif lower(bintype) == 'mean':
             if alen(spect)%binning!=0:
                 print 'Bin has to be evenly devide the number of channels: %d' % alen(spect)
                 sysexit()
             #  Old method - simple binning, just average
             indices = arange(0,alen(spect),binning)
-            spect = array([spect[x:x+j].sum(axis=0)/binning for x in indices])
-            velocity = array([velocity[x:x+j].sum(axis=0)/binning for x in indices])
+            spect = array([spect[x:x+binning].sum(axis=0)/binning for x in indices])
+            velocity = array([velocity[x:x+binning].sum(axis=0)/binning for x in indices])
             #
             velocity_delta = self.vcdeltkms*binning
         elif binning == 0 or binning <0:
-            print colorify("\nERROR:\n Variable \"bin\" has to be 1 for no binning, or above 1 \n\
+            print stylify("\nERROR:\n Variable \"bin\" has to be 1 for no binning, or above 1 \n\
             for the number of channels to bin")
         # print out information about the binning
         print '='*40
@@ -1726,19 +1688,19 @@ def plot_spectrum (self,**kwargs):
     if send:
         if nvals!=None and linefit['type']!=None: # send everything!
             txt = '\n sending you spectra, velarr, data, noise-spectra'
-            print colorify(txt,c='g')
+            print stylify(txt,fg='g')
             return spect,velocity, data, spect[get_indices(velocity,nvals)]
         elif nvals==None and linefit['type']=='gauss': # no noise channels supplied
             txt = '\n sending you spect, velarr, data'
-            print colorify(txt,c='g')
+            print stylify(txt,fg='g')
             return spect,velocity, data
         elif nvals!=None and linefit['type']==None: # no fit but noise
             txt =  '\n sending you spect, velarr, data, noise-spectra'
-            print colorify(txt,c='g')
+            print stylify(txt,fg='g')
             return spect, velocity, data, spect[get_indices(velocity,nvals)]
         else: # well non of them are supplied
             txt =  '\n sending you spectra, velarr, data'
-            print colorify(txt,c='g')
+            print stylify(txt,fg='g')
             return spect, velocity, data
     # use set_rc here!
     #set_rc
@@ -1746,17 +1708,18 @@ def plot_spectrum (self,**kwargs):
     ################################
     # setting global rc properties #
     ################################
-    rc('savefig', **{'dpi': quality[0]})
-    rc('text', usetex=True)
-    rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
+    #rc('savefig', **{'dpi': quality[0]})
+    #rc('text', usetex=True)
+    #rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
     #to set the global font properties
     #rc('font', **font)
-    rc('axes',linewidth=1)
-    rc('lines', linewidth=0.5, markeredgewidth=0.8)
-    rc('patch',linewidth=0.5)
+    #rc('axes',linewidth=1)
+    #rc('lines', linewidth=0.5, markeredgewidth=0.8)
+    #rc('patch',linewidth=0.5)
     # ticksize
-    rc('xtick',**{'minor.size':2, 'major.size':4, 'major.pad': 3})
-    rc('ytick',**{'minor.size':2, 'major.size':4, 'major.pad': 1})
+    #rc('xtick',**{'minor.size':2, 'major.size':4, 'major.pad': 3})
+    #rc('ytick',**{'minor.size':2, 'major.size':4, 'major.pad': 1})
+    set_rc()
     ### done!
     pl.ion()
     pl.close()
@@ -1764,20 +1727,24 @@ def plot_spectrum (self,**kwargs):
     #fig = pl.figure(1,figsize=(10.5,4.5))
     fig.clf()
     ax_kms = fig.add_subplot(111)
+
+    # now correct so that negative values are to the left
+    if self.vcdelt<0:
+        ax_kms.step(flipud(velocity), flipud(spect), 'k',  where='mid')
+    elif self.vcdelt>=0:
+        ax_kms.step(velocity, spect, 'k', where='mid')
     # if we want som space in the figure
     cx1 = axspace[0]
     cx2 = axspace[1]
     cy1 = axspace[2]
     cy2 = axspace[3]
-    # now correct so that negative values are to the left
-    if data.vcdelt<0:
-        ax_kms.step(flipud(velocity), flipud(spect), 'k',  where='mid')
-        xmin, xmax = round(flipud(velocity)[0])*cx1, round(flipud(velocity)[-1])*cx2
-        ymin, ymax = round(min(flipud(spect)),3)*cy1, round(max(flipud(spect)),3)*cy2
-    elif data.vcdelt>=0:
-        ax_kms.step(velocity, spect, 'k', where='mid')
-        xmin, xmax = round(velocity[0])*cx1,round(velocity[-1])*cx2
-        ymin, ymax = round(min(spect),3)*cy1,round(max(spect),3)*cy2
+    xmin, xmax = round(velocity.min()), round(velocity.max())
+    ymin, ymax = round(spect.min(),3), round(spect.max(),3)
+    sxmin,sxmax = sign(xmin)<0, sign(xmax)<0
+    symin,symax = sign(ymin)<0, sign(ymax)<0
+    xmin, xmax = xmin*[1/cx1,cx1][sxmin], xmax*[cx2,1/cx2][sxmax]
+    ymin, ymax = ymin*[1/cy1,cy1][symin], ymax*[cy2,1/cy2][symax]
+    
     if nvals!=None:
         print '='*40
         print ' '*11,'Noise statistics\n'
@@ -1788,20 +1755,20 @@ def plot_spectrum (self,**kwargs):
         # change x1,x2,y1,y2 to quarter region
         # change so that when binning, the rms i calculated
         # x1,x2
-        if data.datatype[0] == 'SDSPECT':
-            rms = sqrt(((data.d[get_indices(velocity,nvals)])**2).mean()/float(binning))
+        if self.datatype[0] == 'SDSPECT':
+            rms = sqrt(((self.d[get_indices(velocity,nvals)])**2).mean()/float(binning))
         else:
-            zlen, ylen, xlen = data.d.shape
+            zlen, ylen, xlen = self.d.shape
             ydelt = ylen/6
             xdelt = xlen/6
             i1,i2 = xlen/2-xdelt, xlen/2+xdelt
             j1,j2 = ylen/2-ydelt, ylen/2+ydelt
-            rms = sqrt(((data.d[get_indices(velocity,nvals),j1:j2,i1:i2])**2).mean()/float(bin))
+            rms = sqrt(((self.d[get_indices(velocity,nvals),j1:j2,i1:i2])**2).mean()/float(binning))
         rms_mjy = rms*1e3
         #rms_0 = sqrt(((spect[get_indices(velocity,nvals)])**2).mean())
-        #rms_2 = sqrt(((data.d[get_indices(velocity,nvals),:,:])**2).mean())
+        #rms_2 = sqrt(((self.d[get_indices(velocity,nvals),:,:])**2).mean())
 
-        #rms_0= rms/sqrt(abs(data.vcdeltkms))
+        #rms_0= rms/sqrt(abs(self.vcdeltkms))
         #print rms_0
         #print 'rms_0 =', rms_0*1e3
         #print 'rms_2 =', rms_2*1e3
@@ -1821,7 +1788,10 @@ def plot_spectrum (self,**kwargs):
         ax_kms.plot([xmin, xmax],[-3*rms,-3*rms],'b--', alpha=0.7)
     #
     # plot dotted lines at y=0 and x=0
-    ax_kms.plot([xmin-10,xmax+10],[0,0],'g:',[0,0],[ymin-1,ymax+1],'g:')
+    if (velocity<0).any()*(velocity>0).any() or (velocity==0).any():
+        ax_kms.plot([xmin-10,xmax+10],[0,0],'g:',[0,0],[ymin-1,ymax+1],'g:')
+    else:
+        ax_kms.plot([xmin-10,xmax+10],[0,0],'g:')
     #####################
     #   Ticklocations   #
     #####################
@@ -1853,7 +1823,7 @@ def plot_spectrum (self,**kwargs):
                 using rms = %2.3f Jy beam-1 channel-1' % rms
             elif nvals==None:
                 errmsg='You have to supply an error to the fit, they\'re kind of important you know.'
-                print colorify(errmsg)
+                print stylify(errmsg)
                 return ; sysexit()
 
         fwhmfromsig = 2*sqrt(2*log(2)) # the constant
@@ -1915,7 +1885,7 @@ def plot_spectrum (self,**kwargs):
             channels_nobin = get_indices(velocity,[lower,upper])
             channels_half = get_indices(velocity,[lower_half,upper_half])
             channels = get_indices(velocity,[lower,upper])
-            frequency = calc_frequency(params[i+1],data.restfreq/1e9)
+            frequency = calc_frequency(params[i+1],self.restfreq/1e9)
             frequencies.append(frequency)
             print  'Fit number : %i' % j
             print  ' Intensity : %2.4f \t=calculate it=' % (sqrt(2*pi)*sigma(params[i+2])*params[i]) # the area under the 1D Gaussian
@@ -1937,7 +1907,7 @@ def plot_spectrum (self,**kwargs):
             j = 1
             f = []
             for i in arange(1,len(params),3):
-                nu = calc_frequency(params[i],data.restfreq/1e9)
+                nu = calc_frequency(params[i],self.restfreq/1e9)
                 f.append(nu)
                 print '%3.9f' % nu
                 j+=1
@@ -1952,53 +1922,57 @@ def plot_spectrum (self,**kwargs):
             ax_kms.plot(xarr[channels], gauss1d(xarr[channels],params[i:i+3]))
         ax_kms.plot(xarr, gauss1d(xarr,params), color='0.2', lw=1, alpha=0.6)
         #
-        if kwargs.has_key('lineid'):
-            # later when the kwargs is implemented...
-            # checks that we have done a fit first
-            #if not kwargs['linefit']:
-            #    print 'If you want lineid you need linefit'
-            #    raise ParError(kwargs['lineid'], kwargs['linefit'])
-            import splatsearch as spl
-            print 'Trying to indentify candidates for the fitted lines.'
-            frequency_pairs = []
-            for i in arange(0,len(params),3):
-                vel_lower, vel_upper = (params[i+1] + array([-1,1])*fwhm*1.3)
-                # frequency increases when velocity decreases...
-                freq_lower = calc_frequency(vel_upper,data.restfreq/1e9)
-                freq_upper = calc_frequency(vel_lower,data.restfreq/1e9)
-                frequency_pairs.append([freq_lower,freq_upper])
-            list_of_species = []
-            list_of_frequencies = []
-            number = 1
-            for i in arange(len(frequency_pairs)):
-                df=8e-3 # range to find line
-                CSI = "\x1b["
-                start =CSI+'1m'+CSI+'32m'+CSI+'40m'
-                end = CSI+'m'
-                print '\n'+start+'Line number : '+str(number)+'\t\t\t\t'+end
-                print 'Frequency : %f  GHz' % (frequencies[i])
-                result = spl.splatsearch(freq=frequency_pairs[i], send=1, display=1, linelist=['jpl','cdms'], e_to=500)
-                if result!=None:  
-                    species, freq = result[1],result[3]
-                    for i in arange(len(freq)):
-                        list_of_species.append(species[i])
-                        list_of_frequencies.append(freq[i])
-                    #~ for i in arange(len(freq)):
-                        #~ if i>0 and freq[i]!=freq[i-1]: # remove duplicates
-                            #~ list_of_species.append(species[i])
-                            #~ list_of_frequencies.append(freq[i])
-                        #~ elif i==0:
-                            #~ list_of_species.append(species[i])
-                            #~ list_of_frequencies.append(freq[i])
-                        #~ else:
-                            #~ pass
-                
-                number+=1
-            # done now define the linelist
-            lines=[list_of_species,list_of_frequencies]
+        if linefit.has_key('lineid'):
+            if linefit['lineid']:
+                # later when the kwargs is implemented...
+                # checks that we have done a fit first
+                #if not kwargs['linefit']:
+                #    print 'If you want lineid you need linefit'
+                #    raise ParError(kwargs['lineid'], kwargs['linefit'])
+                import splatsearch as spl
+                print 'Trying to indentify candidates for the fitted lines.'
+                frequency_pairs = []
+                for i in arange(0,len(params),3):
+                    vel_lower, vel_upper = (params[i+1] + array([-1,1])*fwhm*1.5)
+                    # frequency increases when velocity decreases...
+                    freq_lower = calc_frequency(vel_upper,self.restfreq/1e9)
+                    freq_upper = calc_frequency(vel_lower,self.restfreq/1e9)
+                    frequency_pairs.append([freq_lower,freq_upper])
+                list_of_species = []
+                list_of_frequencies = []
+                number = 1
+                for i in arange(len(frequency_pairs)):
+                    df=8e-3 # range to find line
+                    CSI = "\x1b["
+                    start =CSI+'1m'+CSI+'32m'+CSI+'40m'
+                    end = CSI+'m'
+                    print '\n'+start+'Line number : '+str(number)+'\t\t\t\t'+end
+                    print 'Frequency : %f  GHz' % (frequencies[i])
+                    result = spl.splatsearch(freq=frequency_pairs[i], send=1, display=1, linelist=['jpl','cdms'], e_to=500)
+                    if result!=None:  
+                        species, freq = result[1],result[3]
+                        for i in arange(len(freq)):
+                            list_of_species.append(species[i])
+                            list_of_frequencies.append(freq[i])
+                        #~ for i in arange(len(freq)):
+                            #~ if i>0 and freq[i]!=freq[i-1]: # remove duplicates
+                                #~ list_of_species.append(species[i])
+                                #~ list_of_frequencies.append(freq[i])
+                            #~ elif i==0:
+                                #~ list_of_species.append(species[i])
+                                #~ list_of_frequencies.append(freq[i])
+                            #~ else:
+                                #~ pass
+                    
+                    number+=1
+                # done now define the linelist
+                lines=[list_of_species,list_of_frequencies]
+            else:
+                print ('Not identifying lines...')
+        
     #
-    if lines!=[]:
-        print u'Marking the lines, using %2.2f km\u00b7s\u207b\u00b9' % obj_dict['vsys']
+    if lines!=None:
+        print u'Marking the lines, using %2.2f km\u00b7s\u207b\u00b9' % source['vsys']
         if type(lines[-1]) in [type(1),type(1.0)]:
             # to be able to add a frequency shift to the linelist
             # to move the markings
@@ -2009,7 +1983,7 @@ def plot_spectrum (self,**kwargs):
             # so that we do not have to think about if we created it later
             lines_vobs = 0
         lines = parse_linelist(lines)
-        v = array([calc_vlsr(float(lines[i+1])*1e9,data.restfreq) for i in arange(0, len(lines), 2)]) + lines_vobs
+        v = array([calc_vlsr(float(lines[i+1])*1e9,self.restfreq) for i in arange(0, len(lines), 2)]) + lines_vobs
         colors8 = ['#95B200','#2A3702','#71AEDB','#6D001D','#4B8618', '#DDB61D', '#DC3A0C', '#003B73']
         colors7 = ['#95B200','#71AEDB','#6D001D','#4B8618', '#DDB61D', '#DC3A0C', '#003B73']
         if len(lines)/2 == 8:
@@ -2035,13 +2009,13 @@ def plot_spectrum (self,**kwargs):
         ax_kms.set_ylim(ymin,ymax)
     if ylimits!=None:
         ax_kms.set_ylim(ylimits)
-    #ax_kms.set_title(data.obj)
-    ax_kms.text(0.07,0.87,self.obj, transform=ax_kms.transAxes)
+    #ax_kms.set_title(self.obj)
+    ax_kms.text(0.07,0.87 ,self.obj, transform=ax_kms.transAxes)
     ax_kms.set_xlabel('$v$ [km s$^{-1}$]')
-    if data.unit=='Jy/beam':
+    if self.unit=='Jy/beam':
         ax_kms.set_ylabel('$I$ [Jy beam$^{-1}$]')
     else:
-        ax_kms.set_ylabel('$I$ ['+data.unit+']')
+        ax_kms.set_ylabel('$I$ ['+self.unit+']')
     # to show the channel numbers
     if show_freq==True:
         # create the frequency axis
@@ -2060,15 +2034,15 @@ def plot_spectrum (self,**kwargs):
 
         x_1, x_2 = ax_kms.get_xlim()
         # i want the frequency in GHz so, divide by 1e9
-        ax_hz.set_xlim(calc_frequency(x_1,data.restfreq/1e9), calc_frequency(x_2,data.restfreq/1e9))
+        ax_hz.set_xlim(calc_frequency(x_1,self.restfreq/1e9), calc_frequency(x_2,self.restfreq/1e9))
         pl_top -= 0.1
         pl.xticks(rotation=40,horizontalalignment ='left')
     #
     #elif lines!=[] and obj_par['vsys']==0:
     #    print('please, input a vsys!=0')
     #    return ; sysexit()
-    ax_kms.xaxis.set_major_formatter(tick_label_formatter)
-    ax_kms.yaxis.set_major_formatter(tick_label_formatter)
+    #ax_kms.xaxis.set_major_formatter(tick_label_formatter)
+    #ax_kms.yaxis.set_major_formatter(tick_label_formatter)
 
     #ax_kms.set_xticklabels(ax_kms.get_xticks(),ffont)
     #ax_kms.set_yticklabels(ax_kms.get_yticks(),ffont)
@@ -2094,23 +2068,23 @@ def plot_moment0 (self,
                 box=[0,0],
                 nsig=3,
                 nsjump=2,
-                source = dict(vsys=0,),
+                source = dict(vsys=0,dist=250),
                 font={'family':'serif', 'serif': ['Times New Roman'],
-                'size':18},
+                'size':8},
                 fit = dict(gauss = None, params = None, continuum = False,
                     interactive = False),
                 send=False,
                 quality=[300, 300],
                 cbar=True,
                 colormap=True,
-                plot_adjust= [0.12, 0.01, 0.74, 0.99],
+                plot_adjust= [0.13, 0.06, 0.75, 0.99],
                 cpeak=[0,0,'k'],
                 ccol='k',
-                sbar=dict(dist=250,au=200),
+                sbar=dict(au=200),
                 locators = [2,1],
                 telescope=None,
                 negcontours=True,
-                fsize=(9.,7.)):
+                fsize=(one_col_fig_width,one_col_fig_width*0.8)):
     """
 
     Function doc
@@ -2128,6 +2102,7 @@ def plot_moment0 (self,
     from scipy import array, where, median, std, sign, arange, alen, vstack, \
     concatenate, sqrt, log10, ones, sqrt, flipud
     #import pyfits as pf
+    from time import sleep
     import matplotlib.pyplot as pl
     #from matplotlib.patches import Circle
     from matplotlib.ticker import MultipleLocator, FormatStrFormatter
@@ -2185,7 +2160,8 @@ def plot_moment0 (self,
                 elif len(nvals)==2:
                     n1, n2 = nvals
             except (ValueError):
-                print "Since you did not input any or input was wrong we will guess some values..."
+                print_warning('Since you did not input any values\n or input was wrong we will guess some values...\n')
+                sleep(1)
                 nvals = None
         pl.close(1)
 
@@ -2274,20 +2250,8 @@ def plot_moment0 (self,
     ################################
     # setting global rc properties #
     ################################
-    rc('savefig', **{'dpi': 300})
-    rc('text', usetex=True)
-    rc('savefig', **{'dpi': quality[0]})
-    rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
+    set_rc()
 
-    #to set the global font properties
-    rc('font', **font)
-    # ticksize
-    rc('xtick',**{'minor.size':3, 'major.size':7})
-    rc('ytick',**{'minor.size':3, 'major.size':7})
-
-    # linewidths
-    rc('axes', linewidth=1)
-    rc('lines', linewidth=1, markeredgewidth=1)
 
 
     pl.ion()
@@ -2349,10 +2313,10 @@ def plot_moment0 (self,
     draw_beam(ax, linedata)
     draw_fov(ax, linedata)
 
-    if 'dist' and 'au' in sbar.keys():
-        draw_sizebar(ax,linedata,dist=sbar['dist'],au=sbar['au'])
-    elif 'dist' in sbar.keys():
-        draw_sizebar(ax,linedata,dist=sbar['dist'])
+    if 'au' in sbar.keys() and 'dist' in source.keys():
+        draw_sizebar(ax,linedata,dist=source['dist'],au=sbar['au'])
+    elif 'dist' in source.keys():
+        draw_sizebar(ax,linedata,dist=source['dist'])
     else :
         raise ParError(sbar)
     if len(cpeak) == 3:
@@ -2364,7 +2328,7 @@ def plot_moment0 (self,
         mark = cpeak[-1]
     else:
         mark = '+k'
-    cross = ax.plot(xmark, ymark, mark, ms=13, mew=3, alpha=0.9)
+    cross = ax.plot(xmark, ymark, mark, ms=6)#, mew=3, alpha=0.9)
 
 
 
@@ -2385,8 +2349,8 @@ def plot_moment0 (self,
     #fig.suptitle(linedata.obj+' (%s km s$^{-1}$)'% str(linedata.unit))
     #if cfile!=None:
     #    fig.subplots_adjust(bottom=0.08, right=0.77, top=0.90)
-    if obj_dict.has_key('source'):
-        ax.text(0.05,0.93, obj_dict['source'], transform = ax.transAxes)
+    if source.has_key('source'):
+        ax.text(0.05,0.93, source['source'], transform = ax.transAxes)
     else:
         ax.text(0.05,0.93, linedata.obj, transform = ax.transAxes)
     ax.set_xlim(i1,i2)
@@ -3003,7 +2967,7 @@ fit = dict(type=None, params=[(0.09, 7.3, 3.6)],
 
             if not fit.has_key('error'):
             errmsg='You have to supply an error to the fit, they\'re kind of important you know.'
-            print colorify(errmsg)
+            print stylify(errmsg)
             return ; sysexit()
 
         fwhmfromsig = 2*sqrt(2*log(2)) # the constant
@@ -3935,7 +3899,7 @@ def plot_chmap (self,
         print u'The velocity interval over which you create the maps is %2.3f to %2.3f km\u207b\u00b9\u00b7s' % (velocity.min()-abs(velocity_delta)/2,velocity.max()+abs(velocity_delta)/2)
         maps = array([data[x:x+nsum].sum(axis=0)*abs(linedata.vcdeltkms) for x in indices])
         N_channels = alen(channels)/nsum
-        print colorify('Done, remember that it can change the velocity interval that you specified in chvals. \n',c='g')
+        print stylify('Done, remember that it can change the velocity interval that you specified in chvals. \n',c='g')
         #
     else :
         # normal procedure here
@@ -4217,7 +4181,7 @@ def cubetracking (self,box=False, nsum=False):
     import matplotlib.pyplot as pl
     from matplotlib import cm
     from scipy import clip, array, sign, alen, arange
-    pl.ioff()
+    pl.ion()
     class IndexTracker:
         def __init__(self, ax, data, velocity):
             self.ax = ax

@@ -41,10 +41,13 @@ TODO : figure out prettier printing of linelists... colors, web-adresses?
         CDMS        http://cologne.de/CDMS/whatever"
 
 TODO : Change dictionary key-names in return-dictionary
+
+TODO : Implement new stylify help function
+
 """
 ###########################################
 # MAIN FUNCTION
-def splatsearch(**kwargs):
+def splatsearch(**arg):
     """
     This script queries Splatalogue.net from the command line
     
@@ -117,7 +120,7 @@ def splatsearch(**kwargs):
         freq measured if exist otherwise computed
         
     """
-    arg = kwargs
+    #~ arg = kwargs
     #
     if arg.has_key('display'):
         if arg['display'] == 1:
