@@ -5,6 +5,7 @@
 #
 #       adavis.py
 #
+#
 #       Copyright 2011 Magnus Persson <magnusp@nbi.dk>
 #
 #       This program is free software; you can redistribute it and/or modify
@@ -29,8 +30,9 @@ radio fits cubes/arrays.
 
 Needs : scipy (and numpy), 
         mpfit.py (optional, for Gaussian fitting), 
-        congridding.py (optional, for regridding)
-
+        congridding.py (optional, for regridding - not optimal)
+        coords (not yet, but later with ability to plot larger regions)
+        
 TODO : P-V diagram - rotatable 
        what happens with the coordinates?
        need to calc an offset, but call them x and y or something
@@ -41,6 +43,7 @@ TODO : Moment 2 maps - with MPFIT Gaussian fitting (check Jes mom2 IDL function)
 
 TODO : Calculate common stuff in a function, use in moment 0/1/2 maps
        Perhaps calculate and store in the object?
+        -> Common function for moment maps?
 
 TODO : What does the VELREF keyword in the GILDAS fits header mean? 
        Check GILDAS manual
@@ -48,6 +51,8 @@ TODO : What does the VELREF keyword in the GILDAS fits header mean?
 TODO : Clean up code again, remove font handler, or inactivate it
        All fonts should be Times New Roman, to big of a hassle to change
        to Sans-serif font, i.e. for the tick labels mostly.
+
+TODO : Check that the set_rc function is used
 
 TODO : Tick locators are good for small regions/narrow spectra, but not for big/wide
        Perhaps change it with the 'box' keyword.
@@ -58,24 +63,36 @@ TODO : obj_dict -> source, for all functions
 
 TODO : When supplying source=dict(vsys=X) the DataObject velarr is changed, not good
        Check this for all function, so that it does not happens.
-       The DataObject should be reusable, perhaps store vsys in DataObject?
+       The DataObject should be reusable.
+            -> Fixed for spectra and moment0/1 need to check for the rest.
 
-TODO : Change to handle **kwargs and DataObject in all functions.
+TODO : Change to handle DataObject in all functions.
+        X Spectra
+        X moment0
+        X moment1
+        O moment2
+        O The rest
 
 (TODO : Function to bin in spatial (2D) regime (congrid map), change ra/dec_delt etc)
 
-TODO : Splatsearch in plot_spectra
-       Integrate the splatsearch function in adavis.py?
-
 TODO : Interactive splatsearch.
 
-TODO : Interactive multiple Gaussian fitting
+TODO : Spectra class, use for fitting, lineid, binning
+
+TODO : Interactive multiple Gaussian fitting, i.e. click at start 
+        end of each line, calculate moments within it
 
 TODO : Check Jes functions how they work and try to merge/replace them.
 
 TODO : How to divide it into a runnable program.
 
-TODO : Implement it as command line program.
+TODO : Implement it as command line program
+        -> partially implemented, should work with spectra
+        
+TODO : for DataObject loading, learn it to parse the FITS type INDEX 
+       that Class can output.
+
+TODO : implement different lineID plot, make it more object oriented
 
 """
 
@@ -133,29 +150,25 @@ def calc_vlsr (f,f0):
     """ calc vlsr in km/s from two freq """
     from scipy import constants
     return (1-f/f0)*constants.c*1e-3
-def draw_beam(ax, data,loc=3, box=True):
+def calc_sigma(N,rms,vcdelt):
+    from scipy import sqrt
+    return sqrt(N)*rms*abs(vcdelt)
+def calc_cooffset(ra,dec,offset):
+    """ 
+    calculates new coordinates from old ones
     """
-    function that draws the beam
-    the attributes data.bmin, .bmaj and .bpa must exist in the data class
-    """
-    from mpl_toolkits.axes_grid.anchored_artists import AnchoredEllipse
-    # the PA is calculated from N to E, that is +90 degrees from normal
-    ae = AnchoredEllipse(transform=ax.transData,\
-                            width=data.bmin,\
-                            height=data.bmaj,\
-                            angle=data.bpa+90,\
-                            loc=loc,\
-                            pad=0.15,\
-                            borderpad=0.2,\
-                            frameon=box)
-
-    ax.add_artist(ae)
+    print 'Offset: %s, %s' % offset_inp
+    print 'New coordinates:'
+    print 'RA:\t%s\nDEC:\t%s' % ((parse_ra(new_ra,string=True),parse_dec(new_dec,string=True)))
 def stylify (s='Test text', f='n', fg='r', bg='d'):
     """ 
-    
+    Stylify text - change format, forground color and background color.
+        
     Sends back the string 'txt' with the correct foreground unicode 
     color start and finish (reset color).
-        
+    
+    Arguments
+    -----------------
         Formatting style of text (f)
         f = 
             "n" normal
@@ -236,6 +249,82 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
         raise ParError((f,fg,bg))
 
     return formatted_text
+def parse_tick_font (font):
+    """
+    You have to add your formatter yourself with:
+    labels = label_X.replace('X',data_fmt)
+    where data_fmt  eg = '%g'
+    and also:
+    formatted_labels = FormatStrFormatter(labels)
+
+    and lastly:
+    ax.xaxis.set_major_formatter(formatted_labels)
+
+    """
+    from scipy import array, where
+    if font.has_key('family'):
+        fformatters = array(['$\mathrm{X}$','$\mathsf{X}$','$\mathtt{X}$' , '$\mathit{X}$'])
+        ffamilies = array(['serif', 'sans-serif', 'monospace', 'cursive'])
+        label_X = fformatters[where(font['family']==ffamilies)][0]
+    else:
+        label_X = '$\mathrm{X}$'
+    #return label_X
+    return 'X'
+def get_telescope_diameter(telescope):
+    from string import upper
+    from scipy import where, array
+    name = array(['SMA', 'PDBI', 'JCMT', 'AP-H201-F102', 'IRAM30M'])
+    dia = array([6, 15, 15, 12, 30])
+    try:
+        diameter = dia[where(upper(telescope)==name)][0]
+    except IndexError, ex:
+        diameter = 1
+    return diameter
+def get_vals(chvals=None, nvals=None):
+    from scipy import array
+    from matplotlib.pyplot import close
+    #
+    # if there is no channels supplied
+    if chvals==None:
+        chvals = array(raw_input('input the limits, comma separated: ').split(','), dtype ='float')
+    if nvals==None:
+        # ask for noise calculation velocity limits
+        try:
+            nvals = array(raw_input('input the noise limits (velocity). comma separated: ').split(','), dtype='float')
+        except (ValueError):
+            print "Since you did not input any or input was wrong we will guess some values..."
+            nvals = None
+    close(1)
+    return chvals, nvals
+def calc_offset(ra,dec,offset):
+    """ 
+    calculates new coordinates from old ones
+    ra,dec - string with coordinate
+    offset - offsets in a tuple/list i.e. (dX,dY), [dX,dY]
+    """
+    from numpy import cos, pi, array
+    ra_inp = ra
+    ra = ra.split(':')
+    ra = [float(i) for i in ra]
+    ra_decimal = (ra[0] + ra[1]/60.0 + ra[2]/3600.0)*15.0 # convert to decimal number in degrees
+    dec_inp = dec
+    dec = dec.split(':')
+    dec = [float(i) for i in dec]
+    dec_decimal = dec[0] + dec[1]/60.0 + dec[2]/3600.0 # convert to decimal number
+    offset_inp = offset
+    offset = array(offset)/3600.0
+    cosdec = cos(dec_decimal*pi/180.) # convert to radians
+    new_ra = ra_decimal + offset[0]/cosdec
+    new_dec = dec_decimal + offset[1]
+    print 'Input coordinates:'
+    print 'RA:\t%s\nDEC:\t%s' % (ra_inp,dec_inp)
+    print 'Offset: %s, %s' % offset_inp
+    print 'New coordinates:'
+    print 'RA:\t%s\nDEC:\t%s' % ((parse_ra(new_ra,string=True),parse_dec(new_dec,string=True)))
+
+#####
+##### Plotting help functions
+#####
 def draw_fov(ax, data):
     """
     Function to draw the field of view into the
@@ -260,6 +349,23 @@ def draw_sizebar(ax, data, dist=220, au=200):
                             pad=0.1, borderpad=0.5, sep=5,
                             frameon=False)
     ax.add_artist(asb)
+def draw_beam(ax, data,loc=3, box=True):
+    """
+    function that draws the beam
+    the attributes data.bmin, .bmaj and .bpa must exist in the data class
+    """
+    from mpl_toolkits.axes_grid.anchored_artists import AnchoredEllipse
+    # the PA is calculated from N to E, that is +90 degrees from normal
+    ae = AnchoredEllipse(transform=ax.transData,\
+                            width=data.bmin,\
+                            height=data.bmaj,\
+                            angle=data.bpa+90,\
+                            loc=loc,\
+                            pad=0.15,\
+                            borderpad=0.2,\
+                            frameon=box)
+
+    ax.add_artist(ae)
 def draw_highlight_box(ax, xpos, xwidth):
     """
     adds a highlight box that spans whole y-axes space and specified data
@@ -305,34 +411,30 @@ def put_line_indicator(ax, velocity, spect, xpos, text_string, \
     size=text_size, weight=text_weight, color=text_color,\
     ha='center',va='bottom',rotation='vertical',\
     transform = ax.transData)
-def calc_sigma(N,rms,vcdelt):
-    from scipy import sqrt
-    return sqrt(N)*rms*abs(vcdelt)
-def calc_cooffset(ra,dec,offset):
-    """ 
-    calculates new coordinates from old ones
-    ra,dec - string with coordinate
-    offset - offsets in a tuple/list i.e. (dX,dY), [dX,dY]
-    """
-    from numpy import cos, pi, array
-    ra_inp = ra
-    ra = ra.split(':')
-    ra = [float(i) for i in ra]
-    ra_decimal = (ra[0] + ra[1]/60.0 + ra[2]/3600.0)*15.0 # convert to decimal number in degrees
-    dec_inp = dec
-    dec = dec.split(':')
-    dec = [float(i) for i in dec]
-    dec_decimal = dec[0] + dec[1]/60.0 + dec[2]/3600.0 # convert to decimal number
-    offset_inp = offset
-    offset = array(offset)/3600.0
-    cosdec = cos(dec_decimal*pi/180.) # convert to radians
-    new_ra = ra_decimal + offset[0]/cosdec
-    new_dec = dec_decimal + offset[1]
-    print 'Input coordinates:'
-    print 'RA:\t%s\nDEC:\t%s' % (ra_inp,dec_inp)
-    print 'Offset: %s, %s' % offset_inp
-    print 'New coordinates:'
-    print 'RA:\t%s\nDEC:\t%s' % ((parse_ra(new_ra,string=True),parse_dec(new_dec,string=True)))
+def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
+        'size':8},
+        quality=[300, 300]):
+
+    from matplotlib import rc
+    ################################
+    # setting global rc properties #
+    ################################
+    rc('text', usetex=True)
+    rc('savefig', **{'dpi': quality[0]})
+    rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
+    rc('image', **{'origin': 'lower'})
+    #to set the global font properties
+    rc('font', **font)
+    # ticksize
+    #rc('xtick',**{'minor.size':3, 'major.size':7})
+    #rc('ytick',**{'minor.size':3, 'major.size':7})
+    # linewidths
+    rc('axes', linewidth=0.8)
+    rc('patch', linewidth=0.5)
+    rc('lines', linewidth=0.5, markeredgewidth=0.8)
+###
+### Data parsing functions
+###
 def parse_region(data, region, f=False):
     """
     Parser for the region parameter, three different possibilities to supply
@@ -589,6 +691,9 @@ def get_indices (arr,vals,disp=False):
         n = last-first+1
         print '\nFirst: %d,\n Last: %d\n Nchan: %d\n' % (first, last, n)
     return channels
+####
+#### Help functions for fitting
+#### 
 def gauss1d(x, params=None, height=None):
     """
 
@@ -657,16 +762,16 @@ def gauss1d(x, params=None, height=None):
     #
     #
     return func(x, params)
-def fit_gauss1d((X,Y),\
-                params,\
-                err = None,\
-                fixlist = None,\
-                minbool = None,\
-                minpar = None,\
-                maxbool = None,\
-                maxpar = None,\
-                tie = None,\
-                verbose = 1,\
+def fit_gauss1d((X,Y),
+                params,
+                err = None,
+                fixlist = None,
+                minbool = None,
+                minpar = None,
+                maxbool = None,
+                maxpar = None,
+                tie = None,
+                verbose = 1,
                 full_output=0):
     """
     X - the coordinates of the x-axis (array)
@@ -680,8 +785,9 @@ def fit_gauss1d((X,Y),\
             e.g. fixlist = [[0,0,1],[0,0,1]] to fix the width of two
             gaussians that are being fit
     minbool - if != None, will assume that you want to limit something with a
-            minimum
+            minimum e.g. [[False,False,True]] to fix the FWHM 
     minpar - so then you must specify what that minimum limit is
+              e.g. [[0,0,0.5]] for a minimum FWHM of 0.5
     maxbool - here alseo, if != None you will have to specify a
     maxpar - which shows what that value is, you have to suply a value
             even if you are not limiting it so that the specific limiting
@@ -715,8 +821,7 @@ def fit_gauss1d((X,Y),\
     TODO : minimum width >= X[1]-X[0]
     """
     #from scipy import optimize
-    from numpy import exp, hstack, array, log, sqrt, diag, alen, zeros, \
-                        where, arange
+    from numpy import exp, hstack, array, log, sqrt, diag, alen, zeros, where, arange
     from mpfit import mpfit
     print '\n Fitting Gaussians'
     #
@@ -725,6 +830,12 @@ def fit_gauss1d((X,Y),\
     print '\nChecking input parameters'
     # flatten the parameters, so it is readable for the gaussian fitting
     params = array(params).flatten()
+    
+    pos = params[arange(1,len(params),3)]
+    if (pos<X.min()).any() or (pos>X.max()).any():
+        print_warning('You are trying to fit a Gaussian outside of the \
+    data range\n Not allowed. Exciting without fitting')
+        return None
     # number of gaussians to fit
     no_fits = (len(params))/3
     #
@@ -746,7 +857,7 @@ def fit_gauss1d((X,Y),\
     # MINIMUM LIMITS
     #
     # first we define a minimum limit for the width
-    xwidth = abs(X[1]-X[0]) # it is evenly space
+    xwidth = abs(X[1]-X[0])*1.5 # it is evenly space
     #
     # first case, it is not None, we are giving limits
     if minbool != None:
@@ -770,11 +881,11 @@ def fit_gauss1d((X,Y),\
         minpar[index] = xwidth
     #
     elif minbool == None:
-        # it is not limited but,
+        # it is not limited
         # here we still would want to limit the gaussian fwhm to the
         # width of one x axis data unit, can't be thinner than that, can it
         minbool = [False,False,True]*no_fits
-        minpar = [0,0,xwidth]*no_fits
+        minpar = [0, 0, xwidth]*no_fits
     #
     # MAXIMUM LIMITS
     if maxbool != None:
@@ -797,8 +908,8 @@ def fit_gauss1d((X,Y),\
     print '\nDefining fitting function and fitting'
     #
     ## Defining the fitting function and the error function
-    # NB: we are fitting FWHM directly
-    gaussian = lambda X, a : a[0]*exp(-(X-a[1])**2/(a[2]**2)*sqrt(2*log(2)))
+    # NB: we are fitting FWHM directly, and its squared, so sqrt disapears
+    gaussian = lambda X, a : a[0]*exp(-(X-a[1])**2/(a[2]**2)*2*log(2))
     #
     def fitfunc (X, p):
         S=0
@@ -806,28 +917,28 @@ def fit_gauss1d((X,Y),\
             S += gaussian(X, p[i:i+3])
         return S
     #
-    def errfunc(x,y,err):
+    def errfunc(x,y,err=None):
         if err == None:
             def f(p,fjac=None): return [0,(y-fitfunc(x,p))]
         else:
             def f(p,fjac=None): return [0,(y-fitfunc(x,p))/err]
         return f
-    #
+    # return([status, (y-model)/err]
     # define the parameter dictionary
     PAR = ['Amplitude','Position','Fwhm']
     fitlist = []
     for i in xrange(alen(params)):
         # create the dictionary to be appended to the list=
-        dictline = dict(n  = i,\
-                        value   = params[i],\
-                        limits  = [minpar[i],maxpar[i]],\
-                        limited = [minbool[i],maxbool[i]],\
-                        fixed   = fixlist[i],\
-                        parname = PAR[i%3],\
-                        tied = tie[i],\
-                        err   = 0)
+        dictline = dict(n  = i,
+                        value   = float(params[i]),
+                        limits  = [float(minpar[i]),float(maxpar[i])],
+                        limited = [minbool[i],maxbool[i]],
+                        fixed   = fixlist[i],
+                        parname = PAR[i%3],
+                        tied = tie[i])
         fitlist.append(dictline)
-
+    
+    #print fitlist
 
     if verbose == 2:
         # verbose level 2, output all fit iterations and final fit params
@@ -1086,58 +1197,6 @@ def gauss2d_decon ((bmaj1, bmin1, theta1, bmaj2, bmin2, theta2), ang='rad'):
     #
     # send back the results
     return (bmaj, bmin, bpa, success)
-def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
-        'size':8},
-        quality=[300, 300]):
-
-    from matplotlib import rc
-    ################################
-    # setting global rc properties #
-    ################################
-    rc('text', usetex=True)
-    rc('savefig', **{'dpi': quality[0]})
-    rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
-    rc('image', **{'origin': 'lower'})
-    #to set the global font properties
-    rc('font', **font)
-    # ticksize
-    #rc('xtick',**{'minor.size':3, 'major.size':7})
-    #rc('ytick',**{'minor.size':3, 'major.size':7})
-    # linewidths
-    rc('axes', linewidth=1)
-    rc('patch', linewidth=0.5)
-    rc('lines', linewidth=0.5, markeredgewidth=0.8)
-def parse_tick_font (font):
-    """
-    You have to add your formatter yourself with:
-    labels = label_X.replace('X',data_fmt)
-    where data_fmt  eg = '%g'
-    and also:
-    formatted_labels = FormatStrFormatter(labels)
-
-    and lastly:
-    ax.xaxis.set_major_formatter(formatted_labels)
-
-    """
-    from scipy import array, where
-    if font.has_key('family'):
-        fformatters = array(['$\mathrm{X}$','$\mathsf{X}$','$\mathtt{X}$' , '$\mathit{X}$'])
-        ffamilies = array(['serif', 'sans-serif', 'monospace', 'cursive'])
-        label_X = fformatters[where(font['family']==ffamilies)][0]
-    else:
-        label_X = '$\mathrm{X}$'
-    #return label_X
-    return 'X'
-def get_telescope_diameter(telescope):
-    from string import upper
-    from scipy import where, array
-    name = array(['SMA', 'PDBI', 'JCMT', 'AP-H201-F102', 'IRAM30M'])
-    dia = array([6, 15, 15, 12, 30])
-    try:
-        diameter = dia[where(upper(telescope)==name)][0]
-    except IndexError, ex:
-        diameter = 1
-    return diameter
 #
 #########################################
 # ASCII TABLE HELP FUNCTIONS
@@ -1225,28 +1284,48 @@ def infoatbl(filename, sep=None, c_char=['#', '!', '|', '/']):
     return strings
 #
 #########################################
+# DATA CLASSES
+#
 # MAIN DATA CLASS
 # Main data object, needs fits file as input
 # keywords can be appended to object later
 # to complement fits header information
-
-class DataObject:
+class Fits:
     """
     ------------------------------------------
-    Adavis DataObject
+    Adavis Fits Object (Data object)
     
     Usage :
-    ObjectName = DataObject(PathToFitsFile)
+    ObjectName = Fits(PathToFitsFile)
     
     ------------------------------------------
     
     Should be able to read:
     Maps, cubes, SD-spectra
     
+    TODO : maybe change the velocity attr, so that it follows naming 
+    similar to ra and dec, e.g. self.v_delt, self.v_arr
+    
+    TODO : Create a frequency array as well, much simpler later on then
     
     """
-    def __init__(self, fitsfile, telescope=None):
+    def __init__(self, fitsfile, telescope=None, vsys=0, dist=0):
         """
+        
+        attributes
+        ------------------------
+        datatype
+            possible values : 'SDSPECT', 'CUBE', 'IMAGE'
+        telescope
+            supported values : 'SMA', 'PDBI', ?
+            the name of the telescope
+        diameter
+            diameter of the telescope
+        velarr
+            array with every channels velocity, not corrected for the systemic velocity
+        dist 
+            distance to the source
+        
         TODO : loadcube - if the rotational matrice is non empty, load data and rotate it
         TODO : loadcube -what if add a function to grid it to a certain size, say 512x512?
                 o so it is possible to combine data with different res.
@@ -1261,6 +1340,9 @@ class DataObject:
         TODO : make loadcube delete an axis, along with the hdr keywords if all
                the axis keywords/values are empty/null
                     o only to loaded data, not save to raw data (fits file)
+            
+            
+            
         """
         
         #imports
@@ -1280,7 +1362,8 @@ class DataObject:
         #self.d = self.d[0] # this is if the stokes axis is present,
         # but it should not be there anymore
         f.close()
-    
+        # save the fitsfile, perhaps the path too, for updating it
+        self.fitsfile = fitsfile
         #
         #
         # the telescope diameter
@@ -1383,16 +1466,22 @@ class DataObject:
             self.d = self.d[0][0][0] # specific for this data...
         else:
             # if it is not an image or a spectral cube
-            print '\n ERROR\nThe dimensions of the data is wrong\n at least the header keywords indicate that.\n The data has '+str(self.hdr['NAXIS'])+' axes. \n\n Perhaps use the removeaxis script?\n\n'
-            sysexit(1)
-    
-            #
-            # FREQUENCY ARRAY
-            #
-            # construct the frequency array!
-            # the 3rd axis longer than 1, and 4th axis is the frequency
-            # if the data is constructed in gildas
-            #
+            print_error('The dimensions of the data is wrong\n at least the header keywords indicate that.\n The data has '+str(self.hdr['NAXIS'])+' axes. \n\n Perhaps use the removeaxis script?\n')
+            sysexit()
+        
+        # perhaps check in the header?
+        # velref probably at what velocity that middle of spectra is?
+        self.vsys = float(vsys)
+        self.dist = float(dist)
+        #
+        # FREQUENCY ARRAY
+        #
+        # construct the frequency array!
+        # the 3rd axis longer than 1, and 4th axis is the frequency
+        # if the data is constructed in gildas
+        #
+        if self.datatype[0] in ['CUBE', 'SDSPECT']:
+            self.velarr_vsys = self.velarr - self.vsys
         # DEC
         self.dec_cdelt = self.hdr['CDELT2']*3600 # arcs
         self.dec_npix = self.hdr['NAXIS2']
@@ -1410,21 +1499,25 @@ class DataObject:
             self.bmaj = self.hdr['BMAJ']*3600
             self.bmin = self.hdr['BMIN']*3600
             self.bpa = self.hdr['BPA']
+            self.gain = 8.168e-25*(self.restfreq)**2*self.bmin*self.bmaj
         except KeyError, ex:
+            print_warning('Header keywords (bmaj,bmin,bpa,restfreq) incomplete, ignoring all.')
             self.bmaj = None
             self.bmin = None
             self.bpa = None
+            self.gain = None
         try:
             # Data units
             self.unit = self.hdr['BUNIT']
-            self.obj = self.hdr['OBJECT']
-        except Exception, ex:
+        except KeyError, ex:
+            print_warning('No beam unit in header.')
             self.unit = None
         #
         # Object name
         self.obj = self.hdr['OBJECT']
+    def __str__(self):
         print '\n','='*40
-        print ' '*8,'INFORMATION : FITS file\n'
+        print ' '*8,'FITS file\n'
         print 'Data type : %s' % str(self.datatype[0])
         print 'Object : %s' % self.obj
         if self.datatype[0] != 'SDSPECT':
@@ -1436,9 +1529,88 @@ class DataObject:
         print 'Phase center '
         print ' RA : %2d:%2d:%2.4f' % (ra_h,ra_m,ra_s)
         print ' DEC : %2d:%2d:%2.4f' % (dec_h,dec_m,dec_s)
-        #
-        #return data
-
+        return "\n ADAVIS - Fitsfile Object \n"
+    def parse_region(self, region, f=False):
+        """
+        Parser for the region parameter, three different possibilities to supply
+        the region command:
+    
+            o region = [i1, j1, i2, j2]
+                The four corners of a square around the object, in offset from
+                phase center position.
+    
+            o region = [i1, j1, a]
+                The center coordinate (i1, j1) and the side (a) of a square around
+                the center coordinate (i1, j1).
+    
+            o region = [d1, d2]
+                Just the square sides length, will be centered on the phase center.
+    
+        All the coorinates are given in lenghts and offsets (in asec) from the
+        data center as displayed normally in radio data.
+    
+        Inspired by the miriad 'region' parameter
+    
+        ---------------------------------------------------------------------------
+    
+                                oOO Changelog OOo
+    
+        *2010/06 Funciton created
+    
+        *2010/10(11) Doc written and some errors in the code corrected (+-1 in
+        some places)
+    
+        *2010/12/09 in len(region)==3, changed the division with an abs()
+        array([-region[2],region[2]])/(2*data.ra_cdelt) to abs(2*data.ra_cdelt).
+        In len(region)==2 same change, now it is correct, I hope.
+    
+        *2010/12/13 the previous "fix" made the len=3 procedure to be erronous.
+        corrected it
+        
+        *2011/10/03 incorporated into the Fits class
+        
+        """
+        from scipy import ceil, floor, array
+        if len(region)==4:
+            xcheck = region[0]==region[2]
+            ycheck = region[1]==region[3]
+            #~ if region[0]<region[2]: # if you enter it as in miriad i.e. (-5,-5,5,5)
+                #~ reg2 = region[2]
+                #~ reg0 = region[0]
+                #~ region[0] = reg2
+                #~ region[2] = reg0
+            #x1, x2 = (data.ra_npix+1)/2 + array([region[0],region[2]])/abs(data.ra_cdelt) + array([0,xcheck])
+            #y1, y2 = (data.dec_npix+1)/2+ array([region[1],region[3]])/abs(data.dec_cdelt)+ array([0,ycheck])
+            #
+            x1, x2 = array([region[0],region[2]])/self.ra_cdelt+ self.ra_crpix - 1 + array([0,xcheck])
+            y1, y2 = array([region[1],region[3]])/self.dec_cdelt+ self.dec_crpix - 1 + array([0,ycheck])
+            print x1,x2
+            #
+        elif len(region)==3:
+            check = region[2]==0
+            #x1, x2 = (data.ra_npix+1)/2 + array([-region[2],region[2]])/(2*abs(data.ra_cdelt)) + region[0]/data.ra_cdelt + array([0,check])
+            #y1, y2 = (data.dec_npix+1)/2+ array([-region[2],region[2]])/(2*abs(data.dec_cdelt)) +region[1]/data.dec_cdelt+ array([0,check])
+            #
+            x1, x2 = self.ra_crpix + region[0]/self.ra_cdelt + array([-region[2],region[2]])/abs(2*self.ra_cdelt) - 1 + array([0,check])
+            y1, y2 = self.dec_crpix + region[1]/self.dec_cdelt + array([-region[2],region[2]])/abs(2*self.dec_cdelt) - 1 + array([0,check])
+            #
+        elif len(region)==2:
+            xcheck = region[0]==0
+            ycheck = region[1]==0
+            #x1, x2 = (data.ra_npix+1)/2 + array([-1,1])*region[0]/abs(data.ra_cdelt)  + array([0,xcheck])
+            #y1, y2 = (data.dec_npix+1)/2+ array([-1,1])*region[1]/abs(data.dec_cdelt) + array([0,ycheck])
+            #
+            x1, x2 = array([-region[0],region[0]])/(2*abs(self.ra_cdelt)) + self.ra_crpix - 1 + array([0,xcheck])
+            y1, y2 = array([-region[1],region[1]])/(2*abs(self.dec_cdelt)) + self.dec_crpix - 1 + array([0,ycheck])
+            #
+        elif():
+            print ('Error, region keyword malformed')
+            sysexit(1)
+            #
+        # so that we are returning usable pixel coordinates
+        if f==False:
+            x1,x2,y1,y2 = array([x1,x2,y1,y2]).round().astype('int')
+        return x1,x2,y1,y2
     def calc_fov(self):
         # method to calculate FOV after the correct telescope name/diameter
         # has been input and thus correcting the current FOV of 
@@ -1448,39 +1620,149 @@ class DataObject:
         elif self.diameter == 1:
             print 'You have not changed either the diameter of the telescope or the telescope name'
         self.fov = 58.4*(3.e8/self.restfreq)/float(self.diameter)*3600.
-    #~ def add_line(self, name, frequency=None, channels=None):
-        #~ try:
-            #~ 
-        #~ except AttributeError, ex:
-            
-
-
+    def calc_rms(self, nvals, area):
+        from scipy import sqrt,array
+        i1,i2,j1,j2 = self.parse_region(area)
+        n_channels = get_indices(self.velarr, nvals)
+        if len(nvals)==2:
+            n = array([n_channels.min(),n_channels.max()])
+            print n
+            nv = self.velarr[n]
+        if len(nvals)==4:
+            print 'Do not give correct value'
+            n = array([n_channels.min(),n_channels.max()])
+            nv = self.velarr[n]
+        self.rms = sqrt(((self.d[n_channels, j1:j2, i1:i2])**2).mean())
+        print "RMS calculated in channel {} ({}) and region {}".format(n+1,nv,area)
+    def add_line(self, name, frequency=None, channels=None, width=None):
+        """
+        Add identified line(s) to the class
+        
+        TODO : update the fits file as well?
+        '"""
+        try:
+            known_lines = self.known_lines
+        except AttributeError, ex:
+            known_lines = {}
+        known_lines[204.38343] = {'name' : 'SO$_2$','frequency' : frequency, 'channels' : channels, 'width' : width}
+    #
+    # method to change the vsys
+    def change_vsys (self, vsys):
+        self.vsys = vsys
+        # now, change the velarr_vsys array as well
+        if self.datatype[0] in ['CUBE', 'SDSPECT']:
+            self.velarr_vsys = self.velarr - self.vsys
+    #
+    def change_dist (self, dist):
+        self.dist = dist # unit of pc
+#
+# MOMENTS DATA CLASS
+# Calculates moment 0 and 1, to use in 
+# the moment_map function
+class Moments:
+    """ 
+    Calculate moments
+    output : moment object with all info
     
+    calculate the different moments (0/1/2) for a dataset
+    append it to the data-class (DataObject) and return it
+    
+    idl code
+    ; Select which part of the velocity axis to consider
+    vx=where(va_l ge 6.0 and va_l le 8.0)
+    ; mom0
+    mom0 = dmom(i,j,0) = total(line(i,j,vx))
+    ; only mom1 if signal high enough (i.e. 3sigma)
+    dmom(i,j,1) = total(reform(line(i,j,vx))*va_l(vx))/mom0
+    check 
+    """
+    
+    
+    ### not shure if it is allowed to use "Fits" as input here.
+    # perhaps need some other input name
+    def __init__ (self, Fits, chvals, nsig):
+        """ 
+        moment class initialiser
+        
+        input :
+        
+        
+        TODO : Check if I take enough levels, i.e. that the self.maximum 
+               really is the maximum of the WHOLE 2D array
+
+        """
+        from scipy import sqrt, alen, flipud, arange, array, ones, nan
+        # -> never use binned array
+        # -> never use velocities from/with the vsys corrected data
+        # get the data from the cube
+        # copy header for easy acess to stuff
+        self.hdr = Fits.hdr
+        self.channels = get_indices(Fits.velarr,chvals)
+        imgs = Fits.d[self.channels]
+        # calculate the moment 0
+        self.zero = imgs.sum(axis=0)*abs(Fits.vcdeltkms)
+        Isum = imgs.sum(axis=0)*abs(Fits.vcdeltkms) # make a copy for masking <3sigma values in mom1 map̈́
+        # other statistics
+        self.sigma = sqrt(alen(imgs))*Fits.rms*abs(Fits.vcdeltkms)
+        self.minimum = self.zero.min()
+        self.maximum = self.zero.max()
+        # calculate levels, start at 1 sigma, jump 1 sigma
+        # one for positive and one for negative
+        # concatenate before displaying if want certain start & jump
+        self.levels_neg = -1*flipud(arange(self.sigma,abs(self.minimum)+self.sigma,self.sigma))
+        self.levels_pos = arange(self.sigma,self.maximum+self.sigma,self.sigma)
+        #levels = arange(nsig*moment0_sigma,moment0_max+moment0_sigma,nsjump*moment0_sigma)
+        
+        # moment 1
+        # create array that matches imgs array
+        # only the velocities that we want, i.e. Fits.velarr[img_channels]
+        velocities_matrix = array([ones(imgs.shape[1:])*i for i in Fits.velarr[self.channels]])
+        # removed where(), because a boolean array works fine
+        # find out where we calculate the moment 1, i.e. 3 sigma level 
+        Isum[self.zero<abs(nsig*self.sigma)] = nan
+        Ivsum = (imgs*velocities_matrix).sum(axis=0)
+        # calculate the denominator, the sum of all images
+        # in our velocity interval
+        Isum = imgs.sum(axis=0)
+        # calculate moment 1
+        self.mom_one = Ivsum/Isum
+        #return self
+#
+# SPECTRUM DATA CLASS
+# To be used in the plot_spectrum function
+# NB : Not implemented yet
+class Spectrum:
+    """ Class doc """
+    ### not shure if it is allowed to use "Fits" as input here.
+    # perhaps need some other input name
+    def __init__ (self, Fits):
+        """ Class initialiser """
+        pass
 ###########################################
 # MAIN FUNCTIONS
 
 def plot_spectrum (self,
-                   chvals=None,
-                   nvals=None,
-                   region=[0,0,0,0],
-                   source = dict(vsys=0),
-                   show_freq=False,
-                   font={'family':'serif', 'serif': ['Times New Roman'],
-                   'size':8},
-                   binning=1,
-                   bintype='mean',
-                   linefit = dict(type=None, params=[(0.09, 7.3, 3.6)],
-                   guess=False, interactive=False, fixlist=None, error=None,
-                   limmin=None, minpar=None, limmax=None, maxpar=None, tie=None,
-                   lineid=False),
-                   send=False,
-                   quality=[300, 300],
-                   plot_adjust= [0.15, 0.17, 0.98, 0.95],
-                   lines = None,
-                   axspace = [1., 1., 1., 1.],
-                   ylimits=None,
-                   telescope=None,
-                   fsize=(fig_size)):
+    chvals=None,
+    nvals=None,
+    region=[0,0,0,0],
+    source = dict(),
+    show_freq=False,
+    font={'family':'serif', 'serif': ['Times New Roman'],
+    'size':8},
+    binning=1,
+    bintype='mean',
+    linefit = dict(type=None, params=[(0.09, 7.3, 3.6)],
+    guess=False, interactive=False, fixlist=None, error=None,
+    limmin=None, minpar=None, limmax=None, maxpar=None, tie=None,
+    lineid=False),
+    send=False,
+    quality=[300, 300],
+    plot_adjust= [0.15, 0.17, 0.98, 0.95],
+    lines = None,
+    axspace = [1., 1., 1., 1.],
+    ylimits=None,
+    telescope=None,
+    fsize=(fig_size)):
     """
     Plot the spectrum of a DataObject
     
@@ -1556,7 +1838,7 @@ def plot_spectrum (self,
     lines :
         Default : None
         draw lines with name 'a' & 'c' and rest frequencies b & d.
-        if obj_dict=dict(vsys=x) is not null, then it will shift the positions
+        if obj_dict=dict(vsys=x), or DataObject.vsys is not null, then it will shift the positions
         of the lines accordingly.
     
     axspace :
@@ -1579,11 +1861,21 @@ def plot_spectrum (self,
             ie does the end unit change? yes-> fix it
                     # change x1,x2,y1,y2 to quarter region (line 2350)
                     # change so that when binning, the rms i calculated
-            Remove the most weird font-settings
+    
+    TODO : Remove the most weird font-settings
             
     TODO : RMS units, e.g. when using SD data, Kelvin instead of Jy...
     
+    TODO : The RMS calculation, always for both binned and unbinned data
+    
     TODO : Fix the axspace implementation, must be a better way
+    
+    TODO : Perhaps be able to supply more for the figure, e.g. figure number
+    
+
+    
+    Remember! : hasattr(data,'vsys')
+    
     """
     # imports
     #import scipy as sp
@@ -1621,10 +1913,30 @@ def plot_spectrum (self,
     # be used
     pl_left, pl_bottom, pl_right,pl_top = plot_adjust
     # save the channel values (in velocity)
-    if chvals!=None:
-        v1, v2 = chvals
-    velocity = self.velarr - source['vsys'] #now all the velocities are based on the LSR
+    #~ if chvals!=None:
+        #~ v1, v2 = chvals
+    # correcting for vsys here makes the fitted line frequency wrong,
+    # 
+    #~ velocity = self.velarr - source['vsys'] #now all the velocities are based on the LSR
+    # here we just use velocity as a variable that we can change so we dont change the class
+    # e.i. if we're binning velocity will change, but self.velarr will be the same
     velocity_delta = self.vcdeltkms
+    velocity = self.velarr
+    #
+    if self.vsys != 0:
+        #~ velocity = self.velarr_vsys
+        vsys = self.vsys
+    elif not source.has_key('vsys'):
+        #~ source['vsys'] = 0
+        #~ velocity = self.velarr
+        vsys = 0
+    elif source.has_key('vsys'):
+        # this will make it add vsys to the object everytime, not good!!
+        #~ velocity = self.velarr - source['vsys'] #now all the velocities are based on the LSR
+        vsys = source['vsys']
+    if source.has_key('vsys'):
+        if self.vsys != source.has_key('vsys'):
+            print_warning('The vsys in the data class is not equal to what you gave here.')
     #self.freqarr = calc_frequency(self.velarr,self.restfreq)
     #
     # parse the region parameter
@@ -1640,10 +1952,10 @@ def plot_spectrum (self,
     Extracting spectra, the region keyword gives the region to sum over.
     BUT we have to devide by that area to get back to the correct units(?).
     """
-    if self.datatype[0] != 'SDSPECT':
+    if self.datatype[0] != 'SDSPECT': # if it is a cube
         area_region = ((y2-y1)*(x2-x1))
         spect = (self.d[:,y1:y2,x1:x2].sum(axis=1).sum(axis=1))/float(area_region)
-    elif self.datatype[0] == 'SDSPECT':
+    elif self.datatype[0] == 'SDSPECT': # if it is a single dish spectra
         area_region = 1
         print stylify("SD-SPECTRUM - region keyword not doing anything.",fg='r')
         spect = self.d
@@ -1682,6 +1994,250 @@ def plot_spectrum (self,
             print 'Type of binning : Simple mean over selected no. bin channels'
         elif bintype=='resample':
             print 'Type of binning : Resampling - 1D interpolation'
+    
+    ####################################
+    #       noise calculation          #
+    ####################################
+    if nvals!=None:
+        print '='*40
+        print ' '*11,'Noise statistics\n'
+        # calculate the rms from the channels in the spectra
+        # accounts for it even if it is binned
+        #
+        # image rms
+        # change x1,x2,y1,y2 to quarter region
+        # change so that when binning, the rms i calculated
+        # x1,x2
+        if self.datatype[0] == 'SDSPECT':
+            rms = sqrt(((self.d[get_indices(velocity,nvals)])**2).mean()/float(binning))
+        else:
+            zlen, ylen, xlen = self.d.shape
+            ydelt = ylen/6
+            xdelt = xlen/6
+            i1,i2 = xlen/2-xdelt, xlen/2+xdelt
+            j1,j2 = ylen/2-ydelt, ylen/2+ydelt
+            rms = sqrt(((self.d[get_indices(velocity,nvals),j1:j2,i1:i2])**2).mean()/float(binning))
+        rms_mjy = rms*1e3
+        #rms_0 = sqrt(((spect[get_indices(velocity,nvals)])**2).mean())
+        #rms_2 = sqrt(((self.d[get_indices(velocity,nvals),:,:])**2).mean())
+
+        #rms_0= rms/sqrt(abs(self.vcdeltkms))
+        #print rms_0
+        #print 'rms_0 =', rms_0*1e3
+        #print 'rms_2 =', rms_2*1e3
+        #
+        # the sensitivity
+        s = rms/sqrt(abs(velocity_delta))
+        s_mjy = s*1e3
+        # the channels used
+        ind = get_indices(velocity,nvals)
+        ind1, ind2 = ind.min(), ind.max()
+        print u'RMS \t\t: %2.3f mJy\u00b7beam\u207b\u00b9\u00b7channel\u207b\u00b9' % rms_mjy
+        print u' Sensitivity \t: %2.3f mJy\u00b7beam\u207b\u00b9\u00b7km\u207b\u00b9\u00b7s' % s_mjy
+        print u' Channels used \t: %d, %d (%s km\u00b7s\u207b\u00b9)' % (ind1, ind2, str(nvals))
+        print u' Region \t: %s arcsec' % (str(region))
+        print u' Channel width \t: %2.3f km\u00b7s\u207b\u00b9' % abs(velocity_delta)
+    
+    ####################################
+    #           fitting data           #
+    ####################################
+    
+    if linefit['type']=='gauss':
+        """
+        TODO : calculate errors for the fit etc, look at Kaper et al (1966)\
+                and Condon (1996).
+        TODO : guess parameters?
+        TODO : interactive
+        TODO : calculate mean and std of the FWHM for the fits
+        """
+        print '='*40
+        print ' '*11,"Line fitting\n"
+        #
+        fit = linefit.copy()
+        if not linefit.has_key('error'):
+            if nvals!=None:
+                fit['error'] = rms
+                print 'No error supplied, but nvals given and rms calculated.\n\
+                using rms = %2.3f Jy beam-1 channel-1' % rms
+            elif nvals==None:
+                errmsg='You have to supply an error to the fit, they\'re kind of important you know.'
+                print stylify(errmsg)
+                return ; sysexit()
+
+        fwhmfromsig = 2*sqrt(2*log(2)) # the constant
+        fwhm = lambda x: fwhmfromsig*x
+        sigma = lambda x: x/fwhmfromsig
+
+        # fits 1D gaussian(s) to spectral data
+        if chvals!=None: # if we supplied limits for the fit
+            ch = where((velocity>chvals[0])*(velocity<chvals[1]))[0]
+            Fx = spect[ch]
+            X = velocity[ch]
+        else: # else use the eveything
+            Fx = spect
+            X = velocity
+        #
+        #
+        p = fit['params'] # parameters for the fit
+        #
+        if not fit.has_key('limmin'):
+            fit['limmin'] = None
+            fit['minpar'] = None
+        if not fit.has_key('limmax'):
+            fit['limmax'] = None
+            fit['maxpar'] = None
+        if not fit.has_key('fixlist'):
+            fit['fixlist'] = None
+        if not fit.has_key('tie'):
+            fit['tie'] = None
+        #
+        from time import time
+        t1= time()
+        #
+        fitting_results = fit_gauss1d((X,Fx), params=p, fixlist=fit['fixlist'], 
+                minbool=fit['limmin'], minpar=fit['minpar'], 
+                maxbool=fit['limmax'], maxpar=fit['maxpar'], 
+                err=fit['error'], tie=fit['tie'], verbose=0, full_output=1)
+        
+        if fitting_results==None:
+            print(stylify('\n\n No fitting done...',f='b',fg='r'))
+        elif fitting_results!=None:
+            params, errors, chi2, mp = fitting_results
+            #
+            print ' Done in %2.3f seconds \n' % (time()-t1)
+            #
+            print ' Number of fits : ', alen(params)/3
+            print ' Fit status : ', mp.status, '(if 0, it should have halted)\n'
+            # now, parse output of fitting and print it out on screen
+            j = 1
+            line_widths = []
+            frequencies = []
+            #
+            # temporary code, move these attributes and methods over to the class
+            # both the fitting and the initialisation, each spectra class can be fitted individually
+            # 
+            # move fitting up before plotting
+            #
+            #
+            class Tmp: pass
+            #Tmp.fitting_results = fitting_results
+            Tmp.params = params
+            Tmp.errors = errors
+            Tmp.chi2 = chi2
+            Tmp.nfits = alen(params)/3
+            #
+            #
+            #
+            for i in arange(0,len(params),3):
+                # add 1 because channel 1 is in pos 0
+                
+                half_fwhm = params[i+2]/2.
+                fwhm = params[i+2]
+                line_widths.append(fwhm)
+                # first figure out the extent of the gaussian (the line)
+                # jump half a channel down and up so that it finds the correct channels
+                lower_half, upper_half = (params[i+1] + array([-1,1])*half_fwhm)
+                lower,upper = (params[i+1] + array([-1,1])*fwhm)
+                #channels = where((velocity>lower)*(velocity<upper))[0]+1
+                channels_half_nobin = get_indices(self.velarr,[lower_half,upper_half])
+                channels_nobin = get_indices(self.velarr,[lower,upper])
+                channels_half = get_indices(velocity,[lower_half,upper_half])
+                channels = get_indices(velocity,[lower,upper])
+                #draw_highlight_box(ax_kms, params[i+1], params[i+2]*3)
+                # apply vsys correction, so that we use vsys for estimating the correct
+                # frequency for the line, especially importat when using line-identification
+                frequency = calc_frequency(params[i+1]-vsys,self.restfreq/1e9)
+                frequencies.append(frequency)
+                print  'Fit number : %i' % j
+                print  ' Intensity : %2.4f \t=calculate it=' % (sqrt(2*pi)*sigma(params[i+2])*params[i]) # the area under the 1D Gaussian
+                print u' Amplitude : %2.3f (\u00b1%2.3f) \t Jy\u00b7Beam\u207b\u00b9' % (params[i],errors[i])
+                print u' Position  : %2.3f (\u00b1%2.3f) \t km\u00b7s\u207b\u00b9' % (params[i+1],errors[i+1])
+                print u' Width     : %2.3f (\u00b1%2.3f) \t km\u00b7s\u207b\u00b9 (FWHM, \u03c3=%2.3f)' % (params[i+2],errors[i+2], sigma(params[i+2]))
+                print  ' Frequency : %3.9f GHz (Vsys corrected)' % frequency
+                print u' FWHM     : %d, %d (%d) ([%.2f, %.2f] km/s)'% (channels_half_nobin.min(), channels_half_nobin.max(),(channels_half_nobin.max()-channels_half_nobin.min()+1), lower_half, upper_half)
+                print u' \u00b1FWHM   : %d, %d (%d) ([%.2f, %.2f] km/s)' % (channels_nobin.min(), channels_nobin.max(), (channels_nobin.max()-channels_nobin.min()+1), lower,upper)
+                if bin!=1:
+                    print u' Rebinned channels :\n \t FWHM width  : %d, %d (\u00b1FWHM)' % (channels_half.min(), channels_half.max())
+                    print  u' \t \u00b1FWHM width : %d, %d (%d)  \n' % (channels.min(), channels.max(),(channels.max()-channels.min()+1))
+                j+=1
+            #
+            line_widths = array(line_widths)
+            print 20*'- '
+            print u'Mean FWHM : %2.1f \u00b1%2.2f km\u00b7s\u207b\u00b9' % (line_widths.mean(),line_widths.std())
+            
+            #### old code block
+            #~ if send: # does this clause do anything? sending this way earlier...
+                #~ j = 1
+                #~ f = []
+                #~ for i in arange(1,len(params),3):
+                    #~ nu = calc_frequency(params[i]-vsys,self.restfreq/1e9)
+                    #~ f.append(nu)
+                    #~ print '%3.9f' % nu
+                    #~ j+=1
+            ### end of old code block
+            # draw the fit(s) into the figure
+            # X is the velocity array
+            # xarr has more 3 times more datapoints than velocity array
+            # the plotted lines looks smoother and nicer that way
+            xarr = arange(X[0],X[-1],(diff(X)[0]/3))
+            #~ for i in arange(0,len(params),3):
+                #~ lower,upper = (params[i+1] + array([-1,1])*fwhm*4)
+                #~ channels = get_indices(xarr,[lower,upper])
+                #~ ax_kms.plot(xarr[channels], gauss1d(xarr[channels],params[i:i+3]))
+            #~ ax_kms.plot(xarr, gauss1d(xarr,params), color='0.2', lw=1, alpha=0.6)
+        #
+            if linefit.has_key('lineid'):
+                if linefit['lineid']:
+                    # later when the kwargs is implemented...
+                    # checks that we have done a fit first
+                    #if not kwargs['linefit']:
+                    #    print 'If you want lineid you need linefit'
+                    #    raise ParError(kwargs['lineid'], kwargs['linefit'])
+                    import splatsearch as spl
+                    print 'Trying to indentify candidates for the fitted lines.'
+                    frequency_pairs = []
+                    for i in arange(0,len(params),3):
+                        # correct for vsys, to get correct frequency for the
+                        # correct frequency range in the splatalogue search
+                        # when calculating the "correct" frequency, we subtract vsys
+                        vel_lower, vel_upper = (params[i+1]-vsys + array([-1,1])*params[i+2]*1.2)
+                        # frequency increases when velocity decreases...
+                        freq_lower = calc_frequency(vel_upper,self.restfreq/1e9)
+                        freq_upper = calc_frequency(vel_lower,self.restfreq/1e9)
+                        frequency_pairs.append([freq_lower,freq_upper])
+                    list_of_species = []
+                    list_of_frequencies = []
+                    number = 1
+                    for i in arange(len(frequency_pairs)):
+                        df=8e-3 # range to find line
+                        CSI = "\x1b["
+                        start =CSI+'1m'+CSI+'32m'+CSI+'40m'
+                        end = CSI+'m'
+                        print '\n'+start+'Line number : '+str(number)+'\t\t\t\t'+end
+                        print 'Frequency : %f  GHz' % (frequencies[i])
+                        result = spl.splatsearch(freq=frequency_pairs[i], send=1, display=1, linelist=['jpl','cdms'], e_to=500)
+                        if result!=None:  
+                            species, freq = result[1],result[3]
+                            for i in arange(len(freq)):
+                                list_of_species.append(species[i])
+                                list_of_frequencies.append(freq[i])
+                            #~ for i in arange(len(freq)):
+                                #~ if i>0 and freq[i]!=freq[i-1]: # remove duplicates
+                                    #~ list_of_species.append(species[i])
+                                    #~ list_of_frequencies.append(freq[i])
+                                #~ elif i==0:
+                                    #~ list_of_species.append(species[i])
+                                    #~ list_of_frequencies.append(freq[i])
+                                #~ else:
+                                    #~ pass
+                        
+                        number+=1
+                    # done now define the linelist
+                    lines=[list_of_species,list_of_frequencies]
+            else:
+                print ('Not identifying lines...')
+    
+    
     ####################################
     #            return data           #
     ####################################
@@ -1689,19 +2245,19 @@ def plot_spectrum (self,
         if nvals!=None and linefit['type']!=None: # send everything!
             txt = '\n sending you spectra, velarr, data, noise-spectra'
             print stylify(txt,fg='g')
-            return spect,velocity, data, spect[get_indices(velocity,nvals)]
-        elif nvals==None and linefit['type']=='gauss': # no noise channels supplied
+            return spect, velocity, self, Tmp
+        elif linefit['type']=='gauss': # gaussian fitting
             txt = '\n sending you spect, velarr, data'
             print stylify(txt,fg='g')
-            return spect,velocity, data
+            return spect, velocity, self, Tmp
         elif nvals!=None and linefit['type']==None: # no fit but noise
             txt =  '\n sending you spect, velarr, data, noise-spectra'
             print stylify(txt,fg='g')
-            return spect, velocity, data, spect[get_indices(velocity,nvals)]
+            return spect, velocity, self, spect[get_indices(velocity,nvals)]
         else: # well non of them are supplied
             txt =  '\n sending you spectra, velarr, data'
             print stylify(txt,fg='g')
-            return spect, velocity, data
+            return spect, velocity, self
     # use set_rc here!
     #set_rc
 
@@ -1746,50 +2302,12 @@ def plot_spectrum (self,
     ymin, ymax = ymin*[1/cy1,cy1][symin], ymax*[cy2,1/cy2][symax]
     
     if nvals!=None:
-        print '='*40
-        print ' '*11,'Noise statistics\n'
-        # calculate the rms from the channels in the spectra
-        # accounts for it even if it is binned
-        #
-        # image rms
-        # change x1,x2,y1,y2 to quarter region
-        # change so that when binning, the rms i calculated
-        # x1,x2
-        if self.datatype[0] == 'SDSPECT':
-            rms = sqrt(((self.d[get_indices(velocity,nvals)])**2).mean()/float(binning))
-        else:
-            zlen, ylen, xlen = self.d.shape
-            ydelt = ylen/6
-            xdelt = xlen/6
-            i1,i2 = xlen/2-xdelt, xlen/2+xdelt
-            j1,j2 = ylen/2-ydelt, ylen/2+ydelt
-            rms = sqrt(((self.d[get_indices(velocity,nvals),j1:j2,i1:i2])**2).mean()/float(binning))
-        rms_mjy = rms*1e3
-        #rms_0 = sqrt(((spect[get_indices(velocity,nvals)])**2).mean())
-        #rms_2 = sqrt(((self.d[get_indices(velocity,nvals),:,:])**2).mean())
-
-        #rms_0= rms/sqrt(abs(self.vcdeltkms))
-        #print rms_0
-        #print 'rms_0 =', rms_0*1e3
-        #print 'rms_2 =', rms_2*1e3
-        #
-        # the sensitivity
-        s = rms/sqrt(abs(velocity_delta))
-        s_mjy = s*1e3
-        # the channels used
-        ind = get_indices(velocity,nvals)
-        ind1, ind2 = ind.min(), ind.max()
-        print u'RMS \t\t: %2.3f mJy\u00b7beam\u207b\u00b9\u00b7channel\u207b\u00b9' % rms_mjy
-        print u' Sensitivity \t: %2.3f mJy\u00b7beam\u207b\u00b9\u00b7km\u207b\u00b9\u00b7s' % s_mjy
-        print u' Channels used \t: %d, %d (%s km\u00b7s\u207b\u00b9)' % (ind1, ind2, str(nvals))
-        print u' Region \t: %s arcsec' % (str(region))
-        print u' Channel width \t: %2.3f km\u00b7s\u207b\u00b9' % abs(velocity_delta)
         ax_kms.plot([xmin, xmax],[3*rms,3*rms],'b--', alpha=0.7)
         ax_kms.plot([xmin, xmax],[-3*rms,-3*rms],'b--', alpha=0.7)
     #
     # plot dotted lines at y=0 and x=0
-    if (velocity<0).any()*(velocity>0).any() or (velocity==0).any():
-        ax_kms.plot([xmin-10,xmax+10],[0,0],'g:',[0,0],[ymin-1,ymax+1],'g:')
+    if (velocity<self.vsys).any()*(velocity>self.vsys).any() or (velocity==self.vsys).any():
+        ax_kms.plot([xmin-10,xmax+10],[0,0],'g:',[self.vsys,self.vsys],[ymin-1,ymax+1],'g:')
     else:
         ax_kms.plot([xmin-10,xmax+10],[0,0],'g:')
     #####################
@@ -1803,195 +2321,23 @@ def plot_spectrum (self,
     #ax_kms.xaxis.set_major_locator(xmajorLocator)
     #ax_kms.xaxis.set_minor_locator(xminorLocator)
     #ax_kms.yaxis.set_major_locator(ymajorLocator)
-    #ax_kms.yaxis.set_minor_locator(yminorLocator)
-
+    #ax_kms.yaxis.set_minor_locator(yminorLocator)      
+    #
     if linefit['type']=='gauss':
-        """
-        TODO : calculate errors for the fit etc, look at Kaper et al (1966)\
-                and Condon (1996).
-        TODO : guess parameters?
-        TODO : calculate mean and std of the FWHM for the fits
-        """
-        print '='*40
-        print ' '*11,"Line fitting\n"
-        #
-        fit = linefit.copy()
-        if not linefit.has_key('error'):
-            if nvals!=None:
-                fit['error'] = rms
-                print 'No error supplied, but nvals given and rms calculated.\n\
-                using rms = %2.3f Jy beam-1 channel-1' % rms
-            elif nvals==None:
-                errmsg='You have to supply an error to the fit, they\'re kind of important you know.'
-                print stylify(errmsg)
-                return ; sysexit()
-
-        fwhmfromsig = 2*sqrt(2*log(2)) # the constant
-        fwhm = lambda x: fwhmfromsig*x
-        sigma = lambda x: x/fwhmfromsig
-
-        # fits up to five (5) 1D gaussian(s) to the spectral data
-        if chvals!=None: # if we supplied limits for the fit
-            ch = where((velocity>v1)*(velocity<v2))[0]
-            Fx = spect[ch]
-            X = velocity[ch]
-        else: # else use the eveything
-            Fx = spect
-            X = velocity
-        #
-        #
-        p = fit['params'] # parameters for the fit
-        #
-        if not fit.has_key('limmin'):
-            fit['limmin'] = None
-            fit['minpar'] = None
-        if not fit.has_key('limmax'):
-            fit['limmax'] = None
-            fit['maxpar'] = None
-        if not fit.has_key('fixlist'):
-            fit['fixlist'] = None
-        if not fit.has_key('tie'):
-            fit['tie'] = None
-        #
-        from time import time
-        t1= time()
-        #
-        params, errors, chi2, mp = fit_gauss1d((X,Fx), params=p, fixlist=fit['fixlist'], \
-                minbool=fit['limmin'], minpar=fit['minpar'], \
-                maxbool=fit['limmax'], maxpar=fit['maxpar'], \
-                err=fit['error'], tie=fit['tie'], verbose=0, full_output=1)
-        #
-        print ' Done in %2.3f seconds \n' % (time()-t1)
-
-        #
-        print ' Number of fits : ', alen(params)/3
-        print ' Fit status : ', mp.status, '(if 0, it should have halted)\n'
-        # now, parse output of fitting and print it out on screen
-        j = 1
-        line_widths = []
-        frequencies = []
         for i in arange(0,len(params),3):
-            # add 1 because channel 1 is in pos 0
-            half_fwhm = params[i+2]/2
-            fwhm = params[i+2]
-            line_widths.append(fwhm)
-            # first figure out the extent of the gaussian (the line)
-            # jump half a channel down and up so that it finds the correct channels
-            lower_half, upper_half = (params[i+1] + array([-1,1])*half_fwhm)
-            lower,upper = (params[i+1] + array([-1,1])*fwhm)
-            #
-            #channels = where((velocity>lower)*(velocity<upper))[0]+1
-            channels_half_nobin = get_indices(velocity,[lower_half,upper_half])
-            channels_nobin = get_indices(velocity,[lower,upper])
-            channels_half = get_indices(velocity,[lower_half,upper_half])
-            channels = get_indices(velocity,[lower,upper])
-            frequency = calc_frequency(params[i+1],self.restfreq/1e9)
-            frequencies.append(frequency)
-            print  'Fit number : %i' % j
-            print  ' Intensity : %2.4f \t=calculate it=' % (sqrt(2*pi)*sigma(params[i+2])*params[i]) # the area under the 1D Gaussian
-            print u' Amplitude : %2.3f (\u00b1%2.3f) \t Jy\u00b7Beam\u207b\u00b9' % (params[i],errors[i])
-            print u' Position  : %2.3f (\u00b1%2.3f) \t km\u00b7s\u207b\u00b9' % (params[i+1],errors[i+1])
-            print u' Width     : %2.3f (\u00b1%2.3f) \t km\u00b7s\u207b\u00b9 (FWHM, \u03c3=%2.3f)' % (params[i+2],errors[i+2], sigma(params[i+2]))
-            print  ' Frequency : %3.9f GHz' % frequency
-            print u' \u00b1FWHM     : %d to %d (%d) [%.2f to %.2f km/s]'% (channels_half_nobin.min(), channels_half_nobin.max(),(channels_half_nobin.max()-channels_half_nobin.min()+1), lower_half, upper_half)
-            print u' \u00b12*FWHM   : %d to %d (%d) [%.2f to %.2f km/s]' % (channels_nobin.min(), channels_nobin.max(), (channels_nobin.max()-channels_nobin.min()+1), lower,upper)
-            if bin!=1:
-                print u' Rebinned channels :\n \t FWHM width  : %d to %d (\u00b1FWHM)' % (channels_half.min(), channels_half.max())
-                print  ' \t 2*FWHM width : %d to %d (%d)  \n' % (channels.min(), channels.max(),(channels.max()-channels.min()+1))
-            j+=1
-        #
-        line_widths = array(line_widths)
-        print 20*'- '
-        print u'Mean FWHM : %2.1f \u00b1%2.2f km\u00b7s\u207b\u00b9' % (line_widths.mean(),line_widths.std())
-        if send: # does this clause do anything? sending this way earlier...
-            j = 1
-            f = []
-            for i in arange(1,len(params),3):
-                nu = calc_frequency(params[i],self.restfreq/1e9)
-                f.append(nu)
-                print '%3.9f' % nu
-                j+=1
-        # draw the fit(s) into the figure
-        # X is the velocity array
-        # xarr has more 3 times more datapoints than velocity array
-        # the plotted lines looks smoother and nicer that way
-        xarr = arange(X[0],X[-1],(diff(X)[0]/3))
-        for i in arange(0,len(params),3):
-            lower,upper = (params[i+1] + array([-1,1])*fwhm*4)
+            lower,upper = (params[i+1] + array([-1,1])*params[i+2]*4)
             channels = get_indices(xarr,[lower,upper])
             ax_kms.plot(xarr[channels], gauss1d(xarr[channels],params[i:i+3]))
         ax_kms.plot(xarr, gauss1d(xarr,params), color='0.2', lw=1, alpha=0.6)
-        #
-        if linefit.has_key('lineid'):
-            if linefit['lineid']:
-                # later when the kwargs is implemented...
-                # checks that we have done a fit first
-                #if not kwargs['linefit']:
-                #    print 'If you want lineid you need linefit'
-                #    raise ParError(kwargs['lineid'], kwargs['linefit'])
-                import splatsearch as spl
-                print 'Trying to indentify candidates for the fitted lines.'
-                frequency_pairs = []
-                for i in arange(0,len(params),3):
-                    vel_lower, vel_upper = (params[i+1] + array([-1,1])*fwhm*1.5)
-                    # frequency increases when velocity decreases...
-                    freq_lower = calc_frequency(vel_upper,self.restfreq/1e9)
-                    freq_upper = calc_frequency(vel_lower,self.restfreq/1e9)
-                    frequency_pairs.append([freq_lower,freq_upper])
-                list_of_species = []
-                list_of_frequencies = []
-                number = 1
-                for i in arange(len(frequency_pairs)):
-                    df=8e-3 # range to find line
-                    CSI = "\x1b["
-                    start =CSI+'1m'+CSI+'32m'+CSI+'40m'
-                    end = CSI+'m'
-                    print '\n'+start+'Line number : '+str(number)+'\t\t\t\t'+end
-                    print 'Frequency : %f  GHz' % (frequencies[i])
-                    result = spl.splatsearch(freq=frequency_pairs[i], send=1, display=1, linelist=['jpl','cdms'], e_to=500)
-                    if result!=None:  
-                        species, freq = result[1],result[3]
-                        for i in arange(len(freq)):
-                            list_of_species.append(species[i])
-                            list_of_frequencies.append(freq[i])
-                        #~ for i in arange(len(freq)):
-                            #~ if i>0 and freq[i]!=freq[i-1]: # remove duplicates
-                                #~ list_of_species.append(species[i])
-                                #~ list_of_frequencies.append(freq[i])
-                            #~ elif i==0:
-                                #~ list_of_species.append(species[i])
-                                #~ list_of_frequencies.append(freq[i])
-                            #~ else:
-                                #~ pass
-                    
-                    number+=1
-                # done now define the linelist
-                lines=[list_of_species,list_of_frequencies]
-            else:
-                print ('Not identifying lines...')
         
-    #
     if lines!=None:
-        print u'Marking the lines, using %2.2f km\u00b7s\u207b\u00b9' % source['vsys']
-        if type(lines[-1]) in [type(1),type(1.0)]:
-            # to be able to add a frequency shift to the linelist
-            # to move the markings
-            print ('this is very crude implemented, change/remove if it conflicts.')
-            lines_vobs = lines[-1]
-            lines = lines[0]
-        else:
-            # so that we do not have to think about if we created it later
-            lines_vobs = 0
+        print u'Marking the lines, using %2.2f km\u00b7s\u207b\u00b9' % vsys
         lines = parse_linelist(lines)
-        v = array([calc_vlsr(float(lines[i+1])*1e9,self.restfreq) for i in arange(0, len(lines), 2)]) + lines_vobs
-        colors8 = ['#95B200','#2A3702','#71AEDB','#6D001D','#4B8618', '#DDB61D', '#DC3A0C', '#003B73']
-        colors7 = ['#95B200','#71AEDB','#6D001D','#4B8618', '#DDB61D', '#DC3A0C', '#003B73']
-        if len(lines)/2 == 8:
-            colors = colors8
-        elif len(lines)/2 == 7:
-            colors = colors7
-        elif len(lines)/2 not in [6, 8]:
-            colors = ['k']*len(lines)
+        # add vsys so that it plots it at the right vsys
+        if len(lines) == 2:
+            lines = [lines[0][0], lines[1][0]]
+        v = array([calc_vlsr(float(lines[i+1])*1e9,self.restfreq)+vsys for i in arange(0, len(lines), 2)])
+        colors = ['k']*len(lines)
         x = 0
         for i,j in zip(arange(0, len(lines), 2), arange(0, len(lines),1)):
             # only check for lines behind the new line
@@ -2052,14 +2398,11 @@ def plot_spectrum (self,
     #pl.show()
     #pl.draw()
     pl.subplots_adjust(left=pl_left, bottom=pl_bottom, right=pl_right, top=pl_top)
+    #~ return spect, velocity, self, Tmp
 
-    #pl.show()
-
-    #pl.ioff()
-    #
 #
-def plot_moment0 (self,
-                cfile=None,
+# new!
+def plot_moment_map (self, moment,
                 chvals=None,
                 nvals=None,
                 region=[0,0,0,0],
@@ -2084,19 +2427,8 @@ def plot_moment0 (self,
                 locators = [2,1],
                 telescope=None,
                 negcontours=True,
-                fsize=(one_col_fig_width,one_col_fig_width*0.8)):
-    """
-
-    Function doc
-
-    params = [height, amplitude, x0, y0, width_x, width_y, rota]
-    TODO : For drawing size bar, add keywords to control it
-    TODO : Change fit-routine to MPFIT
-    TODO : Fix the RMS/sensitivity/sigma calculation units
-    cpeak, continuum peak
-    """
-
-
+                fsize=(one_col_fig_width,one_col_fig_width*0.8),
+                **kwargs):
     # imports
     #import scipy as sp
     from scipy import array, where, median, std, sign, arange, alen, vstack, \
@@ -2108,14 +2440,21 @@ def plot_moment0 (self,
     from matplotlib.ticker import MultipleLocator, FormatStrFormatter
     from matplotlib import cm, rc
     #
-
-
+    
+    
+    """
+    1. get data
+    2. calc moments
+    3. calc stats
+    4. calc levels
+    5. display
+    """
     ################################
     # setting the tick label font  #
     ################################
     # we are using latex formatting here!
     # following sets the ticklabel format string
-    data_fmt = '%g'         # for normal y and x axis
+    data_fmt = '%g'                 # for normal y and x axis
     cbar_data_fmt = '%2.2f'         # for normal y and x axis
     label_X = parse_tick_font(font)
     tick_label_formatter = FormatStrFormatter(label_X.replace('X',data_fmt))
@@ -2123,129 +2462,161 @@ def plot_moment0 (self,
 
 
     pl_left, pl_bottom, pl_right,pl_top = plot_adjust
+    if filled==0:
+        pl_right*=1.2
+        pl_bottom*=2
+        
+    
+# old
+def plot_moment0 (self,
+                cfile=None,
+                chvals=None,
+                nvals=None,
+                region=[0,0,0,0],
+                nx=6,
+                filled=True,
+                box=[0,0],
+                nsig=3,
+                nsjump=2,
+                source = dict(dist=250),
+                font={'family':'serif', 'serif': ['Times New Roman'],
+                'size':8},
+                fit = dict(gauss = None, params = None, continuum = False,
+                    interactive = False),
+                send=False,
+                quality=[300, 300],
+                cbar=True,
+                colormap=True,
+                plot_adjust= [0.13, 0.06, 0.75, 0.99],
+                cpeak=[0,0,'k'],
+                ccol='k',
+                sbar=dict(au=200),
+                locators = [2,1],
+                telescope=None,
+                negcontours=True,
+                fsize=(one_col_fig_width,one_col_fig_width*0.8),
+                rms_area=[0,0,10]):
+    """
 
-    #
-    # first get the fitsfile
-    #~ linedata = loadcube(filename,telescope)
-    linedata = self
-    #
-    if not source.has_key('vsys'):
-        source['vsys'] = 0
-    # this will make it add vsys to the object everytime, not good!!
-    linedata.velarr = linedata.velarr - source['vsys'] #now all the velocities are based on the LSR
+    Function doc
 
-    # and the continuum data, if existent
-    if cfile != None:
-        contdata = loadcube(cfile)
-    # parse the channel values
-    if chvals!=None:
-        v1, v2 = chvals
+    source
+        datatype : dictionary
+        possible values : vsys, dist, title
+            vsys - change the systemic velocity used
+            dist - change the distanve used 
+            title - change the title text of the map drawn
+    cpeak, continuum peak
+    
+    params = [height, amplitude, x0, y0, width_x, width_y, rota]
+    TODO : For drawing size bar, add keywords to control it
+    TODO : Change fit-routine to MPFIT
+    TODO : Fix the units of the RMS/sensitivity/sigma
+    
+    """
+    # imports
+    #import scipy as sp
+    from scipy import array, where, median, std, sign, arange, alen, vstack, \
+    concatenate, sqrt, log10, ones, sqrt, flipud
+    #import pyfits as pf
+    from time import sleep
+    import matplotlib.pyplot as pl
+    #from matplotlib.patches import Circle
+    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+    from matplotlib import cm, rc
+    #
+    #
+    #
+    ################################
+    # setting the tick label font  #
+    ################################
+    # we are using latex formatting here!
+    # following sets the ticklabel format string
+    data_fmt = '%g'                 # for normal y and x axis
+    cbar_data_fmt = '%2.2f'         # for normal y and x axis
+    label_X = parse_tick_font(font)
+    tick_label_formatter = FormatStrFormatter(label_X.replace('X',data_fmt))
+    cbar_tick_label_formatter = FormatStrFormatter(label_X.replace('X',cbar_data_fmt))
+    #
+    pl_left, pl_bottom, pl_right,pl_top = plot_adjust
+    if filled==0:
+        pl_right*=1.2
+        pl_bottom*=2
     # parse the region, get the area for the spectra
-    x1,x2,y1,y2 = parse_region(linedata, region)
+    x1,x2,y1,y2 = parse_region(self, region)
     # if any is limits are None, draw spectra and ask for them/it
     # INTERACTIVE
     if nvals==None or chvals==None:
         # draw spectrum
-        plot_spectrum(linedata,region=region, source= {'vsys': source['vsys']})
+        plot_spectrum(self,region=region, source= source)
         #
-        # if there is no channels supplied
-        if chvals==None:
-            v1, v2 = array(raw_input('input the limits, comma separated: ').split(','), dtype ='float')
-        if nvals==None:
-            # ask for noise calculation velocity limits
-            try:
-                nvals = array(raw_input('input the noise limits (velocity). comma separated: ').split(','), dtype='float')
-                if len(nvals)==4:
-                    n1, n2, n3, n4 = nvals
-                elif len(nvals)==2:
-                    n1, n2 = nvals
-            except (ValueError):
-                print_warning('Since you did not input any values\n or input was wrong we will guess some values...\n')
-                sleep(1)
-                nvals = None
-        pl.close(1)
-
+        chvals, nvals = get_vals(chvals=chvals, nvals=nvals)
+        if nvals==None: # if no nvals where still not given...
+            n1 = self.velarr.min()+5*abs(self.vcdeltkms)
+            n2 = v1-5*abs(self.vcdeltkms)
+            n3 = v2+5*abs(self.vcdeltkms)
+            n4 =  self.velarr.max()-5*abs(self.vcdeltkms)
+            nvals = [n1, n2, n3, n4]
     # calculate common stuff
     ### for the plotting box
-    ylen, xlen = linedata.d[0].shape
-    ycoords = arange(-ylen/2,ylen/2,1)*linedata.dec_cdelt
-    xcoords = arange(-xlen/2,xlen/2,1)*linedata.ra_cdelt
-    #
+    ylen, xlen = self.d[0].shape
+    ycoords = arange(-ylen/2,ylen/2,1)*self.dec_cdelt
+    xcoords = arange(-xlen/2,xlen/2,1)*self.ra_cdelt
     # for the extent keyword
     left, right = xcoords[0],xcoords[-1]
     bottom, top = ycoords[0],ycoords[-1]
     #
-    # parse the noise channel values
-    if nvals!=None:
-        # if noise has been input
-        noise_channels = get_indices(linedata.velarr, nvals)
-    #
-    else:
-        # if user didnt input noise velocity limits
-        # choose channels away from the choosen (red blue) lines
-        low = where((linedata.velarr>(linedata.velarr.min()+10))*(linedata.velarr<(v1-10)))[0]
-        high = where((linedata.velarr>(v2+10))*(linedata.velarr<(linedata.velarr.max()-10)))[0]
-        noise_channels = concatenate((low, high))
-    #
-    # the region to calculate the rms in
-    i1,i2 = xlen/2+array([-1,1])*xlen/4
-    j1,j2 = ylen/2+array([-1,1])*ylen/4
-
     # the noise, rms
-    noise = linedata.d[noise_channels]
-    rms = sqrt(((noise[:,j1:j2,i1:i2])**2).mean())
-
-    # set boundaries
+    # when done, self.rms to access the rms value
+    self.calc_rms(nvals, rms_area)
+    #
+    # set plot boundaries
     if box == [0,0]:
         i1,i2 = left,right
         j1,j2 = bottom,top
     elif box != [0,0]:
-        i1,i2 = array([-1,1])*box[0]/2.*sign(linedata.ra_cdelt)
-        j1,j2 = array([-1,1])*box[1]/2.*sign(linedata.dec_cdelt)
-
-    # get the channels
-    #img_channels = where((linedata.velarr>v1)*(linedata.velarr<v2))[0]
-    img_channels = get_indices(linedata.velarr,[v1,v2])
-    imgs = linedata.d[img_channels]
-    #
-    # do the summing
-    #
-    # M1 = dv * sum(I(a,b,vi))_x1^x2
-    #
-    img = imgs.sum(axis=0)*abs(linedata.vcdeltkms)
-    img_sigma = calc_sigma(alen(imgs), rms, linedata.vcdeltkms)
-    #
-    img_max = img.max()
-    img_min = img.min()
+        i1,i2 = array([-1,1])*box[0]/2.*sign(self.ra_cdelt)
+        j1,j2 = array([-1,1])*box[1]/2.*sign(self.dec_cdelt)
+    
+    #~ moments, [moment0_sigma, moment0_min, moment0_max], img_channels, levels = calc_moments(self, chvals=chvals, nvals=nvals, nsig=nsig, nsjump=nsjump, negcontours=negcontours, rms=rms)
+    Mom = Moments(self, chvals=chvals, nsig=nsig)
     #
     # now create the levels for the contours
     if negcontours:
-        levs = concatenate((-1*flipud(arange(nsig*img_sigma,abs(img_min)+img_sigma,nsjump*img_sigma)), arange(nsig*img_sigma,img_max+img_sigma,nsjump*img_sigma)))
-        levs_contour = concatenate((-1*flipud(arange(nsig*img_sigma,abs(img_min)+img_sigma,2*nsjump*img_sigma)), arange(nsig*img_sigma,img_max+img_sigma,2*nsjump*img_sigma)))
+        #return flipud(arange(nsig,alen(Mom.levels_neg),nsjump)), arange(nsig,alen(Mom.levels_pos),nsjump), Mom
+        # 
+        # not correct, at least not the negative levels
+        # 
+        levs = concatenate((
+                Mom.levels_neg[flipud(arange(nsig-1,alen(Mom.levels_neg),nsjump))], 
+                Mom.levels_pos[arange(nsig-1,alen(Mom.levels_pos),nsjump)]
+                          ))
+        levs_contour = concatenate((
+                Mom.levels_neg[flipud(arange(nsig-1,alen(Mom.levels_neg),2*nsjump))], 
+                Mom.levels_pos[arange(nsig-1,alen(Mom.levels_pos),2*nsjump)]
+                                  ))
     else:
-        levs = arange(nsig*img_sigma,img_max+img_sigma,nsjump*img_sigma)
-        levs_contour = arange(nsig*img_sigma,img_max+img_sigma,2*nsjump*img_sigma)
+        #~ levs = arange(nsig*img_sigma,img_max+img_sigma,nsjump*img_sigma)
+        levs = Mom.levels_pos[arange(nsig,alen(Mom.levels_pos),nsjump)]
+        #~ levs_contour = arange(nsig*img_sigma,img_max+img_sigma,2*nsjump*img_sigma)
+        levs_contour = Mom.levels_pos[arange(nsig,alen(Mom.levels_pos),2*nsjump)]
     #levs = arange(nsig*img_sigma, img_max, nsjump*img_sigma)
     # print some info out
     print '\n','='*40
     print ' '*8,'INFORMATION : Line data'
     print '='*40
-    print '\n Summing from channel %3d to %3d' % (img_channels.min(), img_channels.max())
-    print ' RMS \t\t: %2.3f \tmJy/beam/channel\n Sigma \t\t: %2.3f \tmJy/beam/km/s' % (1e3*rms, 1e3*img_sigma)
-    print ' Map min/max \t: %2.2f/%2.2f \tmJy/beam/km/s' % (1e3*img_min, 1e3*img_max)
-    print ' Start sigma \t: %2.3f (%1.1f) \tmJy/beam/km/s\n Sigma step \t: %2.3f (%1.1f) \tmJy/beam/km/s\n' % (1e3*nsig*img_sigma, nsig, 1e3*nsjump*img_sigma, nsjump)
+    print '\n Summing from channel %3d to %3d' % (Mom.channels.min(), Mom.channels.max())
+    print ' RMS \t\t: %2.3f \tmJy/beam/channel\n Sigma \t\t: %2.3f \tmJy/beam/km/s' % (1e3*self.rms, 1e3*Mom.sigma)
+    print ' Map min/max \t: %2.2f/%2.2f \tmJy/beam/km/s' % (1e3*Mom.minimum, 1e3*Mom.maximum)
+    print ' Start sigma \t: %2.3f (%1.1f) \tmJy/beam/km/s\n Sigma step \t: %2.3f (%1.1f) \tmJy/beam/km/s\n' % (1e3*nsig*Mom.sigma, nsig, 1e3*nsjump*Mom.sigma, nsjump)
     #
     # tick density
     majorLocator = MultipleLocator(locators[0])
     minorLocator = MultipleLocator(locators[1])
 
     if send==True:
-        if cfile!=None:
-            print 'sending you things'
-            return img, levs,levs_contour, img_sigma, (left,right,bottom,top), linedata, contdata
-        if cfile==None:
-            print 'sending you : img, levs,levs_contour, imgs_sigma, extent, data'
-            return img, levs, levs_contour,img_sigma, (left,right,bottom,top), linedata
+        print 'sending you moment class and extents'
+        return Mom, (left,right,bottom,top)
 
     ################################
     # setting global rc properties #
@@ -2262,28 +2633,28 @@ def plot_moment0 (self,
     ax = fig.add_subplot(111)
     #
     # print beam parameters for the data
-    gain = 8.168e-25*(linedata.restfreq)**2*linedata.bmin*linedata.bmaj
+    
     print '='*40
     print ' '*15,'BEAM(S)'
     print '='*40
     print 'Line cube:'
-    print u' Minor (FWHM)\t: %2.3f \tasec' % linedata.bmin
-    print u' Major (FWHM)\t: %2.3f  \tasec' % linedata.bmaj
-    print ' PA \t\t: %2.3f \tDegrees (0<theta<180)' % linedata.bpa
-    print u' Gain\t\t: %2.4f \tJy\u00b7K\u207b\u00b9\n' % gain
+    print u' Minor (FWHM)\t: %2.3f \tasec' % self.bmin
+    print u' Major (FWHM)\t: %2.3f  \tasec' % self.bmaj
+    print ' PA \t\t: %2.3f \tDegrees (0<theta<180)' % self.bpa
+    print u' Gain\t\t: %2.4f \tJy\u00b7K\u207b\u00b9\n' % self.gain
     #
-    #
-    if cfile != None:
-        cont = ax.imshow(contdata.d, cmap=cm.gray_r, extent=(left,right,bottom,top))
-        if cbar:
-            cb = pl.colorbar(cont)
-            cb.ax.set_ylabel(str(contdata.unit))
-
-        print '-'*40
-        print 'Continuum data:'
-        print u' Minor (FWHM)\t: %2.3f \tasec' % contdata.bmin
-        print u' Major (FWHM)\t: %2.3f  \tasec' % contdata.bmaj
-        print ' PA \t\t: %2.3f Degrees (0<theta<180) \n' % contdata.bpa
+    # plot the continuum data
+    #~ if cfile != None:
+        #~ cont = ax.imshow(contdata.d, cmap=cm.gray_r, extent=(left,right,bottom,top))
+        #~ if cbar:
+            #~ cb = pl.colorbar(cont)
+            #~ cb.ax.set_ylabel(str(contdata.unit))
+#~ 
+        #~ print '-'*40
+        #~ print 'Continuum data:'
+        #~ print u' Minor (FWHM)\t: %2.3f \tasec' % contdata.bmin
+        #~ print u' Major (FWHM)\t: %2.3f  \tasec' % contdata.bmaj
+        #~ print ' PA \t\t: %2.3f Degrees (0<theta<180) \n' % contdata.bpa
     #
     #
     if colormap and filled==True:
@@ -2291,34 +2662,43 @@ def plot_moment0 (self,
     if colormap == None or filled==False:
         # just contours
         levs = levs.round(3)
-        levs_contour = levs_contour.round(3)
-        cs = ax.contour(img, levs_contour, colors=ccol, extent=(left,right,bottom,top))
+        #~ levs_contour = levs_contour.round(3)
+        cs = ax.contour(Mom.zero, levs, colors=ccol, extent=(left,right,bottom,top))
     elif cfile == None and colormap!=None:
         levs = levs.round(3)
         levs_contour = levs_contour.round(3)
-        cs1 = ax.contourf(img, levs, cmap=colormap, extent=(left,right,bottom,top))
+        cs1 = ax.contourf(Mom.zero, levs, cmap=colormap, extent=(left,right,bottom,top))
         #cs2 = ax.contour(img, cs1.levels[::2], colors=ccol, extent=(left,right,bottom,top))
         #return cs1 
-        cs2 = ax.contour(img, levs_contour, colors=ccol, extent=(left,right,bottom,top))
+        cs2 = ax.contour(Mom.zero, levs_contour, colors=ccol, extent=(left,right,bottom,top))
         cbar = pl.colorbar(cs1, ticks=levs_contour, format=cbar_tick_label_formatter)#label_X.replace('X','%2.2f'))
         cbar.add_lines(cs2)
-        if str(linedata.unit) == 'Jy/beam':
+        if str(self.unit) == 'Jy/beam':
             cbar.ax.set_ylabel(r'Jy\,beam$^{-1}$')
         else:
-            cbar.ax.set_ylabel(str(linedata.unit))
+            cbar.ax.set_ylabel(str(self.unit))
     else:
-        line = ax.contour(img, levels=levs, colors='r', extent=(left,right,bottom,top))
+        line = ax.contour(Mom.zero, levels=levs, colors='r', extent=(left,right,bottom,top))
     
     #ax.text(0.5,0.5,'test',transform = ax.transAxes)
-    draw_beam(ax, linedata)
-    draw_fov(ax, linedata)
-
-    if 'au' in sbar.keys() and 'dist' in source.keys():
-        draw_sizebar(ax,linedata,dist=source['dist'],au=sbar['au'])
-    elif 'dist' in source.keys():
-        draw_sizebar(ax,linedata,dist=source['dist'])
-    else :
-        raise ParError(sbar)
+    draw_beam(ax, self)
+    draw_fov(ax, self)
+    
+    # check distance key
+    if sbar.has_key('dist'):
+        dist_mark = sbar['dist']
+    elif self.dist != 0:
+        dist_mark = self.dist
+    else:
+        dist_mark = 200
+    # check the length of the scale bar
+    if sbar.has_key('au'):
+        au_mark = sbar['au']
+    else:
+        au_mark = 200
+    print 'Using distance {0} pc to source. Scale bar length {1} AU'.format(dist_mark, au_mark)
+    draw_sizebar(ax, self, dist=dist_mark, au=au_mark)
+    # parse the cpeak keyword
     if len(cpeak) == 3:
         mark = cpeak[2]
         xmark, ymark = cpeak[0:2]
@@ -2329,8 +2709,6 @@ def plot_moment0 (self,
     else:
         mark = '+k'
     cross = ax.plot(xmark, ymark, mark, ms=6)#, mew=3, alpha=0.9)
-
-
 
     #
     ax.xaxis.set_major_formatter(tick_label_formatter)
@@ -2346,13 +2724,13 @@ def plot_moment0 (self,
 
     ax.set_xlabel('RA Offset ($^{\prime\prime}$)')
     ax.set_ylabel('Dec Offset ($^{\prime\prime}$)')
-    #fig.suptitle(linedata.obj+' (%s km s$^{-1}$)'% str(linedata.unit))
+    #fig.suptitle(self.obj+' (%s km s$^{-1}$)'% str(self.unit))
     #if cfile!=None:
     #    fig.subplots_adjust(bottom=0.08, right=0.77, top=0.90)
-    if source.has_key('source'):
-        ax.text(0.05,0.93, source['source'], transform = ax.transAxes)
+    if source.has_key('title'):
+        ax.text(0.05,0.92, source['title'], transform = ax.transAxes)            
     else:
-        ax.text(0.05,0.93, linedata.obj, transform = ax.transAxes)
+        ax.text(0.05,0.92, self.obj, transform = ax.transAxes)
     ax.set_xlim(i1,i2)
     ax.set_ylim(j1,j2)
     ax.set_aspect(1)
@@ -2382,7 +2760,7 @@ def plot_moment0 (self,
         else:
             print' Fitting to integrated line data'
             Z = img[y1:y2,x1:x2]
-            D = linedata
+            D = self
 
         try:
             p = fit['params']
@@ -2487,7 +2865,7 @@ def plot_moment1 (self,
                 box=[0,0],
                 nsig=3,
                 nsjump=2,
-                obj_dict = dict(vsys=0),
+                source = dict(vsys=0),
                 font={'family':'serif', 'serif': ['Times New Roman'],
                 'size':17},
                 fit = dict(gauss = None, params = None, continuum = False,
@@ -2573,44 +2951,40 @@ def plot_moment1 (self,
     pl_left, pl_bottom, pl_right,pl_top = plot_adjust
 
     #
-    # first get the fitsfile
-    #~ linedata = loadcube(filename,telescope)
-    linedata = self
-    #
-    linedata.velarr = linedata.velarr - obj_dict['vsys'] #now all the velocities are based on the LSR
+    velocity = self.velarr
 
     # parse the channel values
     if chvals!=None:
         v1, v2 = chvals
     # parse the region, get the area for the spectra
-    x1,x2,y1,y2 = parse_region(linedata, region)
+    x1,x2,y1,y2 = parse_region(self, region)
     # if any is limits are None, draw spectra and ask for them/it
     # INTERACTIVE
     if nvals==None or chvals==None:
         # draw spectrum
-        plot_spectrum(filename,region=region, obj_dict= {'vsys': obj_dict['vsys']})
+        plot_spectrum(filename,region=region, source= {'vsys': source['vsys']})
         #
         # if there is no channels supplied
-        if chvals==None:
-            v1, v2 = array(raw_input('input the limits, comma separated: ').split(','), dtype ='float')
-        if nvals==None:
-            # ask for noise calculation velocity limits
-            try:
-                nvals = array(raw_input('input the noise limits (velocity). comma separated: ').split(','), dtype='float')
-                if len(nvals)==4:
-                    n1, n2, n3, n4 = nvals
-                elif len(nvals)==2:
-                    n1, n2 = nvals
-            except (ValueError):
-                print "Since you did not input any or input was wrong we will guess some values..."
-                nvals = None
-        pl.close(1)
-
+        #~ if chvals==None:
+            #~ v1, v2 = array(raw_input('input the limits, comma separated: ').split(','), dtype ='float')
+        #~ if nvals==None:
+            #~ # ask for noise calculation velocity limits
+            #~ try:
+                #~ nvals = array(raw_input('input the noise limits (velocity). comma separated: ').split(','), dtype='float')
+                #~ if len(nvals)==4:
+                    #~ n1, n2, n3, n4 = nvals
+                #~ elif len(nvals)==2:
+                    #~ n1, n2 = nvals
+            #~ except (ValueError):
+                #~ print "Since you did not input any or input was wrong we will guess some values..."
+                #~ nvals = None
+        #~ pl.close(1)
+        chvals, nvals = get_vals()
     # calculate common stuff
     ### for the plotting box
-    ylen, xlen = linedata.d[0].shape
-    ycoords = arange(-ylen/2,ylen/2,1)*linedata.dec_cdelt
-    xcoords = arange(-xlen/2,xlen/2,1)*linedata.ra_cdelt
+    ylen, xlen = self.d[0].shape
+    ycoords = arange(-ylen/2,ylen/2,1)*self.dec_cdelt
+    xcoords = arange(-xlen/2,xlen/2,1)*self.ra_cdelt
     #
     # for the extent keyword
     left, right = xcoords[0],xcoords[-1]
@@ -2619,13 +2993,13 @@ def plot_moment1 (self,
     # parse the noise channel values
     if nvals!=None:
         # if noise has been input
-        noise_channels = get_indices(linedata.velarr, nvals)
+        noise_channels = get_indices(velocity, nvals)
     #
     else:
         # if user didnt input noise velocity limits
         # choose channels away from the choosen (red blue) lines
-        low = where((linedata.velarr>(linedata.velarr.min()+10))*(linedata.velarr<(v1-10)))[0]
-        high = where((linedata.velarr>(v2+10))*(linedata.velarr<(linedata.velarr.max()-10)))[0]
+        low = where((velocity>(velocity.min()+10))*(velocity<(v1-10)))[0]
+        high = where((velocity>(v2+10))*(velocity<(velocity.max()-10)))[0]
         noise_channels = concatenate((low, high))
     #
     # the region to calculate the rms in
@@ -2633,7 +3007,7 @@ def plot_moment1 (self,
     j1,j2 = ylen/2+array([-1,1])*ylen/4
 
     # the noise, rms
-    noise = linedata.d[noise_channels]
+    noise = self.d[noise_channels]
     rms = sqrt(((noise[:,j1:j2,i1:i2])**2).mean())
 
     # set boundaries
@@ -2641,42 +3015,51 @@ def plot_moment1 (self,
         i1,i2 = left,right
         j1,j2 = bottom,top
     elif box != [0,0]:
-        i1,i2 = array([-1,1])*box[0]/2.*sign(linedata.ra_cdelt)
-        j1,j2 = array([-1,1])*box[1]/2.*sign(linedata.dec_cdelt)
+        i1,i2 = array([-1,1])*box[0]/2.*sign(self.ra_cdelt)
+        j1,j2 = array([-1,1])*box[1]/2.*sign(self.dec_cdelt)
 
-    img_channels = get_indices(linedata.velarr,[v1,v2])
-    imgs = linedata.d[img_channels]
+
+    moments, [moment0_sigma, moment0_min, moment0_max], img_channels, levels = calc_moments(self, chvals=chvals, nvals=nvals, nsig=nsig, nsjump=nsjump, negcontours=negcontours, rms=rms)
+    
+    #~ img_channels = get_indices(velocity,[v1,v2])
+    imgs = self.d[img_channels]
     #
     # do the summing
     #
     # M1 = dv * sum(I(a,b,vi))_x1^x2
     # or perhaps without dv to save calc?
-    moment0 = imgs.sum(axis=0)*abs(linedata.vcdeltkms)
-    moment0_sigma = sqrt(alen(imgs))*rms*abs(linedata.vcdeltkms)
+    moment0 = imgs.sum(axis=0)*abs(self.vcdeltkms)
+    
+    moment0 = moments[0]
+    
+    moment0_sigma = sqrt(alen(imgs))*rms*abs(self.vcdeltkms)
     moment0_max = moment0.max()
     moment0_min = moment0.min()
     
+    
+    
     # levels
-    if negcontours:        
-        levels = concatenate((-1*flipud(arange(nsig*moment0_sigma,abs(moment0_min+moment0_sigma),nsjump*moment0_sigma)), arange(nsig*moment0_sigma,moment0_max+moment0_sigma,nsjump*moment0_sigma)))
-    else:
-        levels = arange(nsig*moment0_sigma,moment0_max+moment0_sigma,nsjump*moment0_sigma)
-        
+    #~ if negcontours:        
+        #~ levels = concatenate((-1*flipud(arange(nsig*moment0_sigma,abs(moment0_min+moment0_sigma),nsjump*moment0_sigma)), arange(nsig*moment0_sigma,moment0_max+moment0_sigma,nsjump*moment0_sigma)))
+    #~ else:
+        #~ levels = arange(nsig*moment0_sigma,moment0_max+moment0_sigma,nsjump*moment0_sigma)
+        #~ 
     # calculate moment 1 map
 
-    velocities = linedata.velarr[img_channels]
-    # calculate the denominator
-    Isum = imgs.sum(axis=0)
-    # create array that matches imgs array, so they can be multiplied
-    velocities_matrix = array([ones(imgs.shape[1:])*i for i in velocities])
-    # set values which are lower than 3 sigma to 'nan' i.e. mask the array
-    # use the moment0 to determine where, but the Isum to set it
-    Isum[where(moment0<(nsig*moment0_sigma))] = nan
-    # now, calculate the numerator of the division
-    Ivsum = (imgs*velocities_matrix).sum(axis=0)
-    # division
-    moment1 = Ivsum/Isum
-
+    #~ velocities = velocity[img_channels]
+    #~ # calculate the denominator
+    #~ Isum = imgs.sum(axis=0)
+    #~ # create array that matches imgs array, so they can be multiplied
+    #~ velocities_matrix = array([ones(imgs.shape[1:])*i for i in velocities])
+    #~ # set values which are lower than 3 sigma to 'nan' i.e. mask the array
+    #~ # use the moment0 to determine where, but the Isum to set it
+    #~ Isum[where(moment0<(nsig*moment0_sigma))] = nan
+    #~ # now, calculate the numerator of the division
+    #~ Ivsum = (imgs*velocities_matrix).sum(axis=0)
+    #~ # division
+    #~ moment1 = Ivsum/Isum
+    
+    moment1 = moments[1]
 
     ###
     ###
@@ -2691,8 +3074,8 @@ def plot_moment1 (self,
                 #~ 'moment0_sigma':moment0_sigma,
                 #~ 'extent':(left,right,bottom,top),
                 #~ 'lims': (i1,i2,j1,j2),
-                #~ 'data':linedata}
-        return moment0, moment1, levels, moment0_sigma, (left,right,bottom,top), linedata
+                #~ 'data':self}
+        return moment0, moment1, levels, moment0_sigma, (left,right,bottom,top), self
     #
     #
     # calculating the velocity for vmin and vmax
@@ -2725,14 +3108,14 @@ def plot_moment1 (self,
     ax = fig.add_subplot(111)
     #
     # print beam parameters for the data
-    gain = 8.168e-25*(linedata.restfreq)**2*linedata.bmin*linedata.bmaj
+    gain = 8.168e-25*(self.restfreq)**2*self.bmin*self.bmaj
     print '='*40
     print ' '*15,'BEAM(S)'
     print '='*40
     print 'Line cube:'
-    print u' Minor (FWHM)\t: %2.3f \tasec' % linedata.bmin
-    print u' Major (FWHM)\t: %2.3f  \tasec' % linedata.bmaj
-    print ' PA \t\t: %2.3f \tDegrees (0<theta<180)' % linedata.bpa
+    print u' Minor (FWHM)\t: %2.3f \tasec' % self.bmin
+    print u' Major (FWHM)\t: %2.3f  \tasec' % self.bmaj
+    print ' PA \t\t: %2.3f \tDegrees (0<theta<180)' % self.bpa
     print u' Gain\t\t: %2.4f \tJy\u00b7K\u207b\u00b9\n' % gain
 
     #levs=levs.round(2)
@@ -2750,13 +3133,13 @@ def plot_moment1 (self,
 
 
 
-    #draw_beam(ax, linedata,box=0)
-    draw_fov(ax, linedata)
+    #draw_beam(ax, self,box=0)
+    draw_fov(ax, self)
 
     if 'dist' and 'au' in sbar.keys():
-        draw_sizebar(ax,linedata,dist=sbar['dist'],au=sbar['au'])
+        draw_sizebar(ax,self,dist=sbar['dist'],au=sbar['au'])
     elif 'dist' in sbar.keys():
-        draw_sizebar(ax,linedata,dist=sbar['dist'])
+        draw_sizebar(ax,self,dist=sbar['dist'])
     else :
         raise ParError(sbar)
     if len(cpeak) == 3:
@@ -2785,11 +3168,11 @@ def plot_moment1 (self,
     ax.set_xlabel('RA Offset ($^{\prime\prime}$)')
     ax.set_ylabel('Dec Offset ($^{\prime\prime}$)')
 
-    #fig.suptitle(linedata.obj+' (%s km s$^{-1}$)'% str(linedata.unit))
+    #fig.suptitle(self.obj+' (%s km s$^{-1}$)'% str(self.unit))
     #if cfile!=None:
     #    fig.subplots_adjust(bottom=0.08, right=0.77, top=0.90)
     ax.text(0.05,0.93,
-    linedata.obj,
+    self.obj,
     transform = ax.transAxes,
     backgroundcolor='w')
     ax.set_xlim(i1,i2)
@@ -2799,6 +3182,7 @@ def plot_moment1 (self,
     #
     pl.subplots_adjust(left=pl_left, bottom=pl_bottom, right=pl_right, top=pl_top)
 #
+
 def plot_moment2 (self,
                 cfile=None,
                 chvals=None,
@@ -2809,7 +3193,7 @@ def plot_moment2 (self,
                 box=[0,0],
                 nsig=3,
                 nsjump=2,
-                obj_dict = dict(vsys=0),
+                source = dict(vsys=0),
                 font={'family':'sans-serif', 'sans-serif': ['Arial', 'Helvetica'],
                 'size':22, 'weight':'bold'},
                 fit = dict(gauss = None, params = None, continuum = False,
@@ -2843,7 +3227,6 @@ def plot_moment2 (self,
     ################################
     # setting the tick label font  #
     ################################
-    # we are using latex formatting here!
     # following sets the ticklabel format string
     data_fmt = '%g'         # for normal y and x axis
     cbar_data_fmt = '%2.2f'         # for normal y and x axis
@@ -2851,49 +3234,26 @@ def plot_moment2 (self,
     tick_label_formatter = FormatStrFormatter(label_X.replace('X',data_fmt))
     cbar_tick_label_formatter = FormatStrFormatter(label_X.replace('X',cbar_data_fmt))
 
-
     pl_left, pl_bottom, pl_right,pl_top = plot_adjust
 
+    velocity = self.velarr - source['vsys'] #now all the velocities are based on the LSR
 
-    #
-    # first get the fitsfile
-    #~ linedata = loadcube(filename,telescope)
-    linedata = self
-    #
-    linedata.velarr = linedata.velarr - obj_dict['vsys'] #now all the velocities are based on the LSR
-
-    # parse the channel values
-    if chvals!=None:
-        v1, v2 = chvals
     # parse the region, get the area for the spectra
-    x1,x2,y1,y2 = parse_region(linedata, region)
+    x1,x2,y1,y2 = parse_region(self, region)
     # if any is limits are None, draw spectra and ask for them/it
-    # INTERACTIVE
     if nvals==None or chvals==None:
+        # make it a bit interactive
         # draw spectrum
-        plot_spectrum(filename,region=region, obj_dict= {'vsys': obj_dict['vsys']})
-        #
-        # if there is no channels supplied
-        if chvals==None:
-            v1, v2 = array(raw_input('input the limits, comma separated: ').split(','), dtype ='float')
-        if nvals==None:
-            # ask for noise calculation velocity limits
-            try:
-                nvals = array(raw_input('input the noise limits (velocity). comma separated: ').split(','), dtype='float')
-                if len(nvals)==4:
-                    n1, n2, n3, n4 = nvals
-                elif len(nvals)==2:
-                    n1, n2 = nvals
-            except (ValueError):
-                print "Since you did not input any or input was wrong we will guess some values..."
-                nvals = None
-        pl.close(1)
+        plot_spectrum(self,region=region, source=source)
+        # ask for chvals and nvals
+        # if one is not None, it will just be sent around
+        chvals, nvals = get_vals(chvals, nvals)
 
     # calculate common stuff
     ### for the plotting box
-    ylen, xlen = linedata.d[0].shape
-    ycoords = arange(-ylen/2,ylen/2,1)*linedata.dec_cdelt
-    xcoords = arange(-xlen/2,xlen/2,1)*linedata.ra_cdelt
+    ylen, xlen = self.d[0].shape
+    ycoords = arange(-ylen/2,ylen/2,1)*self.dec_cdelt
+    xcoords = arange(-xlen/2,xlen/2,1)*self.ra_cdelt
     #
     # for the extent keyword
     left, right = xcoords[0],xcoords[-1]
@@ -2902,13 +3262,13 @@ def plot_moment2 (self,
     # parse the noise channel values
     if nvals!=None:
         # if noise has been input
-        noise_channels = get_indices(linedata.velarr, nvals)
+        noise_channels = get_indices(velocity, nvals)
     #
     else:
         # if user didnt input noise velocity limits
         # choose channels away from the choosen (red blue) lines
-        low = where((linedata.velarr>(linedata.velarr.min()+10))*(linedata.velarr<(v1-10)))[0]
-        high = where((linedata.velarr>(v2+10))*(linedata.velarr<(linedata.velarr.max()-10)))[0]
+        low = where((velocity>(velocity.min()+10))*(velocity<(chvals[0]-10)))[0]
+        high = where((velocity>(chvals[1]+10))*(velocity<(velocity.max()-10)))[0]
         noise_channels = concatenate((low, high))
     #
     # the region to calculate the rms in
@@ -2916,7 +3276,7 @@ def plot_moment2 (self,
     j1,j2 = ylen/2+array([-1,1])*ylen/4
 
     # the noise, rms
-    noise = linedata.d[noise_channels]
+    noise = self.d[noise_channels]
     rms = sqrt(((noise[:,j1:j2,i1:i2])**2).mean())
 
     # set boundaries
@@ -2924,18 +3284,18 @@ def plot_moment2 (self,
         i1,i2 = left,right
         j1,j2 = bottom,top
     elif box != [0,0]:
-        i1,i2 = array([-1,1])*box[0]/2.*sign(linedata.ra_cdelt)
-        j1,j2 = array([-1,1])*box[1]/2.*sign(linedata.dec_cdelt)
+        i1,i2 = array([-1,1])*box[0]/2.*sign(self.ra_cdelt)
+        j1,j2 = array([-1,1])*box[1]/2.*sign(self.dec_cdelt)
 
-    img_channels = get_indices(linedata.velarr,[v1,v2])
-    imgs = linedata.d[img_channels]
+    img_channels = get_indices(velocity,chvals)
+    imgs = self.d[img_channels]
     #
     # do the summing
     #
     # M1 = dv * sum(I(a,b,vi))_x1^x2
     # or perhaps without dv to save calc?
-    moment0 = imgs.sum(axis=0)*abs(linedata.vcdeltkms)
-    moment0_sigma = sqrt(alen(imgs))*rms*abs(linedata.vcdeltkms)
+    moment0 = imgs.sum(axis=0)*abs(self.vcdeltkms)
+    moment0_sigma = sqrt(alen(imgs))*rms*abs(self.vcdeltkms)
 
     """
     Fit gaussian in the chvals interval, using velocity and cut out spectra
@@ -3243,7 +3603,7 @@ def plot_vgradient(radecfile,
                 nvals=None,
                 xy_cont = None,
                 region=[0,0,0,0],
-                obj_dict = dict(vsys=0),
+                source = dict(vsys=0),
                 freq=False,
                 font={'family':'serif', 'serif': ['Times', 'Times New Roman'],
                 'size': 20, 'weight':'bold'},
@@ -3316,7 +3676,7 @@ def plot_vgradient(radecfile,
         # first get the fitsfile
         linedata = loadcube(filename,telescope)
         #
-        linedata.velarr = linedata.velarr - obj_dict['vsys'] #now all the velocities are based on the LSR
+        linedata.velarr = linedata.velarr - source['vsys'] #now all the velocities are based on the LSR
          # parse the region, get the area for the spectra
         x1,x2,y1,y2 = parse_region(linedata, region)
     elif fitsfile==None and rms==None:

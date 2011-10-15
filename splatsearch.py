@@ -125,7 +125,7 @@ def splatsearch(**arg):
     if arg.has_key('display'):
         if arg['display'] == 1:
             def print_greeting():
-                text_splat_colors = [colorify(i,c='rand') for i in 'SPLATSEARCH']
+                text_splat_colors = [stylify(i,fg='rand') for i in 'SPLATSEARCH']
                 text_splat_colors = ''.join(text_splat_colors)
                 print "\n    "+"*"*40
                 print "    *"+" "*38+"*"
@@ -155,7 +155,12 @@ def splatsearch(**arg):
     from string import lower, upper
     
     # get the form from the splatalogue search page
-    response = urlopen("http://www.cv.nrao.edu/php/splat/b.php")
+    try:
+        response = urlopen("http://www.cv.nrao.edu/php/splat/b.php")
+    except URLError, ex:
+        import sys
+        sys.stderr.write(stylify('ERROR : ',f='b',fg='r')+stylify(' You have to be connected to the internet to access the splatalogue.net database.',f='b',fg='k'))
+        return None
     forms = ParseResponse(response, backwards_compat=False)
     response.close()
     form = forms[0]
@@ -208,7 +213,7 @@ def splatsearch(**arg):
         # if no frequency is given, just run example
         # this is not visible when running from outside python
         # check "if __main__ ..." part
-        print colorify('Example run... setting f1,f2 = 203.406, 203.409 GHz',c='m')
+        print stylify('Example run... setting f1,f2 = 203.406, 203.409 GHz',fg='m')
         form['from'] = '203.406'
         form['to'] = '203.409'
     #
@@ -346,30 +351,30 @@ def splatsearch(**arg):
     ####               DISPLAY SEARCH PARAMETERS                    ####
     ####                                                            ####
     ####################################################################
-    print colorify('** SEARCH PARAMETERS **',c='b')
+    print stylify('** SEARCH PARAMETERS **',fg='b')
     if arg.has_key('freq'):
-        print colorify('Frequency range :',c='g')+' '+str(f1)+' - '+str(f2)
-        print colorify('Frequency unit \t:',c='g')+' '+arg['funit']
+        print stylify('Frequency range :',fg='g')+' '+str(f1)+' - '+str(f2)
+        print stylify('Frequency unit \t:',fg='g')+' '+arg['funit']
     else:
         print 'No frequency range specified'
-    print colorify('Line list(s) \t:',c='g')+' '+', '.join(arg['linelist'])
+    print stylify('Line list(s) \t:',fg='g')+' '+', '.join(arg['linelist'])
     if arg.has_key('e_from') or arg.has_key('e_to'):
         if arg.has_key('e_from') and not arg.has_key('e_to'):
-            print colorify('Energy range \t:',c='g')+'from '+str(arg['e_from'])+'( Type : %s)' % str([arg['e_type'],'def (EU(K))'][e_type_default])
+            print stylify('Energy range \t:',fg='g')+'from '+str(arg['e_from'])+'( Type : %s)' % str([arg['e_type'],'def (EU(K))'][e_type_default])
         elif not arg.has_key('e_from') and arg.has_key('e_to'):
-            print colorify('Energy range \t:',c='g')+'to '+str(arg['e_to'])+'( Type : %s)' % str([arg['e_type'],'def (EU(K))'][e_type_default])
+            print stylify('Energy range \t:',fg='g')+'to '+str(arg['e_to'])+'( Type : %s)' % str([arg['e_type'],'def (EU(K))'][e_type_default])
         else:
-            #print colorify('Energy range \t:',c='g')+upper(arg['e_type'][:2])+' from '+str(arg['e_from'])+' to '+str(arg['e_to'])+' 'upper(arg['e_type'][3:])+'( Type : %s)' % str([arg['e_type'],'yes'][e_type_default])
-            print colorify('Energy range \t:',c='g')+' %s from %s to %s %s (Type : %s)' % (upper(arg['e_type'][:2]),str(arg['e_from']),str(arg['e_to']),upper(arg['e_type'][3:]), str([arg['e_type'],'yes'][e_type_default]))
+            #print stylify('Energy range \t:',fg='g')+upper(arg['e_type'][:2])+' from '+str(arg['e_from'])+' to '+str(arg['e_to'])+' 'upper(arg['e_type'][3:])+'( Type : %s)' % str([arg['e_type'],'yes'][e_type_default])
+            print stylify('Energy range \t:',fg='g')+' %s from %s to %s %s (Type : %s)' % (upper(arg['e_type'][:2]),str(arg['e_from']),str(arg['e_to']),upper(arg['e_type'][3:]), str([arg['e_type'],'yes'][e_type_default]))
     if arg.has_key('lill'):
         if lower(arg['lill'][1]) == 'cdms_jpl':
-            print colorify('Line lower lim \t:',c='g')+' 1E('+str(arg['lill'][0])+') - CDMS/JPL Intensity'
+            print stylify('Line lower lim \t:',fg='g')+' 1E('+str(arg['lill'][0])+') - CDMS/JPL Intensity'
         elif lower(arg['lill'][1]) == 'sijmu2':
-            print colorify('Line lower lim \t:',c='g')+' '+str(arg['lill'][0])+' Debye^2 - Sijmu^2'
+            print stylify('Line lower lim \t:',fg='g')+' '+str(arg['lill'][0])+' Debye^2 - Sijmu^2'
         elif lower(arg['lill'][1]) == 'aij':
-            print colorify('Line lower lim \t:',c='g')+' 1E('+str(arg['lill'][0])+') - Aij'
+            print stylify('Line lower lim \t:',fg='g')+' 1E('+str(arg['lill'][0])+') - Aij'
     if arg.has_key('transition'):
-        print colorify('Transition \t:',c='g')+' '+arg['transition']
+        print stylify('Transition \t:',fg='g')+' '+arg['transition']
     #~ if arg.has_key(''):
     print ''
     
@@ -455,13 +460,13 @@ def splatsearch(**arg):
     ####                                                            ####
     ####################################################################
     if arg.has_key('display') and arg['display']:
-        print colorify('** RESULTS **',c='b')
-        print 'Got %s hits!' % colorify(str(hits),c='r')
-        print colorify('{0:2} {1:13}\t{2:10}\t{3:9}\t{4:10}\t{5:3}\t{6:6}',c='m').format('N', 'Form', \
-        'Freq', 'Smu^2', 'EU(K)','C/M', 'List')
+        print stylify('** RESULTS **',fg='b')
+        print 'Got %s hits!' % stylify(str(hits),fg='r')
+        print stylify('{0:2} {1:13} {2:21}\t{3:10}\t{4:9}\t{5:10}\t{6:3}\t{7:6}',fg='m').format('N', 'Form', \
+        'Res Qnr','Freq', 'Smu^2', 'EU(K)','C/M', 'List')
         for i in arange(hits):
-            print '{0:2} {1:13}\t{2:10}\t{3:9}\t{4:10}\t{5:3}\t{6:6} '.format(N[i], \
-            species[i], freq[i], Smu2[i], EUK[i], freqtype[i], llist[i])
+            print '{0:2} {1:13} {2:21}\t{3:10}\t{4:9}\t{5:10}\t{6:3}\t{7:6} '.format(N[i], \
+            species[i], res_qns[i], freq[i], Smu2[i], EUK[i], freqtype[i], llist[i])
     if arg.has_key('send'):
         if arg['send']=='dict':
             # TODO : change the output dictionary keys, a bit complicated now
@@ -519,54 +524,92 @@ class ParError(Exception):
 #
 ###########################################
 # HELP FUNCTIONS
-def colorify (txt, c='r'):
+def stylify (s='Test text', f='n', fg='r', bg='d'):
     """ 
     
     Sends back the string 'txt' with the correct foreground unicode 
     color start and finish (reset color).
-
-    Current avaliable colors:
-        'r' : red
-        'g' : green
-        'y' : yellow
-        'b' : blue
-        'm' : magenta
-        'c' : cyan
-        'w' : white
+        
+        Formatting style of text (f)
+        f = 
+            "n" normal
+            "b" bold
+            "u" underline
+            "l" blinking
+            "i" inverse
+        Forground color of text (fg)
+        fg = 
+             "k" black
+             "r" red
+             "g" green
+             "y" yellow
+             "b" blue
+             "m" magenta
+             "c" cyan
+             "a" gray
+             "d" default
+        Background color of text (fg)
+        bg = 
+            "k" black
+            "r" red
+            "g" green
+            "y" yellow
+            "b" blue
+            "m" magenta
+            "c" cyan
+            "a" gray
+            "d" default
+    
+    TODO : add a value for randomizing a color
+    
     """
-    CSI = "\x1B["
+    
+    # needed them in this order for it to work,
+    # styles, fg color, bg color
+    format_and_colors = {"n_f": 0, #
+                         "b_f": 1, #
+                         "u_f": 4,
+                         "l_f": 5,
+                         "i_f": 7,
+                         "k": 30,
+                         "r": 31,
+                         "g": 32,
+                         "y": 33,
+                         "b": 34,
+                         "m": 35,
+                         "c": 36,
+                         "a": 37,
+                         "d": 39,
+                         "k_bg": 40,
+                         "r_bg": 41,
+                         "g_bg": 42,
+                         "y_bg": 43,
+                         "b_bg": 44,
+                         "m_bg": 45,
+                         "c_bg": 46,
+                         "a_bg": 47,
+                         "d_bg": 49}
 
-    if c=='r':
-        # sets, red text color (31)
-        start =CSI+'31m'
-    elif c=='g':
-        # sets, green text color (32)
-        start =CSI+'32m'
-    elif c=='y':
-        # sets, yellow text color (32)
-        start =CSI+'33m'
-    elif c=='b':
-        # sets, blue text color (34)
-        start =CSI+'34m'
-    elif c=='m':
-        # sets, magenta text color (34)
-        start =CSI+'35m'
-    elif c=='c':
-        # sets, cyan text color (34)
-        start =CSI+'36m'
-    elif c=='w':
-        # sets, white text color (34)
-        start =CSI+'37m'
-    elif c=='rand':
-        # white not included
-        from scipy import rand
-        #colors = ['r','g','y','b','m','c']
-        codes = ['31m','32m','33m','34m','35m','36m']
-        i = int(round((rand()*len(codes)))-1)
-        start = CSI+codes[i]
-    #
+    CSI = "\x1B["
     end = CSI+'m'
-    return start+txt+end
+    
+    if f == 'b' and fg =='a':
+        print stylify('\n Warning : This combination of colors/styles does not work\n','b','r','d')
+        raise ParError((f,fg,bg))
+    bg +='_bg' # append to the list, the "_bg" ending
+    f += "_f" # append "_f" to the formatting list
+    
+    try:
+        style = [format_and_colors[f.lower()],
+                format_and_colors[fg.lower()],
+                format_and_colors[bg.lower()]]
+        style = [str(x) for x in style]
+        formatted_text = CSI+';'.join(style)+'m'
+        formatted_text += s + end
+    except KeyError, ex:
+        raise ParError((f,fg,bg))
+
+    return formatted_text
 
 ####################################################################
 ####                                                            ####
@@ -581,7 +624,7 @@ if __name__ == '__main__':
     try:
         from optparse import OptionParser as op
     except (ImportError):
-        print colorify('ImportError',c='r')+' Make sure you have optparse installed.'
+        print stylify('ImportError',fg='r')+' Make sure you have optparse installed.'
     
     from sys import exit as sysexit
     
@@ -657,7 +700,7 @@ SciPy, urllib2, ClientForm
     
     # one mandatory argument
     if opts.f == None:
-        print colorify('\nError :',c='r')+' No frequencies input.\n'
+        print stylify('\nError :',fg='r')+' No frequencies input.\n'
         parser.print_help()
         print ''
         sysexit()
