@@ -2107,7 +2107,8 @@ def plot_spectrum (self,
             print ' Done in %2.3f seconds \n' % (time()-t1)
             #
             print ' Number of fits : ', alen(params)/3
-            print ' Fit status : ', mp.status, '(if 0, it should have halted)\n'
+            print ' Fit status : ', mp.status, '(if 0, it should have halted)'
+            print ' Chi2 : {0}, reduced : {1}\n'.format(chi2,chi2/float(len(Fx)))
             # now, parse output of fitting and print it out on screen
             j = 1
             line_widths = []
@@ -2200,7 +2201,7 @@ def plot_spectrum (self,
                         # correct for vsys, to get correct frequency for the
                         # correct frequency range in the splatalogue search
                         # when calculating the "correct" frequency, we subtract vsys
-                        vel_lower, vel_upper = (params[i+1]-vsys + array([-1,1])*params[i+2]*1.2)
+                        vel_lower, vel_upper = (params[i+1]-vsys + array([-1,1])*params[i+2]*1.5)
                         # frequency increases when velocity decreases...
                         freq_lower = calc_frequency(vel_upper,self.restfreq/1e9)
                         freq_upper = calc_frequency(vel_lower,self.restfreq/1e9)
