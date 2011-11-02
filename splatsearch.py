@@ -111,7 +111,8 @@ def splatsearch(**arg):
                 example transition = '1-0'
         
         OUTPUT
-        Display output
+        
+        display - Display output
         Frequency
         
         
@@ -548,6 +549,7 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
              "c" cyan
              "a" gray
              "d" default
+             "rand" random
         Background color of text (fg)
         bg = 
             "k" black
@@ -560,7 +562,10 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
             "a" gray
             "d" default
     
-    TODO : add a value for randomizing a color
+    
+    Changelog : 
+    
+    *2011/10/24 added fg = "rand" for random foreground color
     
     """
     
@@ -599,6 +604,11 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
     bg +='_bg' # append to the list, the "_bg" ending
     f += "_f" # append "_f" to the formatting list
     
+    if fg=="rand":
+		from random import randint
+		c_tmp = ["k","r","g","y","b","m","c","a","d"]
+		fg = c_tmp[randint(0,len(c_tmp)-1)]
+	#
     try:
         style = [format_and_colors[f.lower()],
                 format_and_colors[fg.lower()],

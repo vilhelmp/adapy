@@ -6,7 +6,7 @@
 #       adavis.py
 #
 #
-#       Copyright 2011 Magnus Persson <magnusp@nbi.dk>
+#       Copyright 2 011 Magnus Persson <magnusp@nbi.dk>
 #
 #       This program is free software; you can redistribute it and/or modify
 #       it under the terms of the GNU General Public License as published by
@@ -93,6 +93,11 @@ TODO : for DataObject loading, learn it to parse the FITS type INDEX
        that Class can output.
 
 TODO : implement different lineID plot, make it more object oriented
+
+TODO : Create a partition function class, to access partition function 
+        for different molecules. 
+            Example adavis.qrot.sulfurdioxide('203.3915 GHz', Trot=170)
+        using the frequency to identify it
 
 """
 
@@ -187,6 +192,7 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
              "c" cyan
              "a" gray
              "d" default
+             "rand" random
         Background color of text (fg)
         bg = 
             "k" black
@@ -199,7 +205,9 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
             "a" gray
             "d" default
     
-    TODO : add a value for randomizing a color
+    Changelog : 
+    
+    *2011/10/24 added fg = "rand" for random foreground color
     
     """
     
@@ -237,7 +245,11 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
         raise ParError((f,fg,bg))
     bg +='_bg' # append to the list, the "_bg" ending
     f += "_f" # append "_f" to the formatting list
-    
+    if fg=="rand":
+		 from random import randint
+		 c_tmp = ["k","r","g","y","b","m","c","a","d"]
+		 fg = c_tmp[randint(0,len(c_tmp)-1)]
+	#
     try:
         style = [format_and_colors[f.lower()],
                 format_and_colors[fg.lower()],
@@ -339,7 +351,7 @@ def draw_sizebar(ax, data, dist=220, au=200):
     distance in pc
     then theta = AU/(distance in pc)
     """
-    from mpl_toolkits.axes_grid.anchored_artists import AnchoredSizeBar
+    from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
     # draw horizontal bar with length of 10 in data coordinate
     # 10 arcs * 220pc = 2200
     asb = AnchoredSizeBar(ax.transData,
@@ -354,12 +366,13 @@ def draw_beam(ax, data,loc=3, box=True):
     function that draws the beam
     the attributes data.bmin, .bmaj and .bpa must exist in the data class
     """
-    from mpl_toolkits.axes_grid.anchored_artists import AnchoredEllipse
+    from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
+    from scipy import pi
     # the PA is calculated from N to E, that is +90 degrees from normal
     ae = AnchoredEllipse(transform=ax.transData,\
                             width=data.bmin,\
                             height=data.bmaj,\
-                            angle=data.bpa+90,\
+                            angle=-1*data.bpa,\
                             loc=loc,\
                             pad=0.15,\
                             borderpad=0.2,\
@@ -413,7 +426,7 @@ def put_line_indicator(ax, velocity, spect, xpos, text_string, \
     transform = ax.transData)
 def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
         'size':8},
-        quality=[300, 300]):
+        quality=[300, 150]):
 
     from matplotlib import rc
     ################################
@@ -1629,11 +1642,18 @@ class Fits:
             print n
             nv = self.velarr[n]
         if len(nvals)==4:
-            print 'Do not give correct value'
-            n = array([n_channels.min(),n_channels.max()])
-            nv = self.velarr[n]
-        self.rms = sqrt(((self.d[n_channels, j1:j2, i1:i2])**2).mean())
-        print "RMS calculated in channel {} ({}) and region {}".format(n+1,nv,area)
+            n_1 = get_indices(self.velarr,array(nvals)[:2])
+            n_1min = min(n_1)
+            n_1max = max(n_1)
+            n_2 = get_indices(self.velarr,array(nvals)[2:])
+            n_2min = min(n_2)
+            n_2max = max(n_2)
+            #n = array([n_channels.min(),n_channels.max()])
+            #nv = self.velarr[n]
+            rms_data = self.d[n_channels]
+        self.rms = sqrt(((rms_data[:, j1:j2, i1:i2])**2).mean())
+        rms_data=[]
+        print "RMS calculated in intervals {0} and {1} ({2}) and region {3}".format([n_1min,n_1max], [n_2min,n_2max],nvals,area)
     def add_line(self, name, frequency=None, channels=None, width=None):
         """
         Add identified line(s) to the class
@@ -1701,7 +1721,7 @@ class Moments:
         imgs = Fits.d[self.channels]
         # calculate the moment 0
         self.zero = imgs.sum(axis=0)*abs(Fits.vcdeltkms)
-        Isum = imgs.sum(axis=0)*abs(Fits.vcdeltkms) # make a copy for masking <3sigma values in mom1 map̈́
+        #Isum = imgs.sum(axis=0)*abs(Fits.vcdeltkms) # make a copy for masking <3sigma values in mom1 map̈́
         # other statistics
         self.sigma = sqrt(alen(imgs))*Fits.rms*abs(Fits.vcdeltkms)
         self.minimum = self.zero.min()
@@ -1719,13 +1739,14 @@ class Moments:
         velocities_matrix = array([ones(imgs.shape[1:])*i for i in Fits.velarr[self.channels]])
         # removed where(), because a boolean array works fine
         # find out where we calculate the moment 1, i.e. 3 sigma level 
-        Isum[self.zero<abs(nsig*self.sigma)] = nan
+        Isum = imgs.sum(axis=0)
+        Isum[self.zero<=abs(nsig*self.sigma)] = nan
         Ivsum = (imgs*velocities_matrix).sum(axis=0)
         # calculate the denominator, the sum of all images
         # in our velocity interval
-        Isum = imgs.sum(axis=0)
+        
         # calculate moment 1
-        self.mom_one = Ivsum/Isum
+        self.one = Ivsum/Isum
         #return self
 #
 # SPECTRUM DATA CLASS
@@ -2580,7 +2601,7 @@ def plot_moment0 (self,
         j1,j2 = array([-1,1])*box[1]/2.*sign(self.dec_cdelt)
     
     #~ moments, [moment0_sigma, moment0_min, moment0_max], img_channels, levels = calc_moments(self, chvals=chvals, nvals=nvals, nsig=nsig, nsjump=nsjump, negcontours=negcontours, rms=rms)
-    Mom = Moments(self, chvals=chvals, nsig=nsig)
+    Mom = Moments(self, chvals=chvals, nsig=nsig) 
     #
     # now create the levels for the contours
     if negcontours:
