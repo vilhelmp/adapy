@@ -41,30 +41,33 @@ TODO : RMS and other units, e.g. when using SD data, Kelvin instead of Jy.
 
 TODO : Moment 2 maps - with MPFIT Gaussian fitting (check Jes mom2 IDL function)
 
-TODO : Calculate common stuff in a function, use in moment 0/1/2 maps
-       Perhaps calculate and store in the object?
-        -> Common function for moment maps?
+TODO : Common function for moment maps?
 
 TODO : What does the VELREF keyword in the GILDAS fits header mean? 
        Check GILDAS manual
 
 TODO : Clean up code again, remove font handler, or inactivate it
        All fonts should be Times New Roman, to big of a hassle to change
-       to Sans-serif font, i.e. for the tick labels mostly.
+       to Sans-serif font, for the tick labels mostly.
 
-TODO : Check that the set_rc function is used
+TODO : Check that the set_rc function is used in all functions
 
 TODO : Tick locators are good for small regions/narrow spectra, but not for big/wide
-       Perhaps change it with the 'box' keyword.
-       Implemented a locator=[major,minor], this is perhaps better?
+       Perhaps change it with the 'box' keyword
+            -> e.g a 10th of the box keyword for major locators
+       Implemented a parameter locator=[major,minor] as a first step
 
-TODO : obj_dict -> source, for all functions
-       Make this more unified, perhaps pass other info here, name etc?
+TODO : Use vsys, dist, name from the Fits data object
 
 TODO : When supplying source=dict(vsys=X) the DataObject velarr is changed, not good
        Check this for all function, so that it does not happens.
        The DataObject should be reusable.
             -> Fixed for spectra and moment0/1 need to check for the rest.
+            OK?
+            Y   Spectra
+            Y   Moment0
+            Y   Moment1            
+            
 
 TODO : Change to handle DataObject in all functions.
         X Spectra
@@ -75,29 +78,35 @@ TODO : Change to handle DataObject in all functions.
 
 (TODO : Function to bin in spatial (2D) regime (congrid map), change ra/dec_delt etc)
 
-TODO : Interactive splatsearch.
-
 TODO : Spectra class, use for fitting, lineid, binning
 
 TODO : Interactive multiple Gaussian fitting, i.e. click at start 
         end of each line, calculate moments within it
 
+(TODO : Interactive splatsearch)
+
 TODO : Check Jes functions how they work and try to merge/replace them.
 
-TODO : How to divide it into a runnable program.
+TODO : How to divide it into a runnable program
+        Perhaps use **kwargs i.e. dictionaries
 
 TODO : Implement it as command line program
         -> partially implemented, should work with spectra
+        Make sure all parameters are reachable through **kwargs
+        use Dictionary.get('attribute', ValueIfNoKey)
         
 TODO : for DataObject loading, learn it to parse the FITS type INDEX 
-       that Class can output.
+       that Class can output for -32 Bits
 
 TODO : implement different lineID plot, make it more object oriented
 
-TODO : Create a partition function class, to access partition function 
-        for different molecules. 
-            Example adavis.qrot.sulfurdioxide('203.3915 GHz', Trot=170)
-        using the frequency to identify it
+TODO : Create a partition function class, to access partition functions 
+       for different molecules. 
+         o Example adavis.qrot.sulfurdioxide('18(1,2)-17(1,8)AE', Trot=170)
+         o Using the transition to identify it, and print shows the 
+           available ones
+         o Store the Q values for different Tex
+         o Able to update from Q and Tex values
 
 """
 
@@ -368,7 +377,8 @@ def draw_beam(ax, data,loc=3, box=True):
     """
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
     from scipy import pi
-    # the PA is calculated from N to E, that is +90 degrees from normal
+    # the PA is calculated from N to E, but the plotting is relating the minor axis to E-W line
+    # so just add -1*
     ae = AnchoredEllipse(transform=ax.transData,\
                             width=data.bmin,\
                             height=data.bmaj,\
@@ -1637,10 +1647,12 @@ class Fits:
         from scipy import sqrt,array
         i1,i2,j1,j2 = self.parse_region(area)
         n_channels = get_indices(self.velarr, nvals)
+        # just to find out which channels (start, stop) to print
         if len(nvals)==2:
             n = array([n_channels.min(),n_channels.max()])
             print n
             nv = self.velarr[n]
+            print "RMS calculated in intervals {0} ({1}) and region {2}".format(n, nv,nvals,area)
         if len(nvals)==4:
             n_1 = get_indices(self.velarr,array(nvals)[:2])
             n_1min = min(n_1)
@@ -1650,10 +1662,11 @@ class Fits:
             n_2max = max(n_2)
             #n = array([n_channels.min(),n_channels.max()])
             #nv = self.velarr[n]
-            rms_data = self.d[n_channels]
+            print "RMS calculated in intervals {0} and {1} ({2}) and region {3}".format([n_1min,n_1max], [n_2min,n_2max],nvals,area)
+        rms_data = self.d[n_channels]
         self.rms = sqrt(((rms_data[:, j1:j2, i1:i2])**2).mean())
         rms_data=[]
-        print "RMS calculated in intervals {0} and {1} ({2}) and region {3}".format([n_1min,n_1max], [n_2min,n_2max],nvals,area)
+        
     def add_line(self, name, frequency=None, channels=None, width=None):
         """
         Add identified line(s) to the class
@@ -1729,8 +1742,8 @@ class Moments:
         # calculate levels, start at 1 sigma, jump 1 sigma
         # one for positive and one for negative
         # concatenate before displaying if want certain start & jump
-        self.levels_neg = -1*flipud(arange(self.sigma,abs(self.minimum)+self.sigma,self.sigma))
-        self.levels_pos = arange(self.sigma,self.maximum+self.sigma,self.sigma)
+        self.levels_neg = -1*arange(self.sigma,abs(self.minimum)+3*self.sigma,self.sigma)
+        self.levels_pos = arange(self.sigma,self.maximum+3*self.sigma,self.sigma)
         #levels = arange(nsig*moment0_sigma,moment0_max+moment0_sigma,nsjump*moment0_sigma)
         
         # moment 1
@@ -1758,6 +1771,8 @@ class Spectrum:
     # perhaps need some other input name
     def __init__ (self, Fits):
         """ Class initialiser """
+        pass
+    def fit_Gaussians(self, ):
         pass
 ###########################################
 # MAIN FUNCTIONS
@@ -4131,7 +4146,7 @@ def plot_chmap (self,
                 'size':22},
                 nsum=False,
                 plot_adjust= [0.12, 0.09, 0.99, 0.99],
-                quality=[300, 300],
+                quality=[300, 150],
                 send=False,
                 color_map='jet',
                 cpeak = [0,0],
@@ -4236,7 +4251,7 @@ def plot_chmap (self,
         # get the channels
         """
         print '\nParameter \'nsum\' is set to %d.' % nsum
-        print colorify('Summing channels for better signal.',c='g')
+        print stylify('Summing channels for better signal.',fg='g')
         # check if it is a integer
         if type(nsum) != type(1) or nsum<1: raise ParError(nsum)
         #
@@ -4281,7 +4296,7 @@ def plot_chmap (self,
         print u'The velocity interval over which you create the maps is %2.3f to %2.3f km\u207b\u00b9\u00b7s' % (velocity.min()-abs(velocity_delta)/2,velocity.max()+abs(velocity_delta)/2)
         maps = array([data[x:x+nsum].sum(axis=0)*abs(linedata.vcdeltkms) for x in indices])
         N_channels = alen(channels)/nsum
-        print stylify('Done, remember that it can change the velocity interval that you specified in chvals. \n',c='g')
+        print stylify('Done, remember that it can change the velocity interval that you specified in chvals. \n',fg='g')
         #
     else :
         # normal procedure here
@@ -4401,8 +4416,8 @@ def plot_chmap (self,
     rc('font', family='serif', serif='Times New Roman', size=8)
     rc('text', usetex=True)  
     # ticksize
-    rc('xtick',**{'minor.size':2, 'major.size':4, 'major.pad': -3})
-    rc('ytick',**{'minor.size':2, 'major.size':4, 'major.pad': 1})
+    rc('xtick',**{'minor.size':2, 'major.size':4, 'major.pad': 3})
+    rc('ytick',**{'minor.size':2, 'major.size':4, 'major.pad': 2})
 
 
 
