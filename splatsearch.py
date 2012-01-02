@@ -50,17 +50,17 @@ TODO : Implement new stylify help function
 def splatsearch(**arg):
     """
     This script queries Splatalogue.net from the command line
-    
-    Returns a data structure or displays the requested information 
+
+    Returns a data structure or displays the requested information
     from Splatalogue.
-    
+
     Usage:
         splatsearch(**kwargs)
-        
+
     Needs internet connection to work (duh!).
-    
+
     Keyword arguments (kwargs)
-        
+
         Frequency
           o parameter name : freq
                 [f1, f2]  or f
@@ -73,17 +73,17 @@ def splatsearch(**arg):
                 freqyency unit
             Note: low ranked plans to implement searching by
                   wavelength/wavenumber (m,cm,mm/m-1) exists
-        
+
         Line list
           o parameter name : 'linelist'
                 type : list
                 a list of strings ['item1', 'item2']
-                conainting the line list catalogs that you want 
+                conainting the line list catalogs that you want
                 to search in. Possible entries:
                 ['Lovas', 'SLAIM', 'JPL', 'CDMS', 'ToyaMa',\
                             'OSU', 'Recomb', 'Lisa', 'RFI']
                 or linelists = 'all' for all of them
-            
+
         Energy range
           o parameter name : e_from
                 type : int/float
@@ -94,7 +94,7 @@ def splatsearch(**arg):
                 one of ['el_cm1', 'eu_cm1', 'el_k', 'eu_k']
                 unit and type, in cm-1 or K
                 if not given, defaults to eu_k
-        
+
         Line Intensity Lower Limit
           o parameter name : lill
                 type : list
@@ -109,17 +109,17 @@ def splatsearch(**arg):
           o parameter name : transition
                 type : string
                 example transition = '1-0'
-        
+
         OUTPUT
-        
+
         display - Display output
         Frequency
-        
-        
-        
-        
+
+
+
+
         freq measured if exist otherwise computed
-        
+
     """
     #~ arg = kwargs
     #
@@ -150,11 +150,11 @@ def splatsearch(**arg):
     except (ImportError):
         print 'You need the module \'ClientForm\' get it at http://wwwsearch.sourceforge.net/old/ClientForm/'
         print 'If you instead have the newer \'mechanize\' module (http://wwwsearch.sourceforge.net/mechanize/) contact the programmer for implementation...'
-    
+
     #from BeautifulSoup import BeautifulSoup as bfs
     from scipy import array, where, nan, arange
     from string import lower, upper
-    
+
     # get the form from the splatalogue search page
     try:
         response = urlopen("http://www.cv.nrao.edu/php/splat/b.php")
@@ -165,7 +165,7 @@ def splatsearch(**arg):
     forms = ParseResponse(response, backwards_compat=False)
     response.close()
     form = forms[0]
-    
+
     if arg.has_key('dbg_snd_form'): # for test purposes
         return form
     ####################################################################
@@ -210,7 +210,7 @@ def splatsearch(**arg):
         tmp = str(raw_input('No frequency limits given, continue? Press Enter to continue, Ctrl+C to abort.'))
         f1 = ''
         f2 = ''
-    else: 
+    else:
         # if no frequency is given, just run example
         # this is not visible when running from outside python
         # check "if __main__ ..." part
@@ -276,7 +276,7 @@ def splatsearch(**arg):
             form.find_control(j).get().selected = False
     # ['Lovas', 'SLAIM', 'JPL', 'CDMS', 'ToyaMA', 'OSU', \
     #'Recomb', 'Lisa', 'RFI']
-    # Figure out prettier printing here... 
+    # Figure out prettier printing here...
     #    web-adresses?
     #
     ### Energy Range
@@ -285,10 +285,10 @@ def splatsearch(**arg):
     # while it is called e_from/to in the function
     #
     if arg.has_key('e_from') or arg.has_key('e_to'):
-        e_type_ref = ['el_cm1', 'eu_cm1', 'el_k', 'eu_k'] 
+        e_type_ref = ['el_cm1', 'eu_cm1', 'el_k', 'eu_k']
         # check that unit is given, and correct
         # or set default (eu_k)
-        
+
         if arg.has_key('e_from'):
             form['energy_range_from'] = str(arg['e_from'])
         if arg.has_key('e_to'):
@@ -311,7 +311,7 @@ def splatsearch(**arg):
             raise ParError(arg['e_type'])
     #
     ### Specify Transition
-    #    
+    #
     if arg.has_key('transition'):
         form['tran'] = str(arg['transition'])
     #
@@ -329,7 +329,7 @@ def splatsearch(**arg):
     #
     ### FREQUENCY ERROR LIMIT
     #
-    
+
     #### Line Strength Display
     form.find_control("ls1").get().selected = True
     form.find_control("ls2").get().selected = True
@@ -346,7 +346,7 @@ def splatsearch(**arg):
     form.find_control("show_upper_degeneracy").get().selected = True
     form.find_control("show_molecule_tag").get().selected = True
     form.find_control("show_qn_code").get().selected = True
-    
+
     ####################################################################
     ####                                                            ####
     ####               DISPLAY SEARCH PARAMETERS                    ####
@@ -378,7 +378,7 @@ def splatsearch(**arg):
         print stylify('Transition \t:',fg='g')+' '+arg['transition']
     #~ if arg.has_key(''):
     print ''
-    
+
     ####################################################################
     ####                                                            ####
     ####                        GET RESULTS                         ####
@@ -389,10 +389,10 @@ def splatsearch(**arg):
     clicked_form = form.click()
     # then get the results page
     result = urlopen(clicked_form)
-    
+
     #### EXPORTING RESULTS FILE
     # so what I do is that I fetch the first results page,
-    # click the form/link to get all hits as a colon separated 
+    # click the form/link to get all hits as a colon separated
     # ascii table file
     #
     # get the form
@@ -400,7 +400,8 @@ def splatsearch(**arg):
     result.close()
     resultform = resultform[0]
     # set colon as dilimeter of the table (could use anything I guess)
-    resultform.find_control('export_delimiter').items[2].selected =  True
+    #~ resultform.find_control('export_delimiter').items[1].selected =  True
+    resultform.find_control('export_delimiter').toggle('colon')
     resultform_clicked = resultform.click()
     result_table = urlopen(resultform_clicked)
     data = result_table.read()
@@ -430,13 +431,13 @@ def splatsearch(**arg):
     cfreq[where(cfreq == '')] = 'nan'
     cfreqerr[where(cfreqerr == '')] = 'nan'
     mfreq[where(mfreq == '')] = 'nan'
-    mfreqerr[where(mfreqerr == '')] = 'nan'    
+    mfreqerr[where(mfreqerr == '')] = 'nan'
     # create arrays
     cfreqerr = array(cfreqerr, dtype='float')
     cfreq = array(cfreq, dtype='float')
     mfreqerr = array(mfreqerr, dtype='float')
     mfreq = array(mfreq, dtype='float')
-    # create global frequency array, and a 
+    # create global frequency array, and a
     # array telling if it is measured or computed
     # empty arrays
     from scipy import zeros
@@ -513,7 +514,7 @@ def get_mol_species():
 class ParError(Exception):
     # input parameter error
      def __init__(self, value):
-         """ Parameter Error Class 
+         """ Parameter Error Class
          Takes the wrong parameter as input.
          """
          self.value = value
@@ -526,20 +527,20 @@ class ParError(Exception):
 ###########################################
 # HELP FUNCTIONS
 def stylify (s='Test text', f='n', fg='r', bg='d'):
-    """ 
-    
-    Sends back the string 'txt' with the correct foreground unicode 
+    """
+
+    Sends back the string 'txt' with the correct foreground unicode
     color start and finish (reset color).
-        
+
         Formatting style of text (f)
-        f = 
+        f =
             "n" normal
             "b" bold
             "u" underline
             "l" blinking
             "i" inverse
         Forground color of text (fg)
-        fg = 
+        fg =
              "k" black
              "r" red
              "g" green
@@ -551,7 +552,7 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
              "d" default
              "rand" random
         Background color of text (fg)
-        bg = 
+        bg =
             "k" black
             "r" red
             "g" green
@@ -561,14 +562,14 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
             "c" cyan
             "a" gray
             "d" default
-    
-    
-    Changelog : 
-    
+
+
+    Changelog :
+
     *2011/10/24 added fg = "rand" for random foreground color
-    
+
     """
-    
+
     # needed them in this order for it to work,
     # styles, fg color, bg color
     format_and_colors = {"n_f": 0, #
@@ -597,18 +598,18 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
 
     CSI = "\x1B["
     end = CSI+'m'
-    
+
     if f == 'b' and fg =='a':
         print stylify('\n Warning : This combination of colors/styles does not work\n','b','r','d')
         raise ParError((f,fg,bg))
     bg +='_bg' # append to the list, the "_bg" ending
     f += "_f" # append "_f" to the formatting list
-    
+
     if fg=="rand":
-		from random import randint
-		c_tmp = ["k","r","g","y","b","m","c","a","d"]
-		fg = c_tmp[randint(0,len(c_tmp)-1)]
-	#
+        from random import randint
+        c_tmp = ["k","r","g","y","b","m","c","a","d"]
+        fg = c_tmp[randint(0,len(c_tmp)-1)]
+    #
     try:
         style = [format_and_colors[f.lower()],
                 format_and_colors[fg.lower()],
@@ -635,79 +636,79 @@ if __name__ == '__main__':
         from optparse import OptionParser as op
     except (ImportError):
         print stylify('ImportError',fg='r')+' Make sure you have optparse installed.'
-    
+
     from sys import exit as sysexit
-    
+
     #version
     ver = '1.0beta'
-    
-    desc="""Script to quickly search the splatalogue compilation                      
-    Magnus Vilhelm Persson                                                            
-    magnusp@nbi.dk""" 
-    usage = "Usage: %prog [options]" 
+
+    desc="""Script to quickly search the splatalogue compilation
+    Magnus Vilhelm Persson
+    magnusp@nbi.dk"""
+    usage = "Usage: %prog [options]"
     epilog = """----------------------------------------------------------------------------
-General information :                                                       
+General information :
 
 The script uses the modules 'urllib2' and 'ClientForm' to fetch,
 fill in and submit the search form from Splatalogue.net. Then the
 results are parsed and displayed. This script can be imported into
 existing python code. After import the function has parameters to
 send the results to the user as lists or a dictionary for
-integration into line identification code, calculations etc.                        
+integration into line identification code, calculations etc.
 
-Complete dependency list:                                                   
-SciPy, urllib2, ClientForm                                        
+Complete dependency list:
+SciPy, urllib2, ClientForm
 ----------------------------------------------------------------------------"""
-    
+
     parser = op(usage=usage, description=desc, epilog=epilog, version="%prog " + str(ver))
-    
+
     # the options permitted
     parser.add_option("-f", \
-        dest="f", 
-        help="frequency range given as 'F1 F2', if -w flag given, F2 is the width around F1 to look for line. Mandatory." , 
+        dest="f",
+        help="frequency range given as 'F1 F2', if -w flag given, F2 is the width around F1 to look for line. Mandatory." ,
         metavar="<F1> <F2>",
         nargs=2,
         action="store")
-    parser.add_option("-w", 
-        dest="w", 
+    parser.add_option("-w",
+        dest="w",
         help="is the f2 parameter (given in -f) the frequency width?",
         default=False,
         action="store_true")
-    parser.add_option("-u", 
+    parser.add_option("-u",
         dest="u",
         metavar="<UNIT>",
         help="frequency unit, GHz or MHz.",
         action="store")
-    parser.add_option("-l", 
-        dest="l", 
+    parser.add_option("-l",
+        dest="l",
         metavar="<LIST1>,<LIST2>,...",
         help="molecular line list database(s) to search. \
         possible values : Lovas, SLAIM, JPL, CDMS, ToyaMA, OSU, Recomb, Lisa, RFI.",
         action="store")
-    parser.add_option("-e", 
-        dest="e", 
+    parser.add_option("-e",
+        dest="e",
         metavar="<FROM> <TO> <TYPE>",
         nargs=3,
         help="Energy range, given as 'from to type' where E_type is one of EL_cm1, EU_cm1, EL_K, EU_K.",
         action="store")
-    parser.add_option("-t", 
+    parser.add_option("-t",
         dest="t",
         metavar="<TRANSITION>",
         help="Specify transition e.g. '1-0'.",
         action="store")
-    parser.add_option("-i", 
-        dest="i", 
+    parser.add_option("-i",
+        dest="i",
         metavar="<LIMIT> <UNIT>",
         nargs=2,
         help="Line intensity lower limit, given as 'LIMIT UNIT' where UNIT is one of CDMS_JPL, Sijmu2, Aij",
         action="store")
-    
+
     # time to parse
     (opts, args) = parser.parse_args()
-    
+
     # create the search dictionary
     params = {}
-    
+
     # one mandatory argument
     if opts.f == None:
         print stylify('\nError :',fg='r')+' No frequencies input.\n'
@@ -739,4 +740,4 @@ SciPy, urllib2, ClientForm
     params['send'] = False
     # search!
     splatsearch(**params)
-    
+

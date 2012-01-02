@@ -28,13 +28,13 @@
 Python tips!
 
 "A Foolish Consistency is the Hobgoblin of Little Minds"
-Python recommends (http://www.python.org/dev/peps/pep-0008/)
+Python recommendations (http://www.python.org/dev/peps/pep-0008/)
 
  - UpperCamelCase for class names
 
  - CAPITALIZED_WITH_UNDERSCORES for constants
 
- - lowercase_separated_by_underscores for other names
+ - lowercase_separated_by_underscores for other names (functions, variables etc)
 
 
 """
@@ -61,7 +61,10 @@ DONE? : The "extent" keyword is not computed exactly. use crval/crpix
         -> DONE but needs testing.
 
 TODO : Common function for moment maps?
-        Started
+        Started for 0 and 1
+
+TODO : update the __init__ method of all the classes to print as much
+        info as possible
 
 TODO : Moment 2 maps - with MPFIT Gaussian fitting (check Jes' mom2 IDL function)
 
@@ -152,7 +155,16 @@ FIG_SIZE = [ONE_COL_FIG_WIDTH,ONE_COL_FIG_HEIGHT]
 MSUN = 1.989e33   # Mass of the Sun in gram
 MEARTH = 5.977e27 # Mass of the Earth in gram
 MMOON = 7.349e25  # Mass of the Moon in gram
+# other constants
+from scipy import constants
+SOL = constants.c               # Speed Of Light
+
 #
+# STRING CONSTANTS
+#
+KMS = u"km\u00b7s\u207b\u00b9"
+
+
 ###########################################
 # ERRORS
 #
@@ -161,9 +173,8 @@ class ParError(Exception):
      def __init__(Self, value):
          Self.value = value
      def __str__(Self):
-         s1 = '\nWrong format/number of parameters. You input:\n    '
-         s2 = '\nas parameters. Check it/them.'
-         return s1+str(Self.value)+s2
+         s1 = '\nWrong format/number of parameters.\n    '
+         return s1+str(Self.value)
 #
 ###########################################
 # HELP FUNCTIONS
@@ -339,6 +350,7 @@ def calc_offset(ra,dec,**kwargs):
     There are three ways of calling the function:
 
     1.
+    calc_offset(ra,dec,offset=(dX,dY))
     if  "offset" is given, it will
     calculate new coordinates from old ones
     offset - offsets in a tuple/list i.e. (dX,dY), [dX,dY]
@@ -353,10 +365,9 @@ def calc_offset(ra,dec,**kwargs):
     if "data" is given as a ADAVIS Fits data object,
     it will calculate the offset from the phase center of that data
     i.e. offset from Fits.ra_crval and Fits.dec_crval
-
     """
     from numpy import cos, pi, array, sign
-
+    #
     if kwargs.get('offset') != None:
         ra_inp = ra
         ra = ra.split(':')
@@ -365,7 +376,7 @@ def calc_offset(ra,dec,**kwargs):
         dec_inp = dec
         dec = dec.split(':')
         dec = [float(i) for i in dec]
-        dec_decimal = dec[0] + dec[1]/60.0 + dec[2]/3600.0 # convert to decimal number
+        dec_decimal = sign(dec[0])*(abs(dec[0]) + dec[1]/60.0 + dec[2]/3600.0) # convert to decimal number
         offset_inp = kwargs['offset']
         offset = array(offset_inp)/3600.0
         cosdec = cos(dec_decimal*pi/180.) # convert to radians
@@ -475,7 +486,7 @@ def draw_highlight_box(ax, xpos, xwidth):
     # We want x to be in data coordinates and y to
     # span from 0..1 in axes coords
     xpos -= xwidth/float(2)
-    print xpos, xwidth
+    #print xpos, xwidth
     rect = Rectangle((xpos,0), width=xwidth, height=1,
                              transform=trans, color='yellow',
                              alpha=0.3)
@@ -629,7 +640,7 @@ def parse_ra (ra,string=False):
     minutes = int(b)
     seconds = (b-minutes)*60
     if string:
-        return '{0:3d}:{1:2}:{2:.2f}'.format(hours,minutes,seconds)
+        return '{0:0>2}:{1:2}:{2:0>4.2f}'.format(hours,minutes,seconds)
     return hours,minutes,seconds
 def parse_dec (dec, string=False):
     """
@@ -653,7 +664,7 @@ def parse_dec (dec, string=False):
     minutes = int(b)
     seconds = (b-minutes)*60
     if string:
-        return '{0}:{1:2}:{2:.2f}'.format(degrees,minutes,seconds)
+        return '{0:0>2}:{1:2}:{2:0>4.2f}'.format(degrees,minutes,seconds)
     return degrees,minutes,seconds
 def parse_linelist(linelist):
     """
@@ -701,35 +712,40 @@ def parse_linelist(linelist):
     from scipy import size, arange, zeros, array
     def get_lines(linelist):
         # pars a list of lists scenario
-        names = linelist[0]
-        freqs = linelist[1]
-        arr_len = len(names)+len(freqs)
-        list = zeros((arr_len))
-        return array([[names[i],freqs[i]] for i in arange(len(names))]).ravel()
+        names = [i for i in linelist[::2]]
+        freqs = [float(i) for i in linelist[1::2]]
+        #arr_len = len(names)+len(freqs)
+        #list = zeros((arr_len))
+        return array([names,freqs])
     #
     if size(linelist[1])==1 and type(linelist)==type([]):
-        # if it is just a list of lines
-        # it is already in the disired format
-        return linelist
+        # if it is just a list of lines   e.g. ['Name',203.45654]
+        return get_lines(linelist)
     elif size(linelist[1])>1:
         # if it is a list with two lists in it
         # that is, the second element is (strictly) longer than 1
-        return get_lines(linelist)
+        # e.g. [['Name1','Name2'],[203.45654,203.45654]]
+        return linelist
     elif size(linelist[1])==1 and type(linelist) == type(''):
         # in case it is the path to a CSV file
         # load the table with the load ascii table function loadatbl
-        names, freqs = loadatbl(linelist, dtype='string', sep=':')[0:3:2]
+        try:
+            names, freqs = loadatbl(linelist, dtype='string', sep=':')[0:3:2]
+            f = []
+            n = []
+            for i,j in zip(freqs,names):
+                if i != '':
+                    f.append(i)
+                    n.append(j)
+            freqs=array(f)
+            names = n
+            freqs = freqs.astype('float64')
+        except ValueError:
+            names, freqs = loadatbl(linelist, dtype='string')[0:2]
         #
-        f = []
-        n = []
-        for i,j in zip(freqs,names):
-            if i != '':
-                f.append(i)
-                n.append(j)
-        freqs=array(f)
-        names = n
-        freqs = freqs.astype('float64')
-    return get_lines([names,freqs])
+        return array([names,freqs])
+    else:
+        print_warning('Did not parse!')
 def get_indices (arr,vals,disp=False):
     """
 
@@ -916,11 +932,8 @@ def fit_gauss1d((X,Y),
     #from scipy import optimize
     from numpy import exp, hstack, array, log, sqrt, diag, alen, zeros, where, arange
     from mpfit import mpfit
-    print '\n Fitting Gaussians'
-    #
-    ## Checking the input parameters
-    #
-    print '\nChecking input parameters'
+    from sys import exit as sysexit
+    print 'Fitting Gaussians, checking input parameters'
     # flatten the parameters, so it is readable for the gaussian fitting
     params = array(params).flatten()
 
@@ -929,6 +942,9 @@ def fit_gauss1d((X,Y),
         print_warning('You are trying to fit a Gaussian outside of the \
     data range\n Not allowed. Exciting without fitting')
         return None
+    widths = params[arange(2,len(params),3)]
+    if (widths<abs(X[1]-X[0])).any():
+        raise ParError("Width of a line can not be less than channel width of data (<{0:3.3} kms).".format(abs(X[1]-X[0])))
     # number of gaussians to fit
     no_fits = (len(params))/3
     #
@@ -950,7 +966,7 @@ def fit_gauss1d((X,Y),
     # MINIMUM LIMITS
     #
     # first we define a minimum limit for the width
-    xwidth = abs(X[1]-X[0])*1.5 # it is evenly space
+    xwidth = abs(X[1]-X[0]) # it is evenly space
     #
     # first case, it is not None, we are giving limits
     if minbool != None:
@@ -1379,7 +1395,8 @@ def infoatbl(filename, sep=None, c_char=['#', '!', '|', '/']):
 #########################################
 # DATA CLASSES
 #
-# MAIN DATA CLASS
+# FITS DATA CLASS
+# MAIN class
 # Main data object, needs fits file as input
 # keywords can be appended to object later
 # to complement fits header information
@@ -1405,7 +1422,7 @@ class Fits:
     TODO : Create a frequency array as well, much simpler later on then
 
     """
-    def __init__(Self, fitsfile, telescope=None, vsys=0, dist=0):
+    def __init__(Self, fitsfile, telescope=None, vsys=0, distance=0):
         """
 
         attributes
@@ -1422,19 +1439,21 @@ class Fits:
         dist
             distance to the source
 
-        TODO : if the rotational matrice is non empty, load data and rotate it
-        TODO : what if add a function to grid it to a certain size, say 512x512?
-                o so it is possible to combine data with different res.
-                o better to do this when plotting?
+        TODO : If the rotational matrice is non empty, load data and rotate it (?)
+        TODO : What if add a function to grid it to a certain size, say 512x512?
+                o So it is possible to combine data with different res.
+                    - If extent keyword is given for both datasets, what happens?
+                o Better to do this when plotting (se above comment)?
         TODO : More robust loading (detecting the axis etc)?
                 o Minimum of different types of data
-                    - Naxis 2 (Freq/Vel & Flux/Intensity) - 1D Spectra
-                    - Naxis 2 (RA & DEC) - 2D map
-                    - Naxis 3 (RA & DEC & Flux/Intensity) 3D Spectral map
+                    - NAXIS==2 (Freq/Vel & Flux/Intensity) - 1D Spectra
+                    - NAXIS==2 (RA & DEC) - 2D map
+                    - NAXIS==3 (RA & DEC & Flux/Intensity) 3D Spectral map
                     - Polarization data?
-                    (i.e, in SD spectra need to get rid of Self.d = Self.d[0][0][0])
+                    (i.e, in SD spectra need to get rid of 3 axes
+                        Self.d = Self.d[0][0][0])
         TODO : make loadcube delete an axis, along with the hdr keywords if all
-               the axis keywords/values are empty/null
+               the axis keywords/values are empty/null (delet hdr keyword really needed?)
                     o only to loaded data, not save to raw data (fits file)
 
 
@@ -1453,6 +1472,7 @@ class Fits:
         #from  sys import
         from os.path import getsize
         from scipy import where, array, nan
+        from string import upper
         #
 
         # create the class, but without any init script.
@@ -1467,7 +1487,6 @@ class Fits:
         f.close()
         # save the fitsfile, perhaps the path too, for updating it
         Self.fitsfile = fitsfile
-        #
         # the telescope diameter
         # first check if there was keyword sent in
         if telescope!=None:
@@ -1493,7 +1512,11 @@ class Fits:
         # spectra: 3 axis and 3rd axis is >1 in size
         # image: 2 axis (or 3 axis, 3rd is =1 in size)
         #
+        # simple solution to the common extra empty STOKES axis
+        # and sometimes even an extra empty axis for ?
         from numpy import diff, arange
+        while Self.d.shape[0] == 1:
+             Self.d = Self.d[0]
 
         if Self.hdr['NAXIS']==4 and Self.d.shape[0:2] == (1,1):
             Self.datatype = 'IMAGE',2
@@ -1515,8 +1538,6 @@ class Fits:
             # extra if the continuum image has the freq and width
             Self.freq = Self.hdr['CRVAL3']
             Self.freqwidth = Self.hdr['CDELT3']
-            # remove the extra axis in the data
-            Self.d = Self.d[0]
         # a spectra! the 3rd axis is longer than 1
         elif Self.hdr['NAXIS']>=3 and Self.hdr['NAXIS3']>1:
             # spectral cube
@@ -1533,8 +1554,9 @@ class Fits:
             Self.v_cdelt = Self.hdr['CDELT'+Self.v_type]
             Self.v_naxis = Self.hdr['NAXIS'+Self.v_type]
             Self.v_cdeltkms = Self.v_cdelt/float(1e3)
-            # plus one because to start at 0 is wrong, need 1 to v_naxis
-            Self.v_arr = ((arange(0,Self.v_naxis)-Self.v_crpix+1)*Self.v_cdelt+Self.v_crval)/float(1e3) # so it is i kms
+            # plus one because to start at 0 is wrong, need 1 to v_naxis <- this is WRONG
+            # start at 0 because we
+            Self.v_arr = ((arange(0,Self.v_naxis)-Self.v_crpix)*Self.v_cdelt+Self.v_crval)/float(1e3) # so it is i kms
             Self.v_rangekms = Self.v_arr.max()-Self.v_arr.min()
             # not good if vcdletkms has more than 3 significant digits.
             #Self.v_arr = Self.v_arr.round(3)
@@ -1567,11 +1589,31 @@ class Fits:
             Self.v_crpix = Self.hdr['CRPIX1']-1
             Self.v_naxis = Self.hdr['NAXIS1']
             Self.v_crval = Self.hdr['VELO-LSR']
-            Self.v_arr = ((arange(0,Self.v_naxis)-Self.v_crpix+1)*Self.v_cdelt+Self.v_crval)/float(1e3)
+            Self.v_arr = ((arange(0,Self.v_naxis)-Self.v_crpix)*Self.v_cdelt+Self.v_crval)/float(1e3)
             Self.restfreq = Self.hdr['RESTFREQ'] # in Hertz
+            # huh?
             Self.fov = 58.4*(3e8/Self.restfreq)/(Self.diameter)*3600
-            Self.d = Self.d[0][0][0] # specific for this data...
-#        elif 'Miriad fits' in Self.hdr['ORIGIN']:
+            if 'BEAMEFF' in Self.hdr:
+                Self.beameff = Self.hdr['BEAMEFF']
+            if 'FORWEFF' in Self.hdr:
+                Self.forweff = Self.hdr['FORWEFF']
+            #Self.d = Self.d[0][0][0] # specific for this data...
+        #~ elif 'Miriad fits' in Self.hdr['ORIGIN']:
+        # below to load CLASS bits -32
+        #~ elif 'FITS_rec' in str(type(Self.d)) and not Self.hdr['NAXIS']:
+            #~ Self.d = Self.d[0][0]
+            #~ Self.datatype = 'SDSPECT',1
+            #~ #
+            #~ # Self.d.dtype shows SPECTRUM and WAVE for CLASS data
+            #~ #
+            #~ Self.v_cdelt = Self.hdr['DELTAV']
+            #~ Self.v_cdeltkms = Self.hdr['DELTAV']/float(1e3)
+            #~ Self.v_crpix = Self.hdr['CRPIX1']-1
+            #~ Self.v_naxis = Self.hdr['NAXIS1']
+            #~ Self.v_crval = Self.hdr['VELO-LSR']
+            #~ Self.v_arr = ((arange(0,Self.v_naxis)-Self.v_crpix)*Self.v_cdelt+Self.v_crval)/float(1e3)
+            #~ Self.restfreq = Self.hdr['RESTFREQ'] # in Hertz
+            #~ Self.fov = 58.4*(3e8/Self.restfreq)/(Self.diameter)*3600
         else:
             # if it is not an image or a spectral cube
             print_error('The dimensions of the data is wrong\n at least the header keywords indicate that.\n The data has '+str(Self.hdr['NAXIS'])+' axes. \n\n Perhaps use the removeaxis script?\n')
@@ -1580,7 +1622,7 @@ class Fits:
         # perhaps check in the header?
         # velref probably at what velocity that middle of spectra is?
         Self.v_sys = float(vsys)
-        Self.dist = float(dist)
+        Self.dist = float(distance)
         #
         # FREQUENCY ARRAY
         #
@@ -1595,17 +1637,19 @@ class Fits:
         # FITS starts at 1 and Python starts at 0, hence in
         # an array, crpix-1 will show the Python position of the crpix
         # DEC
-        Self.dec_cdelt = Self.hdr['CDELT2']*3600 # arcs
-        Self.dec_npix = Self.hdr['NAXIS2']
-        Self.y_npix = Self.hdr['NAXIS2']
-        Self.dec_crpix = Self.hdr['CRPIX2']-1
-        Self.dec_crval = Self.hdr['CRVAL2']
+        decax = str([x for x in Self.hdr.keys() if x[:-1]=='CTYPE' and 'DEC' in Self.hdr[x]][0][-1:])
+        Self.dec_cdelt = Self.hdr['CDELT'+decax]*3600 # arcs
+        Self.dec_npix = Self.hdr['NAXIS'+decax]
+        Self.y_npix = Self.hdr['NAXIS'+decax]
+        Self.dec_crpix = Self.hdr['CRPIX'+decax]-1
+        Self.dec_crval = Self.hdr['CRVAL'+decax]
         # RA
-        Self.ra_cdelt = Self.hdr['CDELT1']*3600 # arcs
-        Self.ra_npix = Self.hdr['NAXIS1']
-        Self.x_npix = Self.hdr['NAXIS1']
-        Self.ra_crpix = Self.hdr['CRPIX1']-1
-        Self.ra_crval = Self.hdr['CRVAL1']
+        raax = str([x for x in Self.hdr.keys() if x[:-1]=='CTYPE' and 'RA' in Self.hdr[x]][0][-1:])
+        Self.ra_cdelt = Self.hdr['CDELT'+raax]*3600 # arcs
+        Self.ra_npix = Self.hdr['NAXIS'+raax]
+        Self.x_npix = Self.hdr['NAXIS'+raax]
+        Self.ra_crpix = Self.hdr['CRPIX'+raax]-1
+        Self.ra_crval = Self.hdr['CRVAL'+raax]
         if Self.datatype[0] in ['CUBE','IMAGE']:
             # create a extent keyword
             #~ ylen, xlen = Self.d[0].shape
@@ -1632,24 +1676,33 @@ class Fits:
             Self.bmin = Self.hdr['BMIN']*3600
             Self.bpa = Self.hdr['BPA']
         except KeyError, ex:
-            print_warning('Header keywords (bmaj,bmin,bpa,restfreq) incomplete, ignoring all.')
-            Self.bmaj = None
-            Self.bmin = None
-            Self.bpa = None
-            Self.gain = None
-        try:
-            # Data units
+            msg='Header keywords (bmaj,bmin,bpa,restfreq) incomplete and not loaded.'
+            print_warning(msg)
+            #~ Self.bmaj = None
+            #~ Self.bmin = None
+            #~ Self.bpa = None
+            #~ Self.gain = None
+        if 'BUNIT' in Self.hdr:
             Self.unit = Self.hdr['BUNIT']
-        except KeyError, ex:
+            # units
+            if 'JY/BEAM' in upper(Self.unit):
+                Self.unitpixel = u"Jy\u00b7beam\u207b\u00b9\u00b7channel\u207b\u00b9"
+                Self.unitint = u"Jy\u00b7beam\u207b\u00b9\u00b7" + KMS
+            elif 'K' in upper(Self.unit):
+                Self.unitpixel = u"K\u00b7channel\u207b\u00b9"
+                Self.unitint = u"K\u00b7" + KMS
+        else:
             print_warning('No beam unit in header.')
-            Self.unit = None
-        if Self.datatype[0] in ['CUBE','SDSPECT',]:
+            Self.unitpixel = "INTENSITY"
+            Self.unitint = "INTEGRATED-INTENSITY"
+        # calculate the GAIN of the observations (interferometric observations?)
+        if Self.datatype[0] in ['CUBE','SDSPECT'] and hasattr(Self,'restfreq') and hasattr(Self,'bmin'):
             # gain depends on restfreq being there
             Self.gain = 8.168e-25*(Self.restfreq)**2*Self.bmin*Self.bmaj
         #
         # Object name
         Self.obj = Self.hdr['OBJECT']
-    def __str__(self):
+    def __str__(Self):
         print '\n','='*40
         print ' '*8,'FITS file\n'
         print 'Data type : %s' % str(Self.datatype[0])
@@ -1659,8 +1712,8 @@ class Fits:
             Self.dec_size = abs(Self.dec_cdelt)*Self.dec_npix
             print 'Spatial size of image\n RA\t: %2.3f asec\n DEC\t: %2.3f asec' % (Self.ra_size, Self.dec_size)
         print 'Phase center '
-        print ' RA : {}'.format(parse_ra(Self.ra_crval,string=1))
-        print ' DEC : {}'.format(parse_dec(Self.dec_crval,string=1))
+        print '  RA : {0}'.format(parse_ra(Self.ra_crval,string=1))
+        print ' DEC : {0}'.format(parse_dec(Self.dec_crval,string=1))
         return "\n ADAVIS - Fitsfile Object \n"
     def parse_pxlcoord (Self, x, y):
         """ Function doc """
@@ -1871,24 +1924,42 @@ class Moments:
 
         # calculate moment 1
         Self.one = Ivsum/Isum
-        #return self
 #
 # SPECTRUM DATA CLASS
-# To be used in the plot_spectrum function
-# NB : Not implemented yet
+#
 class Spectrum:
     """ Class doc """
     ### not shure if it is allowed to use "FITS" as input here.
     # perhaps need some other input name
     def __init__ (Self, Fits, **args):
-        """ Class initialiser """
-        # copy the header, perhaps unnecessary
-        Self.hdr = Fits.hdr
+        """
+        Class initialiser
+        ----
+        Arguments (args):
+        region = []
+
+
+        TODO : should the "lines" input accept other than the native type?
+        TODO : supply the filename of "writetofile" of identify_lines method
+
+        """
+        # copy the header and other useful stuff
+        # a bit redundant, don't you think?
+        Self.hdr = Fits.hdr.copy() # this is a dictionary!
         Self.v_arr = Fits.v_arr
-        if Fits.datatype[1] == 'SDSPECT':
+        Self.v_cdeltkms = Fits.v_cdeltkms
+        Self.v_cdelt = Fits.v_cdelt
+        Self.v_crpix = Fits.v_crpix
+        Self.v_crval = Fits.v_crval
+        Self.v_sys = Fits.v_sys
+        Self.restfreq = Fits.restfreq
+        Self.unitpixel = Fits.unitpixel
+        Self.unitint = Fits.unitint
+        #
+        if Fits.datatype[0] == 'SDSPECT':
             print stylify("SD-SPECTRUM - region keyword not doing anything.",fg='y')
             Self.d = Fits.d
-        elif Fits.datatype[1] in ['CUBE','IMAGE']:
+        elif Fits.datatype[0] in ['CUBE','IMAGE']:
             if 'region' in args:
                 pass
             else:
@@ -1896,282 +1967,396 @@ class Spectrum:
             x1,x2,y1,y2 = parse_region(Fits, args['region'])
             area_region = ((y2-y1)*(x2-x1))
             Self.d = (Fits.d[:,y1:y2,x1:x2].sum(axis=1).sum(axis=1))/float(area_region)
-        #Self.freqarr = calc_frequency(Self.v_arr,Self.restfreq)
-    #
-    #
+        if hasattr(Fits,'unit'):
+            Self.unit = Fits.unit
+        Self.binned = 0 # it is not binned at this point
+        if 'lines' in args:
+            Self.lines = parse_linelist(args['lines'])
     def __str__(Self):
-        print 'Spectrum class'
-    #
-    #
-    def binning(Self, binning, bintype='mean'):
+        if Self.binned:
+            print 'Spectrum has been binned'
+        return '<ADAVIS Spectrum Object>'
+    def bin_spectrum(Self, binning, bintype='mean'):
+        from string import lower
+        from scipy import alen, arange, array
+        from sys import exit as sysexit
         binning = int(binning)
+        Self.binning = binning
+        ##### temporary solution, saving old stuff
+        class Original: pass
+        Original.d = Self.d
+        Original.v_arr = Self.v_arr
+        Original.v_cdelt = Self.v_cdelt
+        Original.v_cdeltkms = Self.v_cdeltkms
+        Self.Original = Original
+        #
         if lower(bintype) == 'resample':
             from congridding import congrid
             # congridding, proper resampling of data
-            Self.spectrum = congrid(Self.spectrum,(alen(spectrum)/binning,),centre=True, method='neighbour')
-            Self.velocity = congrid(Self.velocity,(alen(Self.velocity)/binning,))
+            Self.d = congrid(Self.d,(alen(Self.d)/binning,),centre=True, method='neighbour')
+            Self.v_arr = congrid(Self.v_arr,(alen(Self.v_arr)/binning,))
             #
-            velocity_delta = Self.v_cdeltkms*binning
+            Self.v_cdeltkms = Self.v_cdeltkms*binning
         elif lower(bintype) == 'mean':
-            if alen(Self.spectrum)%binning!=0:
-                print 'Bin has to be evenly devide the number of channels: %d' % alen(spect)
+            if alen(Self.d)%binning!=0:
+                print 'Bin has to be evenly devide the number of channels: %d' % alen(Self.d)
                 sysexit()
             #  Old method - simple binning, just average
-            indices = arange(0,alen(spect),binning)
-            Self.spectrum = array([Self.spectrum[x:x+binning].sum(axis=0)/binning for x in indices])
-            Self.velocity = array([Self.velocity[x:x+binning].sum(axis=0)/binning for x in indices])
+            indices = arange(0,alen(Self.d),binning)
+            Self.d = array([Self.d[x:x+binning].sum(axis=0)/binning for x in indices])
+            Self.v_arr = array([Self.v_arr[x:x+binning].sum(axis=0)/binning for x in indices])
             #
-            Self.velocity_delta = Self.v_cdeltkms*binning
+            Self.v_cdeltkms = Self.v_cdeltkms*binning
         elif binning == 0 or binning <0:
             print stylify("\nERROR:\n Variable \"bin\" has to be 1 for no binning, or above 1 \n\
             for the number of channels to bin")
         # print out information about the binning
         print '='*40
         print ' '*11,"Binning of data\n"
-        print "No channels to bin : %d" % binning
-        print "Velocity step : %f" % Self.velocity_delta
+        print "No channels to bin : %d" % Self.binning
+        print "Velocity step : %f" % Self.v_cdeltkms
         if bintype=='mean':
             print 'Type of binning : Simple mean over selected no. bin channels'
         elif bintype=='resample':
             print 'Type of binning : Resampling - 1D interpolation'
-    def calc_rms(self,nvals):
+        # set the "binned" flag to True! (i.e. larger than 0)
+        # every time we bin, it increases with the number of the binning parameter
+        # hence the number of channels that it has been binned is repr
+        # by this parameter
+        Self.binned +=Self.binning
+    def calc_rms(Self,Fits,nvals,region='quarter'):
+        from scipy import array, sqrt
+        from string import upper
         print '='*40
         print ' '*11,'Noise statistics\n'
         # calculate the rms from the channels in the spectra
         # accounts for it even if it is binned
-        #
         # image rms
         # change x1,x2,y1,y2 to quarter region
         # change so that when binning, the rms i calculated
         # x1,x2
-        if Self.datatype[0] == 'SDSPECT':
-            rms = sqrt(((Self.d[get_indices(velocity,args['nvals'])])**2).mean()/float(binning))
+        # calc two RMS, one for bin and one without
+        # perhaps change this, it just a factor of 1/sqrt(Self.binning)?
+        # also, change to some other algorithm of deducing the rms
+        # i.e. histogram or similar
+        #
+        """
+        TODO : specify arbitrary region (also string "quarter") to
+                specify what region to calc rms over
+
+        """
+        if Fits.datatype[0] == 'SDSPECT':
+            if Self.binned>1: # if it is larger than 0
+                Self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals)])**2).mean()/Self.binned)
+                #Self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals),j1:j2,i1:i2])**2).mean()/Self.binned)
+            else:
+                Self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals)])**2).mean())
         else:
-            zlen, ylen, xlen = Self.d.shape
+            zlen, ylen, xlen = Fits.d.shape
             ydelt = ylen/6
             xdelt = xlen/6
             i1,i2 = xlen/2-xdelt, xlen/2+xdelt
             j1,j2 = ylen/2-ydelt, ylen/2+ydelt
-            rms = sqrt(((Self.d[get_indices(velocity,args['nvals']),j1:j2,i1:i2])**2).mean()/float(binning))
-        rms_mjy = rms*1e3
-        #rms_0 = sqrt(((spect[get_indices(velocity,args['nvals'])])**2).mean())
-        #rms_2 = sqrt(((Self.d[get_indices(velocity,args['nvals']),:,:])**2).mean())
-
-        #rms_0= rms/sqrt(abs(Self.v_cdeltkms))
-        #print rms_0
-        #print 'rms_0 =', rms_0*1e3
-        #print 'rms_2 =', rms_2*1e3
-        #
+            if Self.binned>1: # if it is larger than 0
+                Self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals),j1:j2,i1:i2])**2).mean()/Self.binned)
+            else: # if it is 0
+                Self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals),j1:j2,i1:i2])**2).mean())
+        Self.rms_mjy = Self.rms*1e3
         # the sensitivity
-        s = rms/sqrt(abs(Self.velocity_delta))
-        s_mjy = s*1e3
+        # TODO : if the unit is K km/s how come we divide?
+        Self.sensitivity = Self.rms/sqrt(abs(Self.v_cdeltkms))
         # the channels used
-        ind = get_indices(Self.velocity,nvals)
+        ind = get_indices(Self.v_arr,nvals)
         ind1, ind2 = ind.min(), ind.max()
-        print u'RMS \t\t: %2.3f mJy\u00b7beam\u207b\u00b9\u00b7channel\u207b\u00b9' % rms_mjy
-        print u' Sensitivity \t: %2.3f mJy\u00b7beam\u207b\u00b9\u00b7km\u207b\u00b9\u00b7s' % s_mjy
-        print u' Channels used \t: %d, %d (%s km\u00b7s\u207b\u00b9)' % (ind1, ind2, str(args['nvals']))
-        print u' Region \t: %s arcsec' % (str(region))
-        print u' Channel width \t: %2.3f km\u00b7s\u207b\u00b9' % abs(velocity_delta)
-    def identify_lines(self):
-        if linefit.has_key('lineid'):
-            if linefit['lineid']:
-                # later when the kwargs is implemented...
-                # checks that we have done a fit first
-                #if not kwargs['linefit']:
-                #    print 'If you want lineid you need linefit'
-                #    raise ParError(kwargs['lineid'], kwargs['linefit'])
-                import splatsearch as spl
-                print 'Trying to indentify candidates for the fitted lines.'
-                frequency_pairs = []
-                for i in arange(0,len(params),3):
-                    # correct for v_sys, to get correct frequency for the
-                    # correct frequency range in the splatalogue search
-                    # when calculating the "correct" frequency, we subtract v_sys
-                    vel_lower, vel_upper = (params[i+1]-v_sys + array([-1,1])*params[i+2]*1.5)
-                    # frequency increases when velocity decreases...
-                    freq_lower = calc_frequency(vel_upper,Self.restfreq/1e9)
-                    freq_upper = calc_frequency(vel_lower,Self.restfreq/1e9)
-                    frequency_pairs.append([freq_lower,freq_upper])
-                list_of_species = []
-                list_of_frequencies = []
-                number = 1
-                for i in arange(len(frequency_pairs)):
-                    df=8e-3 # range to find line
-                    CSI = "\x1b["
-                    start =CSI+'1m'+CSI+'32m'+CSI+'40m'
-                    end = CSI+'m'
-                    print '\n'+start+'Line number : '+str(number)+'\t\t\t\t'+end
-                    print 'Frequency : %f  GHz' % (frequencies[i])
-                    result = spl.splatsearch(freq=frequency_pairs[i], send=1, display=1, linelist=['jpl','cdms'], e_to=500)
-                    if result!=None:
-                        species, freq = result[1],result[3]
-                        for i in arange(len(freq)):
-                            list_of_species.append(species[i])
-                            list_of_frequencies.append(freq[i])
-                        #~ for i in arange(len(freq)):
-                            #~ if i>0 and freq[i]!=freq[i-1]: # remove duplicates
-                                #~ list_of_species.append(species[i])
-                                #~ list_of_frequencies.append(freq[i])
-                            #~ elif i==0:
-                                #~ list_of_species.append(species[i])
-                                #~ list_of_frequencies.append(freq[i])
-                            #~ else:
-                                #~ pass
+        print u' RMS \t\t: {0:2.3f} m{1}'.format(Self.rms_mjy, Fits.unitpixel)
+        print u' Sensitivity \t: {0:2.3f} m{1}'.format(Self.sensitivity*1e3, Fits.unitint)
+        print u' Channels used \t: {0:d}, {1:d} ({2} {3})'.format(ind1, ind2, str(nvals), KMS)
+        print u' Region \t: {0} arcsec'.format(region)
+        print u' Channel width \t: {0:2.3f} {1}'.format(abs(Self.v_cdeltkms), KMS)
+        if Self.binned:
+            print 'Binning parameter : {0}'.format(Self.binned)
+    def fit_lines(Self, **args):
+        """
+        TODO : calculate errors for the fit etc, look at Kaper et al (1966)\
+                and Condon (1996)
+        TODO : calculate the sum (integrated) intensity
+                and apply Beam_eff? (for SD, in K kms-1)
+        TODO : guess parameters if only one gaussian?
+        TODO : interactive?
+        TODO : streamline what is printed out, and what is saved in
+                the Fit-class
 
-                    number+=1
-                # done now define the linelist
-                lines=[list_of_species,list_of_frequencies]
+        Intensities:
+        from
+        http://www.iram.es/IRAMES/otherDocuments/manuals/index.html
+        and the document
+        http://www.iram.es/IRAMES/otherDocuments/manuals/Report/cali_rep_ddo970205.ps
+
+
+        T*A temperatures are brightness temperatures of an
+        equivalent source which fills the entire 2pi sterradians of
+        the forward beam pattern of the telescope. To obtain the
+        brightness temperature of and equivalent source just filling
+        the main beam (def. as main beam brightness temperature
+        Tmb), antenna temperatures have to be multiplied bu the
+        ratio of the forward and main beam efficiency Beff.
+
+        Tmb = Feff/Beff * T*A
+
+
+        """
+        from scipy import array, sqrt, log, alen, arange, pi, diff
+        if 'linefit' not in args:
+            # add either interactive fitting or
+            # some guessing algorithm
+            print 'Need first guesses for the fitting atm.'
+            return False
+        elif 'linefit' in args: # first guess parameters supplied!
+            # first copy the fit-dictionary
+            fitting = args['linefit'].copy()
+        # start print msgs
+        print '='*40
+        print ' '*11,"Line fitting\n"
+        ##### check if error is supplied
+        if 'error' not in fitting:
+            # if no error is supplied, use the calculated
+            # main class RMS
+            if hasattr(Self,'rms'):
+                fitting['error'] = Self.rms
+            elif  not hasattr(Self,'rms'):
+                errmsg = 'No error supplied.\n\
+                Either supply with {\'error\': VALUE} or cal\
+                calculate with Spect.calc_rms(nvals=[n1,n2,n3,n4])'
+                print stylify(errmsg,fg='r')
+                raise ParError(fitting)
+        elif 'error' in fitting:
+            print 'We have error from input, not from Spectrum'
+        ##### small useful functions
+        fwhmfromsig = 2*sqrt(2*log(2)) # the constant
+        fwhm = lambda x: fwhmfromsig*x
+        sigma = lambda x: x/fwhmfromsig
+        ##### fits 1D gaussian(s) to spectral data
+        if 'chvals' in args: # if we supplied limits for the fit
+            ch = get_indices(Spect.v_arr,[kwargs['chvals']])
+            Fx = Self.d[ch]
+            X = Self.v_arr[ch]
+        else: # else use the eveything
+            Fx = Self.d
+            X = Self.v_arr
+        #
+        p = fitting['params'] # parameters for the fit
+        #
+        if 'limmin' not in fitting:
+            fitting['limmin'] = None
+            fitting['minpar'] = None
+        if 'limmax' not in fitting:
+            fitting['limmax'] = None
+            fitting['maxpar'] = None
+        if 'fixlist' not in fitting:
+            fitting['fixlist'] = None
+        if 'tie' not in fitting:
+            fitting['tie'] = None
+        #
+        from time import time
+        t1 = time()
+        #
+        fitting_results = fit_gauss1d((X,Fx), params=p, fixlist=fitting['fixlist'],
+                minbool=fitting['limmin'], minpar=fitting['minpar'],
+                maxbool=fitting['limmax'], maxpar=fitting['maxpar'],
+                err=fitting['error'], tie=fitting['tie'], verbose=0, full_output=1)
+
+        if fitting_results==None:
+            print(stylify('\n\n No fitting done...',f='b',fg='r'))
+        elif fitting_results!=None:
+            ###### subclass fit
+
+            class Fit: pass
+
+            Fit.params, Fit.errors, Fit.chi2, Fit.mp = fitting_results
+            #~ params, errors, chi2, mp = fitting_results
+            print ' Done in %2.3f seconds' % (time()-t1)
+            #
+            print ' Number of fits : ', alen(Fit.params)/3
+            print ' Fit status : ', Fit.mp.status, '(if 0, it should have halted)'
+            print ' Chi2 : {0}, reduced : {1}\n'.format(Fit.chi2,Fit.chi2/float(len(Fx)))
+            # now, parse output of fitting and print it out on screen
+            Fit.line_widths = []
+            Fit.frequencies_fitted = []
+            Fit.frequencies_corrected = []
+            Fit.vel_shifts = []
+            Fit.freq_shifts = []
+            Fit.gauss_intensities = []
+            Fit.sum_intensities = []
+            Fit.sum_intensities2 = []
+            Fit.line_names = []
+            #
+            Fit.nfits = alen(Fit.params)/3
+            j = 0
+            for i in arange(0,len(Fit.params),3):
+                # add 1 because channel 1 is in pos 0
+                half_fwhm = Fit.params[i+2]/2.
+                fwhm = Fit.params[i+2]
+
+                # first figure out the extent of the gaussian (the line)
+                # jump half a channel down and up so that it finds the correct channels
+                lower_half, upper_half = (Fit.params[i+1] + array([-1,1])*half_fwhm)
+                lower,upper = (Fit.params[i+1] + array([-1,1])*fwhm)
+                lower2,upper2 = (Fit.params[i+1] + array([-1,1])*fwhm*2)
+                #channels = where((velocity>lower)*(velocity<upper))[0]+1
+                channels_half = get_indices(Self.v_arr,[lower_half,upper_half])
+                channels = get_indices(Self.v_arr,[lower,upper])
+                channels2 = get_indices(Self.v_arr,[lower2,upper2])
+                #draw_highlight_box(ax_kms, params[i+1], params[i+2]*3)
+                # apply v_sys correction, so that we use v_sys for estimating the correct
+                # frequency for the line, especially importat when using line-identification
+                frequency_fitted = calc_frequency(Fit.params[i+1],Self.restfreq/1e9)
+                frequency_corrected = calc_frequency(Fit.params[i+1]-Self.v_sys,Self.restfreq/1e9)
+                Fit.line_widths.append(fwhm)
+                Fit.frequencies_corrected.append(frequency_corrected)
+                Fit.frequencies_fitted.append(frequency_fitted)
+                #
+                if hasattr(Fits, 'beameff') and hasattr(Fits, 'forweff'):
+                    constant = Fits.forweff/Fits.beameff
+                else:
+                    constant = 1
+                gauss_int = (sqrt(2*pi)*sigma(Fit.params[i+2])*Fit.params[i])*constant
+                sum_int = (Self.d[channels].sum()*Self.v_cdeltkms)*constant
+                sum_int2 = (Self.d[channels2].sum()*Self.v_cdeltkms)*constant
+                Fit.gauss_intensities.append(gauss_int)
+                Fit.sum_intensities.append(sum_int)
+                Fit.sum_intensities2.append(sum_int2)
+                if hasattr(Self, 'lines'):
+                    # frequency shift = rest frequency - measured frequency
+                    # velocity shift  =  c (freq_shift/freq._rest)
+                    # 'lines' contain the name and frequency of
+                    # the identified lines, that is all the
+                    # lines we're fitting
+                    print Self.lines[1][j],type(Self.lines[1][j])
+                    freq_shift = Self.lines[1][j] - frequency_fitted
+                    vel_shift = SOL * freq_shift/Self.lines[1][j] * 1E-3 # in kms
+                    Fit.freq_shifts.append(freq_shift)
+                    Fit.vel_shifts.append(vel_shift)
+                    Fit.line_names.append(Self.lines[0][j])
+                print  stylify('Fit number : {0}'.format(j+1),fg='g',bg='k')
+                intensity_string =\
+                u" Intensity: Fit= {0:2.4f}, Data= {1:2.4f} (\u00b1FWHM), {2:2.4f} (\u00b12*FWHM) {3}".format(gauss_int,sum_int,sum_int2,Self.unitint)
+                print intensity_string
+                parameter_string=\
+                u" Ampl= {0:2.3f} (\u00b1{1:2.3f}) {2}, Pos= {3:2.3f} (\u00b1{4:2.3f}) {5}".format(Fit.params[i],Fit.errors[i],Self.unit,Fit.params[i+1],Fit.errors[i+1],KMS)
+                print stylify(parameter_string,fg='b')
+                print u" Width= {0:2.3f} (\u00b1{1:2.3f}) {2} (FWHM, \u03c3={3:2.3f})".format(Fit.params[i+2],Fit.errors[i+2],KMS,sigma(Fit.params[i+2]))
+                # calculate frequency and velocity offset if linelist exists
+                if hasattr(Self,'lines'):
+                    # print offset (freq. & vel.)
+                    print "Id molecule : {0}".format(Self.lines[0][j])
+                    print u"Frequency shift : {0:2.5} GHz Vel shift : {1:5.5} {2}".format(freq_shift,vel_shift,KMS)
+                frequency_string =\
+                u' Frequency : {0:3.9f} GHz (v_sys corrected)'.format(frequency_corrected)
+                print stylify(frequency_string,fg='b')
+                print u' FWHM      : {0}, {1} ({2}) ([{3:.2f}, {4:.2f}] {5})'.format(channels_half.min(), channels_half.max(),(channels_half.max()-channels_half.min()+1), lower_half, upper_half,KMS)
+                print u' \u00b1FWHM   : {0}, {1} ({2}) ([{3:.2f}, {4:.2f}] {5})'.format(channels.min(), channels.max(), (channels.max()-channels.min()+1), lower,upper,KMS)
+                if Self.binned:
+                    channels_nobin = get_indices(Self.Original.v_arr,[lower,upper])
+                    channels_half_nobin = get_indices(Self.Original.v_arr,[lower_half,upper_half])
+                    print u'Original channels :\n \t FWHM width  : {0}, {1} (\u00b1FWHM)'.format(channels_half_nobin.min(), channels_half_nobin.max())
+                    print  u' \t \u00b1FWHM width : {0}, {1} ({2})  \n'.format(channels_nobin.min(), channels_nobin.max(),(channels_nobin.max()-channels_nobin.min()+1))
+                j+=1
+            #
+            Fit.line_widths = array(Fit.line_widths)
+            print 20*'- '
+            print u'Mean FWHM : {0:2.1f} \u00b1{1:2.2f} km\u00b7s\u207b\u00b9'.format(Fit.line_widths.mean(),Fit.line_widths.std())
+            Fit.xarr = arange(X[0],X[-1],(diff(X)[0]/3))
+            # lastly get the Fit class into the Spectrum class (Self)
+            Self.Fit = Fit
+    def identify_lines(Self, writetofile=0,**args):
+        # later when the kwargs is implemented...
+        # checks that we have done a fit first
+        #if not kwargs['linefit']:
+        #    print 'If you want lineid you need linefit'
+        #    raise ParError(kwargs['lineid'], kwargs['linefit'])
+        #
+        # only works after a fit has been done, this should be changed
+        # so that it works with both a native fit, and with supplied
+        # frequencies
+        #
+        if not hasattr(Self,'Fit'):
+            print_warning('Spectrum not fitted, aborting line id')
+            raise ParError('linefit - need to fit lines')
+        if hasattr(Self,'lines'):
+            print_warning('Line list exists, overwriting...')
+        # now import the splatsearch module and other stuff
+        import splatsearch as spl
+        from scipy import arange, array
+        print 'Trying to indentify candidates for the fitted lines.'
+        frequency_pairs = []
+        if 'nfwhm' in args:
+            nfwhm = args['nfwhm']
         else:
-            print ('Not identifying lines...')
-    def fit_Gaussians(self):
-
-        if linefit['type']=='gauss':
-            """
-            TODO : calculate errors for the fit etc, look at Kaper et al (1966)\
-                    and Condon (1996).
-            TODO : guess parameters?
-            TODO : interactive
-            TODO : calculate mean and std of the FWHM for the FITS
-            """
-            print '='*40
-            print ' '*11,"Line fitting\n"
-            #
-            fit = linefit.copy()
-            if not linefit.has_key('error'):
-                #~ if nvals!=None:
-                if 'nvals' not in args:
-                    fit['error'] = rms
-                    print 'No error supplied, but nvals given and rms calculated.\n\
-                    using rms = %2.3f Jy beam-1 channel-1' % rms
-                elif args['nvals']==None:
-                    errmsg='You have to supply an error to the fit, they\'re kind of important you know.'
-                    print stylify(errmsg)
-                    return ; sysexit()
-
-            fwhmfromsig = 2*sqrt(2*log(2)) # the constant
-            fwhm = lambda x: fwhmfromsig*x
-            sigma = lambda x: x/fwhmfromsig
-
-            # fits 1D gaussian(s) to spectral data
-            if 'chvals' in args: # if we supplied limits for the fit
-                ch = where((velocity>args['chvals'][0])*(velocity<args['chvals'][1]))[0]
-                Fx = spect[ch]
-                X = velocity[ch]
-            else: # else use the eveything
-                Fx = spect
-                X = velocity
-            #
-            #
-            p = fit['params'] # parameters for the fit
-            #
-            if not fit.has_key('limmin'):
-                fit['limmin'] = None
-                fit['minpar'] = None
-            if not fit.has_key('limmax'):
-                fit['limmax'] = None
-                fit['maxpar'] = None
-            if not fit.has_key('fixlist'):
-                fit['fixlist'] = None
-            if not fit.has_key('tie'):
-                fit['tie'] = None
-            #
-            from time import time
-            t1= time()
-            #
-            fitting_results = fit_gauss1d((X,Fx), params=p, fixlist=fit['fixlist'],
-                    minbool=fit['limmin'], minpar=fit['minpar'],
-                    maxbool=fit['limmax'], maxpar=fit['maxpar'],
-                    err=fit['error'], tie=fit['tie'], verbose=0, full_output=1)
-
-            if fitting_results==None:
-                print(stylify('\n\n No fitting done...',f='b',fg='r'))
-            elif fitting_results!=None:
-                params, errors, chi2, mp = fitting_results
-                #
-                print ' Done in %2.3f seconds \n' % (time()-t1)
-                #
-                print ' Number of fits : ', alen(params)/3
-                print ' Fit status : ', mp.status, '(if 0, it should have halted)'
-                print ' Chi2 : {0}, reduced : {1}\n'.format(chi2,chi2/float(len(Fx)))
-                # now, parse output of fitting and print it out on screen
-                j = 1
-                line_widths = []
-                frequencies = []
-                #
-                # temporary code, move these attributes and methods over to a class (Spectrum?)
-                # both the fitting and the initialisation, each spectra class can be fitted individually
-                #
-                # move fitting up before plotting
-                #
-                #
-                class Tmp: pass
-                #Tmp.fitting_results = fitting_results
-                Tmp.params = params
-                Tmp.errors = errors
-                Tmp.chi2 = chi2
-                Tmp.nfits = alen(params)/3
-                #
-                #
-                #
-                for i in arange(0,len(params),3):
-                    # add 1 because channel 1 is in pos 0
-
-                    half_fwhm = params[i+2]/2.
-                    fwhm = params[i+2]
-                    line_widths.append(fwhm)
-                    # first figure out the extent of the gaussian (the line)
-                    # jump half a channel down and up so that it finds the correct channels
-                    lower_half, upper_half = (params[i+1] + array([-1,1])*half_fwhm)
-                    lower,upper = (params[i+1] + array([-1,1])*fwhm)
-                    #channels = where((velocity>lower)*(velocity<upper))[0]+1
-                    channels_half_nobin = get_indices(Self.v_arr,[lower_half,upper_half])
-                    channels_nobin = get_indices(Self.v_arr,[lower,upper])
-                    channels_half = get_indices(velocity,[lower_half,upper_half])
-                    channels = get_indices(velocity,[lower,upper])
-                    #draw_highlight_box(ax_kms, params[i+1], params[i+2]*3)
-                    # apply v_sys correction, so that we use v_sys for estimating the correct
-                    # frequency for the line, especially importat when using line-identification
-                    frequency = calc_frequency(params[i+1]-v_sys,Self.restfreq/1e9)
-                    frequencies.append(frequency)
-                    print  'Fit number : %i' % j
-                    print  ' Intensity : %2.4f \t=calculate it=' % (sqrt(2*pi)*sigma(params[i+2])*params[i]) # the area under the 1D Gaussian
-                    print u' Amplitude : %2.3f (\u00b1%2.3f) \t Jy\u00b7Beam\u207b\u00b9' % (params[i],errors[i])
-                    print u' Position  : %2.3f (\u00b1%2.3f) \t km\u00b7s\u207b\u00b9' % (params[i+1],errors[i+1])
-                    print u' Width     : %2.3f (\u00b1%2.3f) \t km\u00b7s\u207b\u00b9 (FWHM, \u03c3=%2.3f)' % (params[i+2],errors[i+2], sigma(params[i+2]))
-                    print  ' Frequency : %3.9f GHz (v_sys corrected)' % frequency
-                    print u' FWHM     : %d, %d (%d) ([%.2f, %.2f] km/s)'% (channels_half_nobin.min(), channels_half_nobin.max(),(channels_half_nobin.max()-channels_half_nobin.min()+1), lower_half, upper_half)
-                    print u' \u00b1FWHM   : %d, %d (%d) ([%.2f, %.2f] km/s)' % (channels_nobin.min(), channels_nobin.max(), (channels_nobin.max()-channels_nobin.min()+1), lower,upper)
-                    if bin!=1:
-                        print u' Rebinned channels :\n \t FWHM width  : %d, %d (\u00b1FWHM)' % (channels_half.min(), channels_half.max())
-                        print  u' \t \u00b1FWHM width : %d, %d (%d)  \n' % (channels.min(), channels.max(),(channels.max()-channels.min()+1))
-                    j+=1
-                #
-                line_widths = array(line_widths)
-                print 20*'- '
-                print u'Mean FWHM : %2.1f \u00b1%2.2f km\u00b7s\u207b\u00b9' % (line_widths.mean(),line_widths.std())
-
-                #### old code block
-                #~ if send: # does this clause do anything? sending this way earlier...
-                    #~ j = 1
-                    #~ f = []
-                    #~ for i in arange(1,len(params),3):
-                        #~ nu = calc_frequency(params[i]-v_sys,Self.restfreq/1e9)
-                        #~ f.append(nu)
-                        #~ print '%3.9f' % nu
-                        #~ j+=1
-                ### end of old code block
-                # draw the fit(s) into the figure
-                # X is the velocity array
-                # xarr has more 3 times more datapoints than velocity array
-                # the plotted lines looks smoother and nicer that way
-                xarr = arange(X[0],X[-1],(diff(X)[0]/3))
-                #~ for i in arange(0,len(params),3):
-                    #~ lower,upper = (params[i+1] + array([-1,1])*fwhm*4)
-                    #~ channels = get_indices(xarr,[lower,upper])
-                    #~ ax_kms.plot(xarr[channels], gauss1d(xarr[channels],params[i:i+3]))
-                #~ ax_kms.plot(xarr, gauss1d(xarr,params), color='0.2', lw=1, alpha=0.6)
-            #
+            nfwhm =1.5
+        print nfwhm
+        for i in arange(0,len(Self.Fit.params),3):
+            # correct for v_sys, to get correct frequency for the
+            # correct frequency range in the splatalogue search
+            # when calculating the "correct" frequency, we subtract v_sys
+            vel_lower, vel_upper = (Self.Fit.params[i+1]-Self.v_sys + array([-1,1])*Self.Fit.params[i+2]*nfwhm)
+            # frequency increases when velocity decreases...
+            freq_lower = calc_frequency(vel_upper,Self.restfreq/1e9)
+            freq_upper = calc_frequency(vel_lower,Self.restfreq/1e9)
+            frequency_pairs.append([freq_lower,freq_upper])
+        list_of_species = []
+        list_of_frequencies = []
+        number = 1
+        lineids = []
+        if writetofile:
+            with open(writetofile,'w') as f:
+                f.write('#Results file for Line ID\n#ADAVIS.py - Magnus Persson\n')
+                f.write('{0:15} {1:10} {2:10} {3:10}\n'.format('Species','Frequency','Smu2','Eu(K)'))
+        for i in arange(len(frequency_pairs)):
+            tmpspecies, tmpfreq = [],[]
+            df=8e-3 # range to find line
+            CSI = "\x1b["
+            start =CSI+'1m'+CSI+'32m'+CSI+'40m'
+            end = CSI+'m'
+            print '\n'+start+'Line number : '+str(number)+'\t\t\t\t'+end
+            print 'Frequency : {0}  GHz'.format(Self.Fit.frequencies_corrected[i])
+            # N, species, name, freq, freqerr, freqtype, cfreq, cfreqerr,
+            # mfreq, mfreqerr, res_qns (10), ures_qns, cdmsjpl_I, Smu2, Sij,
+            # log10Aij, lovasAST_I, ELcm, ELK, EUcm, EUK, u_degen, \
+            # mol_tag, QNr, llist
+            result = spl.splatsearch(freq=frequency_pairs[i], send=1, display=1, linelist=['jpl','cdms'], e_to=500)
+            if writetofile:
+                with open(writetofile,'a') as f:
+                    f.write('\n# Line no. {0}\n'.format(i+1))
+            if result!=None:
+                species, freq = result[1],result[3]
+                smu2, eu = result[13], result[20]
+                for j in arange(len(freq)):
+                    list_of_species.append(species[j])
+                    list_of_frequencies.append(freq[j])
+                    tmpspecies.append(species[j])
+                    tmpfreq.append(freq[j])
+                #~ for i in arange(len(freq)):
+                    #~ if i>0 and freq[i]!=freq[i-1]: # remove duplicates
+                        #~ list_of_species.append(species[i])
+                        #~ list_of_frequencies.append(freq[i])
+                    #~ elif i==0:
+                        #~ list_of_species.append(species[i])
+                        #~ list_of_frequencies.append(freq[i])
+                    #~ else:
+                        #~ pass
+                    if writetofile:
+                        with open(writetofile,'a') as f:
+                            #~ for name,freq in zip(species[j],freq[j]):
+                            f.write('{0:15} {1: <10} {2:>10} {3:>10}\n'.format(species[j],freq[j],smu2[j],eu[j]))
+                lineids.append([tmpspecies,tmpfreq])
+            else:
+                with open(writetofile,'a') as f:
+                    f.write('NO LINES\n')
+                print('No lines found...')
+            number+=1
+            # done now define the linelist
+        Self.lines = [list_of_species,list_of_frequencies]
+        Self.lineids = lineids
 
 ###########################################
 # MAIN FUNCTIONS
@@ -2182,20 +2367,15 @@ def plot_spectrum (Self,
     show_freq=False,
     font={'family':'serif', 'serif': ['Times New Roman'],
     'size':8},
-    binning=1,
-    bintype='mean',
-    linefit = dict(type=None, params=[(0.09, 7.3, 3.6)],
-    guess=False, interactive=False, fixlist=None, error=None,
-    limmin=None, minpar=None, limmax=None, maxpar=None, tie=None,
-    lineid=False),
     send=False,
     quality=[300, 300],
     plot_adjust= [0.15, 0.17, 0.98, 0.95],
-    lines = None,
     axspace = [1., 1., 1., 1.],
     ylimits=None,
     telescope=None,
     fsize=(FIG_SIZE),
+    binning=1,
+    bintype='mean',
     **args):
     """
     Plot the spectrum of a DataObject
@@ -2256,7 +2436,8 @@ def plot_spectrum (Self,
     linefit :
         Default : dict(type=None, params=[(0.09, 7.3, 3.6)],
         guess=False, interactive=False, fixlist=None, error=None,
-        limmin=None, minpar=None, limmax=None, maxpar=None, tie=None)
+        limmin=None, minpar=None, limmax=None, maxpar=None, tie=None,
+        lineid=0/dict(nfwhm=1.5))
 
     send :
         Default : False
@@ -2318,18 +2499,11 @@ def plot_spectrum (Self,
                     flipud, pi, nan
     from string import lower
     import matplotlib.pyplot as pl
-    from mpl_toolkits.axes_grid import AxesGrid
+    from mpl_toolkits.axes_grid1 import AxesGrid
     #from matplotlib.patches import Circle
     from matplotlib.ticker import MultipleLocator, FormatStrFormatter
     from matplotlib import cm, rc, rc_params
     print 'done'
-
-    #font={'family':'serif','serif':['Times', 'Palatino', 'New Century Schoolbook', 'Bookman', 'Computer Modern Roman'],'size':12, 'weight':'bold'}
-    #font=['serif','Times',12,'bold'],\
-    #font = {'family':'sans-serif','sans-serif':['Arial', 'Helvetica', 'Avant Garde', 'Computer Modern Sans Serif'], 'cursive':['Zapf Chancery']}
-    #'monospace':['Courier','Computer Modern Typewriter'], },\
-    #from matplotlib.font_manager import FontProperties
-    #FontProperties(family=None, style=None, variant=None, weight=None, stretch=None, size=None, fname=None, _init=None)
     ####
     #### PARSE INPUT
     ####
@@ -2340,14 +2514,38 @@ def plot_spectrum (Self,
     label_X = parse_tick_font(font)
     tick_label_formatter = FormatStrFormatter(label_X.replace('X',data_fmt))
     freq_label_formatter = FormatStrFormatter(label_X.replace('X',freq_data_fmt))
-    #rc('mathtext',**{'rm':'sans\\-serif'})
 
     # set the subplot_adjust parameters, if not given a standard set will
     # be used
     pl_left, pl_bottom, pl_right,pl_top = plot_adjust
+    # load input parameters
+    #~ inputdict = dict(region=region)
+    # create the spectrum object
+    inputargs = args
+    Spect = Spectrum(Self,region=region, **inputargs)
+    if binning>1:
+        if bintype=='resample':
+            Spect.bin_spectrum(binning=binning,bintype=bintype)
+        else:
+            Spect.bin_spectrum(binning=binning)
+    # calculate RMS
+    #~ print args
+    if 'nvals' in args:
+        Spect.calc_rms(Self,nvals=args['nvals'])
+    else:
+        pass
+    # fit data?
+    #~ if 'linefit' in args:
+        #~ Spect.fit
 
+    # 1. Extract spectra
+    # 2. BIN data
+    # 3. Calculate RMS
+    # 4. Plot spectrum
+    # 5. If fitkey exist : Fit data
+    # 6. If lineID in fitkey OR linenameskey exists : Line ID
 
-
+    # OLD CODE IN COMMENT BELOW
     """
     #Self.freqarr = calc_frequency(Self.v_arr,Self.restfreq)
     #
@@ -2357,10 +2555,12 @@ def plot_spectrum (Self,
     x1,x2,y1,y2 = parse_region(Self, region)
     #
     # now start the plotting
+    """
+
     ###################################
     #      extract the spectra        #
     ###################################
-
+    """
     if Self.datatype[0] != 'SDSPECT': # if it is a cube
         area_region = ((y2-y1)*(x2-x1))
         spect = (Self.d[:,y1:y2,x1:x2].sum(axis=1).sum(axis=1))/float(area_region)
@@ -2368,9 +2568,11 @@ def plot_spectrum (Self,
         area_region = 1
         print stylify("SD-SPECTRUM - region keyword not doing anything.",fg='r')
         spect = Self.d
+    """
     ####################################
     #          binning of data         #
     ####################################
+    """
     # it has to be an integer, for now at least
     if binning != 1:
         binning = int(binning)
@@ -2403,10 +2605,12 @@ def plot_spectrum (Self,
             print 'Type of binning : Simple mean over selected no. bin channels'
         elif bintype=='resample':
             print 'Type of binning : Resampling - 1D interpolation'
+    """
 
     ####################################
     #       noise calculation          #
     ####################################
+    """
     if 'nvals' in args: #nvals!=None:
     #~ if nvals!=None:
         print '='*40
@@ -2447,11 +2651,11 @@ def plot_spectrum (Self,
         print u' Channels used \t: %d, %d (%s km\u00b7s\u207b\u00b9)' % (ind1, ind2, str(args['nvals']))
         print u' Region \t: %s arcsec' % (str(region))
         print u' Channel width \t: %2.3f km\u00b7s\u207b\u00b9' % abs(velocity_delta)
-
+    """
     ####################################
     #           fitting data           #
     ####################################
-
+    """
     if linefit['type']=='gauss':
         print '='*40
         print ' '*11,"Line fitting\n"
@@ -2593,7 +2797,7 @@ def plot_spectrum (Self,
         #
             if linefit.has_key('lineid'):
                 if linefit['lineid']:
-                    # later when the kwargs is implemented...
+                    # later when the args is implemented...
                     # checks that we have done a fit first
                     #if not kwargs['linefit']:
                     #    print 'If you want lineid you need linefit'
@@ -2639,31 +2843,29 @@ def plot_spectrum (Self,
                         number+=1
                     # done now define the linelist
                     lines=[list_of_species,list_of_frequencies]
-            else:
-                print ('Not identifying lines...')
-
     """
     ####################################
     #            return data           #
     ####################################
     if send:
+        return Spect
         #~ if nvals!=None and linefit['type']!=None: # send everything!
-        if 'nvals' in args and 'type' in args: # send everything!
-            txt = '\n sending you spectra, v_arr, data, noise-spectra'
-            print stylify(txt,fg='g')
-            return spect, velocity, Self, Tmp
-        elif linefit['type']=='gauss': # gaussian fitting
-            txt = '\n sending you spect, v_arr, data'
-            print stylify(txt,fg='g')
-            return spect, velocity, Self, Tmp
-        elif 'nvals' in args and 'type' not in linefit: # no fit but noise
-            txt =  '\n sending you spect, v_arr, data, noise-spectra'
-            print stylify(txt,fg='g')
-            return spect, velocity, Self, spect[get_indices(velocity,args['nvals'])]
-        else: # well non of them are supplied
-            txt =  '\n sending you spectra, v_arr, data'
-            print stylify(txt,fg='g')
-            return spect, velocity, self
+        #~ if 'nvals' in args and 'type' in args: # send everything!
+            #~ txt = '\n sending you spectra, v_arr, data, noise-spectra'
+            #~ print stylify(txt,fg='g')
+            #~ return spect, velocity, Self, Tmp
+        #~ elif linefit['type']=='gauss': # gaussian fitting
+            #~ txt = '\n sending you spect, v_arr, data'
+            #~ print stylify(txt,fg='g')
+            #~ return spect, velocity, Self, Tmp
+        #~ elif 'nvals' in args and 'type' not in linefit: # no fit but noise
+            #~ txt =  '\n sending you spect, v_arr, data, noise-spectra'
+            #~ print stylify(txt,fg='g')
+            #~ return spect, velocity, Self, spect[get_indices(velocity,args['nvals'])]
+        #~ else: # well non of them are supplied
+            #~ txt =  '\n sending you spectra, v_arr, data'
+            #~ print stylify(txt,fg='g')
+            #~ return spect, velocity, Self
     # use set_rc here!
     #set_rc
 
@@ -2689,30 +2891,36 @@ def plot_spectrum (Self,
     #fig = pl.figure(1,figsize=(10.5,4.5))
     fig.clf()
     ax_kms = fig.add_subplot(111)
+    """
+    PLOTTING NOT ACCOUNTING FOR BINNING!!!
+    Just overwrite old value and add a flag binned True or False
+    Done?
 
+    """
     # now correct so that negative values are to the left
-    if Self.v_cdelt<0:
-        ax_kms.step(flipud(velocity), flipud(spect), 'k',  where='mid')
+    if Spect.v_cdelt<0:
+        ax_kms.step(flipud(Spect.v_arr), flipud(Spect.d), 'k',  where='mid')
     elif Self.v_cdelt>=0:
-        ax_kms.step(velocity, spect, 'k', where='mid')
+        ax_kms.step(Spect.v_arr, Spect.d, 'k', where='mid')
     # if we want som space in the figure
     cx1 = axspace[0]
     cx2 = axspace[1]
     cy1 = axspace[2]
     cy2 = axspace[3]
-    xmin, xmax = round(velocity.min()), round(velocity.max())
-    ymin, ymax = round(spect.min(),3), round(spect.max(),3)
+    xmin, xmax = round(Spect.v_arr.min()), round(Spect.v_arr.max())
+    ymin, ymax = round(Spect.d.min(),3), round(Spect.d.max(),3)
     sxmin,sxmax = sign(xmin)<0, sign(xmax)<0
     symin,symax = sign(ymin)<0, sign(ymax)<0
     xmin, xmax = xmin*[1/cx1,cx1][sxmin], xmax*[cx2,1/cx2][sxmax]
     ymin, ymax = ymin*[1/cy1,cy1][symin], ymax*[cy2,1/cy2][symax]
 
     if 'nvals' in args:
-        ax_kms.plot([xmin, xmax],[3*rms,3*rms],'b--', alpha=0.7)
-        ax_kms.plot([xmin, xmax],[-3*rms,-3*rms],'b--', alpha=0.7)
+        ax_kms.plot([xmin, xmax],[3*Spect.rms,3*Spect.rms],'b--', alpha=0.7)
+        ax_kms.plot([xmin, xmax],[-3*Spect.rms,-3*Spect.rms],'b--', alpha=0.7)
     #
-    # plot dotted lines at y=0 and x=0
-    if (velocity<Self.v_sys).any()*(velocity>Self.v_sys).any() or (velocity==Self.v_sys).any():
+    # plot dotted lines at y=0
+    # and x=0 if v_sys is in the range that we plot
+    if (Spect.v_arr<Self.v_sys).any()*(Spect.v_arr>Self.v_sys).any() or (Spect.v_arr==Self.v_sys).any():
         ax_kms.plot([xmin-10,xmax+10],[0,0],'g:',[Self.v_sys,Self.v_sys],[ymin-1,ymax+1],'g:')
     else:
         ax_kms.plot([xmin-10,xmax+10],[0,0],'g:')
@@ -2729,36 +2937,56 @@ def plot_spectrum (Self,
     #ax_kms.yaxis.set_major_locator(ymajorLocator)
     #ax_kms.yaxis.set_minor_locator(yminorLocator)
     #
-    if linefit['type']=='gauss':
-        for i in arange(0,len(params),3):
-            lower,upper = (params[i+1] + array([-1,1])*params[i+2]*4)
-            channels = get_indices(xarr,[lower,upper])
-            ax_kms.plot(xarr[channels], gauss1d(xarr[channels],params[i:i+3]))
-        ax_kms.plot(xarr, gauss1d(xarr,params), color='0.2', lw=1, alpha=0.6)
-
-    if lines!=None:
-        print u'Marking the lines, using %2.2f km\u00b7s\u207b\u00b9' % v_sys
-        lines = parse_linelist(lines)
+    #~ return Spect
+    # just so we se something! :)
+    ax_kms.set_ylim(ymin,ymax); ax_kms.set_xlim(xmin,xmax);pl.draw()
+    if 'linefit' in args:
+        Spect.fit_lines(linefit=args['linefit'])
+        # what if the fitting fails, no "Fit" subclass is created!
+        for i in arange(0,len(Spect.Fit.params),3):
+            lower,upper = (Spect.Fit.params[i+1] + array([-1,1])*Spect.Fit.params[i+2]*4)
+            channels = get_indices(Spect.Fit.xarr,[lower,upper])
+            ax_kms.plot(Spect.Fit.xarr[channels], gauss1d(Spect.Fit.xarr[channels],Spect.Fit.params[i:i+3]))
+            #draw_highlight_box(ax_kms, Spect.Fit.params[i+1], Spect.Fit.params[i+2]*2)
+        ax_kms.plot(Spect.Fit.xarr, gauss1d(Spect.Fit.xarr,Spect.Fit.params), color='0.2', lw=1, alpha=0.6)
+        pl.draw()
+        if args['linefit'].has_key('lineid'):
+            if 'lines' in args:
+                print_warning('You have supplied a lines keyword, this will be ignored now')
+            if args['linefit'].has_key('writetofile'):
+                writetofile = args['linefit']['writetofile']
+            else:
+                writetofile=0
+            Spect.identify_lines(writetofile=writetofile,**args['linefit']['lineid'])
+    if hasattr(Spect,'lines'):
+        print u'Marking the lines, using %2.2f km\u00b7s\u207b\u00b9' % Spect.v_sys
+        lines = parse_linelist(Spect.lines)
+        #~ print Spect.lines, lines
         # add v_sys so that it plots it at the right v_sys
-        if len(lines) == 2:
-            lines = [lines[0][0], lines[1][0]]
-        v = array([calc_vlsr(float(lines[i+1])*1e9,Self.restfreq)+v_sys for i in arange(0, len(lines), 2)])
+        #~ if len(lines) == 2:
+            #~ lines = [lines[0][0], lines[1][0]]
+        #~ print Spect.lines
+        #~ print lines
+        #~ print [float(lines[i+1]) for i in arange(0, len(lines), 2)]
+        v = array([calc_vlsr(float(lines[i+1])*1e9,Self.restfreq)+Self.v_sys for i in arange(0, len(lines), 2)])
         colors = ['k']*len(lines)
         x = 0
         for i,j in zip(arange(0, len(lines), 2), arange(0, len(lines),1)):
             # only check for lines behind the new line
             no_dbl = len(where(array(v)[0:j].round(0) == round(v[j],0))[0])
-            put_line_indicator(ax_kms, velocity, spect, v[j], lines[i],lc=colors[x], offset=no_dbl, text_color=colors[x])
+            put_line_indicator(ax_kms, Spect.v_arr, Spect.d, v[j], lines[i],lc=colors[x], offset=no_dbl, text_color=colors[x])
             #put_line_indicator(ax_kms, velocity, spect, v[j], lines[i],lc='k', offset=no_dbl)
             # verbose output
             #print u'Line %1d : %2.2f\t km\u00b7s\u207b\u00b9 (%2.3f)' % (j+1,v[j],v[j]+obj_dict['vsys'])
             x+=1
-    #
-    ax_kms.set_xlim(xmin,xmax)
-    if lines!=[]:
         ax_kms.set_ylim(ymin,ymax+ymax*0.4)
     else:
         ax_kms.set_ylim(ymin,ymax)
+    ax_kms.set_xlim(xmin,xmax)
+    #~ if lines!=[]:
+        #~ ax_kms.set_ylim(ymin,ymax+ymax*0.4)
+    #~ else:
+        #~ ax_kms.set_ylim(ymin,ymax)
     if ylimits!=None:
         ax_kms.set_ylim(ylimits)
     #ax_kms.set_title(Self.obj)
@@ -2805,6 +3033,10 @@ def plot_spectrum (Self,
     #pl.draw()
     pl.subplots_adjust(left=pl_left, bottom=pl_bottom, right=pl_right, top=pl_top)
     #~ return spect, velocity, Self, Tmp
+    #
+    #
+    # LASTLY modify the indata object so that it has the spectrum (and fits)
+    Self.Spect = Spect
 
 #
 # new!
@@ -4535,7 +4767,9 @@ def plot_chmap (Self,
     import pyfits as pf
     import matplotlib.pyplot as pl
     from matplotlib.pyplot import contour, contourf
-    from mpl_toolkits.axes_grid import AxesGrid
+    if matplotlib.__version__<'1':
+        from mpl_toolkits.axes_grid1 import AxesGrid
+        from mpl_toolkits.axes_grid1 import AxesGrid
     from matplotlib.ticker import MultipleLocator, FormatStrFormatter
     from matplotlib import cm, rc
     print 'done'
@@ -4748,8 +4982,7 @@ def plot_chmap (Self,
 
     # calculate the levels of the contours
     if levs_global:
-        f = 0.7
-        vmin, vmax = f*chans_min.min(),f*chans_max.max()
+        vmin, vmax = chans_min.min(),chans_max.max()
         # levs_stat, i.e. contourf starts and end at global min/max
         levs_stat = concatenate((arange(vmin,-nsig*sigma,nsjump*sigma), arange(nsig*sigma,vmax,nsjump*sigma)))
         levs = [levs_stat for x in arange(N_channels)]
