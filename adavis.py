@@ -60,16 +60,18 @@ DONE? : The "extent" keyword is not computed exactly. use crval/crpix
         FITS keyword to compute it, so it is truly from phase center.
         -> DONE but needs testing.
 
+TODO : disabled the general parse_region function, it was wrong.
+        use the method method instead or correct the general function?
+
 TODO : Common function for moment maps?
         Started for 0 and 1
+        Needs update
 
 TODO : update the __init__ method of all the classes to print as much
         info as possible
 
-TODO : Moment 2 maps - with MPFIT Gaussian fitting (check Jes' mom2 IDL function)
-
-TODO : What does the VELREF keyword in the GILDAS fits header mean?
-       Check GILDAS manual
+TODO : Moment 2 maps -
+       with MPFIT Gaussian fitting (check Jes' mom2 IDL function)
 
 TODO : Clean up code again, remove font handler, or inactivate it
        All fonts should be Times New Roman, to big of a hassle to change
@@ -80,6 +82,7 @@ TODO : Check that the set_rc function is used in all functions
 TODO : Change to handle DataObject in all functions.
        (Use v_sys, dist, name from the Fits data object)
         X Spectra
+        X Fit
         X moment0
         X moment1
         O moment2
@@ -97,13 +100,14 @@ TODO : P-V diagram - rotatable
 
 TODO : RMS and other units, e.g. when using SD data, Kelvin instead of Jy.
 
-
-TODO : Tick locators are good for small regions/narrow spectra, but not for big/wide
+TODO : Tick locators are good for small regions/narrow spectra,
+        but not for big/wide
        Perhaps change it with the 'box' keyword
             -> e.g a 10th of the box keyword for major locators
        Implemented a parameter locator=[major,minor] as a first step
 
-(TODO : Function to bin in spatial (2D) regime (congrid map), change ra/dec_delt etc)
+(TODO : Function to bin in spatial (2D) regime (congrid map),
+         change ra/dec_delt etc)
 
 TODO : Spectra class, use for fitting, lineid, binning
 
@@ -111,6 +115,9 @@ TODO : Interactive multiple Gaussian fitting, i.e. click at start
         end of each line, calculate moments within it
 
 (TODO : Interactive splatsearch)
+
+TODO : What does the VELREF keyword in the GILDAS fits header mean?
+       Check GILDAS manual
 
 TODO : Check Jes functions how they work and try to merge/replace them.
 
@@ -142,7 +149,7 @@ SIDE_CAPTION_FIG_WIDTH_MM = 120
 INCHES_PER_PT = 1.0/72.27                               # convert pt to inches
 INCHES_PER_MM = 1/25.4                                  # convert mm to inches
 GOLDEN_MEAN = (5**0.5-1.0)/2.0                          # aesthetic ratio
-ONE_COL_FIG_WIDTH = ONE_COL_FIG_WIDTH_MM*INCHES_PER_MM  # width in inches, roughly = 3.54
+ONE_COL_FIG_WIDTH = ONE_COL_FIG_WIDTH_MM*INCHES_PER_MM  # width in inches
 ONE_COL_FIG_HEIGHT = ONE_COL_FIG_WIDTH*GOLDEN_MEAN      # height in inches
 TWO_COL_FIG_WIDTH = TWO_COL_FIG_WIDTH_MM*INCHES_PER_MM
 SIDE_CAPTION_FIG_WIDTH = SIDE_CAPTION_FIG_WIDTH_MM*INCHES_PER_MM
@@ -170,21 +177,25 @@ KMS = u"km\u00b7s\u207b\u00b9"
 #
 # input parameter error
 class ParError(Exception):
-     def __init__(Self, value):
-         Self.value = value
-     def __str__(Self):
-         s1 = '\nWrong format/number of parameters.\n    '
-         return s1+str(Self.value)
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        s1 = 'Parameter(s) \"{0}\" is(are) malformed or missing.'.format(self.value)
+        return stylify(s1, fg='r')
 #
 ###########################################
 # HELP FUNCTIONS
 def print_warning(s):
     import sys
-    sys.stderr.write(stylify('WARNING:',f='b',fg='r')+stylify(' '+s,f='b',fg='k'))
+    msg1 = stylify('WARNING:',f='b',fg='r')
+    msg2 = stylify(' '+s,f='b',fg='k')
+    sys.stderr.write(msg1 + msg2 +'\n')
 def print_error(s):
     # Dont know if this works as intended
     import sys
-    sys.stderr.write(stylify('ERROR:',f='b',fg='r')+stylify(' '+s,f='b',fg='k'))
+    msg1 = stylify('ERROR:',f='b',fg='r')
+    msg2 = stylify(' '+s,f='b',fg='k')
+    sys.stderr.write(msg1 + msg2)
     sys.exit()
 def calc_frequency(vlsr, freq0):
     """
@@ -276,14 +287,15 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
     end = CSI+'m'
 
     if f == 'b' and fg =='a':
-        print stylify('\n Warning : This combination of colors/styles does not work\n','b','r','d')
+        print stylify('\n Warning : This combination of colors/styles does \
+not work\n','b','r','d')
         raise ParError((f,fg,bg))
-    bg +='_bg' # append to the list, the "_bg" ending
+    bg += '_bg' # append to the list, the "_bg" ending
     f += "_f" # append "_f" to the formatting list
-    if fg=="rand":
-         from random import randint
-         c_tmp = ["k","r","g","y","b","m","c","a","d"]
-         fg = c_tmp[randint(0,len(c_tmp)-1)]
+    if fg == "rand":
+        from random import randint
+        c_tmp = ["k", "r", "g", "y", "b", "m", "c", "a", "d"]
+        fg = c_tmp[randint(0,len(c_tmp)-1)]
     #
     try:
         style = [format_and_colors[f.lower()],
@@ -292,7 +304,7 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
         style = [str(x) for x in style]
         formatted_text = CSI+';'.join(style)+'m'
         formatted_text += s + end
-    except KeyError, ex:
+    except KeyError:
         raise ParError((f,fg,bg))
 
     return formatted_text
@@ -308,13 +320,14 @@ def parse_tick_font (font):
     ax.xaxis.set_major_formatter(formatted_labels)
 
     """
-    from scipy import array, where
-    if font.has_key('family'):
-        fformatters = array(['$\mathrm{X}$','$\mathsf{X}$','$\mathtt{X}$' , '$\mathit{X}$'])
-        ffamilies = array(['serif', 'sans-serif', 'monospace', 'cursive'])
-        label_X = fformatters[where(font['family']==ffamilies)][0]
-    else:
-        label_X = '$\mathrm{X}$'
+#    from scipy import array, where
+#    if font.has_key('family'):
+#        fformatters = array(['$\mathrm{X}$', '$\mathsf{X}$',
+#                             '$\mathtt{X}$' , '$\mathit{X}$'])
+#        ffamilies = array(['serif', 'sans-serif', 'monospace', 'cursive'])
+#        label_X = fformatters[where(font['family']==ffamilies)][0]
+#    else:
+#        label_X = '$\mathrm{X}$'
     #return label_X
     return 'X'
 def get_telescope_diameter(telescope):
@@ -324,7 +337,7 @@ def get_telescope_diameter(telescope):
     dia = array([6, 15, 15, 12, 30])
     try:
         diameter = dia[where(upper(telescope)==name)][0]
-    except IndexError, ex:
+    except IndexError:
         diameter = 1
     return diameter
 def get_vals(chvals=None, nvals=None):
@@ -333,13 +346,19 @@ def get_vals(chvals=None, nvals=None):
     #
     # if there is no channels supplied
     if chvals==None:
-        chvals = array(raw_input('input the limits, comma separated: ').split(','), dtype ='float')
+        chvals = array(
+        raw_input('input the limits, comma separated: ').split(','),
+                    dtype ='float')
     if nvals==None:
         # ask for noise calculation velocity limits
         try:
-            nvals = array(raw_input('input the noise limits (velocity). comma separated: ').split(','), dtype='float')
+            nvals = array(
+            raw_input('input the noise limits (velocity). \
+            comma separated: ').split(','),
+                dtype='float')
         except (ValueError):
-            print "Since you did not input any or input was wrong we will guess some values..."
+            print("Since you did not input any or \
+            input was wrong we will guess some values...")
             nvals = None
     close(1)
     return chvals, nvals
@@ -369,24 +388,28 @@ def calc_offset(ra,dec,**kwargs):
     from numpy import cos, pi, array, sign
     #
     if kwargs.get('offset') != None:
-        ra_inp = ra
+        #ra_inp = ra
         ra = ra.split(':')
         ra = [float(i) for i in ra]
-        ra_decimal = (ra[0] + ra[1]/60.0 + ra[2]/3600.0)*15.0 # convert to decimal number in degrees
-        dec_inp = dec
+        # convert to decimal number in degrees
+        ra_decimal = (ra[0] + ra[1]/60.0 + ra[2]/3600.0)*15.0
+        #dec_inp = dec
         dec = dec.split(':')
         dec = [float(i) for i in dec]
-        dec_decimal = sign(dec[0])*(abs(dec[0]) + dec[1]/60.0 + dec[2]/3600.0) # convert to decimal number
+        # convert to decimal number
+        dec_decimal = sign(dec[0])*(abs(dec[0]) + dec[1]/60.0 + dec[2]/3600.0)
         offset_inp = kwargs['offset']
         offset = array(offset_inp)/3600.0
         cosdec = cos(dec_decimal*pi/180.) # convert to radians
         new_ra = ra_decimal + offset[0]/cosdec
         new_dec = dec_decimal + offset[1]
         print 'Input coordinates:'
-        print 'RA:\t{0}\nDEC:\t{1}'.format(parse_ra(ra_decimal,string=1),parse_dec(dec_decimal,string=1))
+        print 'RA:\t{0}\nDEC:\t{1}'.format(parse_ra(ra_decimal,string=1),
+                                    parse_dec(dec_decimal,string=1))
         print 'Offset: {}'.format(offset_inp)
         print 'New coordinates:'
-        print 'RA:\t{}\nDEC:\t{}'.format(parse_ra(new_ra,string=1),parse_dec(new_dec,string=1))
+        print 'RA:\t{}\nDEC:\t{}'.format(parse_ra(new_ra,string=1),
+                                    parse_dec(new_dec,string=1))
     elif kwargs.get('offset') == None:
         if kwargs.get('data') != None:
             # calculate the offset from the phase center
@@ -396,41 +419,52 @@ def calc_offset(ra,dec,**kwargs):
             declist=[]
             declist.append(parse_dec(kwargs['data'].dec_crval,string=1))
             declist.append(dec)
-            # calculate the offset from the two lists that is given in ra and dec
+            # calculate the offset from the two lists
         else:
             ralist = ra
             declist = dec
         ra0_inp = ralist[0]
         ra0 = ra0_inp.split(':')
         ra0 = [float(i) for i in ra0]
-        ra0_decimal = (ra0[0] + ra0[1]/60.0 + ra0[2]/3600.0)*15.0 # convert to decimal number in degrees
+        # convert to decimal number in degrees
+        ra0_decimal = (ra0[0] + ra0[1]/60.0 + ra0[2]/3600.0)*15.0
         ra1_inp = ralist[1]
         ra1 = ra1_inp.split(':')
         ra1 = [float(i) for i in ra1]
-        ra1_decimal = (ra1[0] + ra1[1]/60.0 + ra1[2]/3600.0)*15.0 # convert to decimal number in degrees
+        # convert to decimal number in degrees
+        ra1_decimal = (ra1[0] + ra1[1]/60.0 + ra1[2]/3600.0)*15.0
         #
         dec0_inp = declist[0]
         dec0 = dec0_inp.split(':')
         dec0 = [float(i) for i in dec0]
-        dec0_decimal = sign(dec0[0])*(abs(dec0[0]) + dec0[1]/60.0 + dec0[2]/3600.0) # convert to decimal number
+        # convert to decimal number
+        dec0_decimal = sign(dec0[0])*(abs(dec0[0]) + dec0[1]/60.0 +
+                    dec0[2]/3600.0)
         dec1_inp = declist[1]
         dec1 = dec1_inp.split(':')
         dec1 = [float(i) for i in dec1]
-        dec1_decimal = sign(dec1[0])*(abs(dec1[0]) + dec1[1]/60.0 + dec1[2]/3600.0) # convert to decimal number
+        # convert to decimal number
+        dec1_decimal = sign(dec1[0])*(abs(dec1[0]) + dec1[1]/60.0 +
+                    dec1[2]/3600.0)
         # correction factor
         cosdec = cos(dec0_decimal*pi/180.) # convert to radians
         # calculate offsets
         ra_offset = (ra1_decimal-ra0_decimal)*cosdec
         dec_offset = dec1_decimal-dec0_decimal
-        print 'Reference\nRA:\t{0}\nDEC:\t{1}'.format(parse_ra(ra0_decimal,string=1),parse_dec(dec0_decimal,string=1))
-        print 'Final\nRA:\t{0}\nDEC:\t{1}'.format(parse_ra(ra1_decimal,string=1),parse_dec(dec1_decimal,string=1))
-        print '\nOffset: {0:.4f}, {1:.4f}'.format(ra_offset*3600, dec_offset*3600)
+        print 'Reference\nRA:\t{0}\nDEC:\t{1}'.format(
+                                            parse_ra(ra0_decimal,string=1),
+                                            parse_dec(dec0_decimal,string=1))
+        print 'Final\nRA:\t{0}\nDEC \t{1}'.format(
+                                            parse_ra(ra1_decimal,string=1),
+                                            parse_dec(dec1_decimal,string=1))
+        print '\nOffset: {0:.4f}, {1:.4f}'.format(ra_offset*3600,
+                                                dec_offset*3600)
     else:
         raise(ParError(ra,dec,kwargs))
         #
-#####
-##### Plotting help functions
-#####
+#
+""" Plotting help functions """
+#
 def draw_fov(ax, data):
     """
     Function to draw the field of view into the
@@ -438,7 +472,8 @@ def draw_fov(ax, data):
     Assumes that the axes data is set to arcsec
     """
     from matplotlib.patches import Circle
-    cir = Circle( (0,0), transform=ax.transData, fill=False, ec='k', lw=1, ls='dashed', radius=data.fov/2)
+    cir = Circle((0,0), transform=ax.transData, fill=False, ec='k',
+                 lw=1, ls='dashed', radius=data.fov/2)
     ax.add_patch(cir)
 def draw_sizebar(ax, data, dist=220, au=200):
     """
@@ -461,9 +496,9 @@ def draw_beam(ax, data,loc=3, box=True):
     the attributes data.bmin, .bmaj and .bpa must exist in the data class
     """
     from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
-    from scipy import pi
-    # the PA is calculated from N to E, but the plotting is relating the minor axis to E-W line
-    # so just add -1*
+    #from scipy import pi
+    # the PA is calculated from N to E, but the plotting is relating the
+    # minor axis to E-W line so just add -1*
     ae = AnchoredEllipse(transform=ax.transData,\
                             width=data.bmin,\
                             height=data.bmaj,\
@@ -504,9 +539,9 @@ def put_line_indicator(ax, velocity, spect, xpos, text_string, \
     line_height = spect.max()*0.08
     try:
         maxval = spect[get_indices(velocity,[xpos-2,xpos+2])].max()
-    except ValueError, ex:
+    except ValueError:
         maxval = spect.max()
-    except IndexError, ex:
+    except IndexError:
         maxval = spect.max()
     line_ypos = maxval + maxval*0.15
     text_ypos = line_ypos + line_height + line_height*0.5
@@ -522,7 +557,6 @@ def put_line_indicator(ax, velocity, spect, xpos, text_string, \
 def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
         'size':8},
         quality=[300, 150]):
-
     from matplotlib import rc
     ################################
     # setting global rc properties #
@@ -540,83 +574,103 @@ def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
     rc('axes', linewidth=0.8)
     rc('patch', linewidth=0.5)
     rc('lines', linewidth=0.5, markeredgewidth=0.8)
-###
-### Data parsing functions
-###
-def parse_region(data, region, f=False):
-    """
-    Parser for the region parameter, three different possibilities to supply
-    the region command:
-
-        o region = [i1, j1, i2, j2]
-            The four corners of a square around the object, in offset from
-            phase center position.
-
-        o region = [i1, j1, a]
-            The center coordinate (i1, j1) and the side (a) of a square around
-            the center coordinate (i1, j1).
-
-        o region = [d1, d2]
-            Just the square sides length, will be centered on the phase center.
-
-    All the coorinates are given in lenghts and offsets (in asec) from the
-    data center as displayed normally in radio data.
-
-    Inspired by the miriad 'region' parameter
-
-    ---------------------------------------------------------------------------
-
-                            oOO Changelog OOo
-
-    *2010/06 Funciton created
-
-    *2010/10(11) Doc written and some errors in the code corrected (+-1 in
-    some places)
-
-    *2010/12/09 in len(region)==3, changed the division with an abs()
-    array([-region[2],region[2]])/(2*data.ra_cdelt) to abs(2*data.ra_cdelt).
-    In len(region)==2 same change, now it is correct, I hope.
-
-    *2010/12/13 the previous "fix" made the len=3 procedure to be erronous.
-    corrected it
-
-    """
-    from scipy import ceil, floor, array
-    if len(region)==4:
-        xcheck = region[0]==region[2]
-        ycheck = region[1]==region[3]
-        #x1, x2 = (data.ra_npix+1)/2 + array([region[0],region[2]])/abs(data.ra_cdelt) + array([0,xcheck])
-        #y1, y2 = (data.dec_npix+1)/2+ array([region[1],region[3]])/abs(data.dec_cdelt)+ array([0,ycheck])
-        #
-        # data.ra/dec_crpix-1 because FITS start at 1 while Python start at 0
-        x1, x2 = array([region[0],region[2]])/data.ra_cdelt+ data.ra_crpix - 1 + array([0,xcheck])
-        y1, y2 = array([region[1],region[3]])/data.dec_cdelt+ data.dec_crpix - 1 + array([0,ycheck])
-        #
-    elif len(region)==3:
-        check = region[2]==0
-        #x1, x2 = (data.ra_npix+1)/2 + array([-region[2],region[2]])/(2*abs(data.ra_cdelt)) + region[0]/data.ra_cdelt + array([0,check])
-        #y1, y2 = (data.dec_npix+1)/2+ array([-region[2],region[2]])/(2*abs(data.dec_cdelt)) +region[1]/data.dec_cdelt+ array([0,check])
-        #
-        x1, x2 = data.ra_crpix + region[0]/data.ra_cdelt + array([-region[2],region[2]])/abs(2*data.ra_cdelt) - 1 + array([0,check])
-        y1, y2 = data.dec_crpix + region[1]/data.dec_cdelt + array([-region[2],region[2]])/abs(2*data.dec_cdelt) - 1 + array([0,check])
-        #
-    elif len(region)==2:
-        xcheck = region[0]==0
-        ycheck = region[1]==0
-        #x1, x2 = (data.ra_npix+1)/2 + array([-1,1])*region[0]/abs(data.ra_cdelt)  + array([0,xcheck])
-        #y1, y2 = (data.dec_npix+1)/2+ array([-1,1])*region[1]/abs(data.dec_cdelt) + array([0,ycheck])
-        #
-        x1, x2 = array([-region[0],region[0]])/(2*abs(data.ra_cdelt)) + data.ra_crpix - 1 + array([0,xcheck])
-        y1, y2 = array([-region[1],region[1]])/(2*abs(data.dec_cdelt)) + data.dec_crpix - 1 + array([0,ycheck])
-        #
-    elif():
-        print ('Error, region keyword malformed')
-        sysexit(1)
-        #
-    # so that we are returning usable pixel coordinates
-    if f==False:
-        x1,x2,y1,y2 = array([x1,x2,y1,y2]).round().astype('int')
-    return x1,x2,y1,y2
+#
+""" Data parsing functions """
+#
+#~ def parse_region(data, region, f=False):
+    #~ """
+    #~ Parser for the region parameter, three different possibilities to supply
+    #~ the region command:
+#~
+        #~ o region = [i1, j1, i2, j2]
+            #~ The four corners of a square around the object, in offset from
+            #~ phase center position.
+#~
+        #~ o region = [i1, j1, a]
+            #~ The center coordinate (i1, j1) and the side (a) of a square around
+            #~ the center coordinate (i1, j1).
+#~
+        #~ o region = [d1, d2]
+            #~ Just the square sides length, will be centered on the phase center.
+#~
+    #~ All the coorinates are given in lenghts and offsets (in asec) from the
+    #~ data center as displayed normally in radio data.
+#~
+    #~ Inspired by the miriad 'region' parameter
+#~
+    #~ ---------------------------------------------------------------------------
+#~
+                            #~ oOO Changelog OOo
+#~
+    #~ *2010/06 Funciton created
+#~
+    #~ *2010/10(11) Doc written and some errors in the code corrected (+-1 in
+    #~ some places)
+#~
+    #~ *2010/12/09 in len(region)==3, changed the division with an abs()
+    #~ array([-region[2],region[2]])/(2*data.ra_cdelt) to abs(2*data.ra_cdelt).
+    #~ In len(region)==2 same change, now it is correct, I hope.
+#~
+    #~ *2010/12/13 the previous "fix" made the len=3 procedure to be erronous.
+    #~ corrected it
+#~
+    #~ """
+    #~ from scipy import array # ceil, floor,
+    #~ from sys import exit as sysexit
+    #~ if len(region)==4:
+        #~ xcheck = region[0]==region[2]
+        #~ ycheck = region[1]==region[3]
+        #~ #x1, x2 = (data.ra_npix+1)/2 +
+        #~ #array([region[0],region[2]])/abs(data.ra_cdelt) + array([0,xcheck])
+        #~ #y1, y2 = (data.dec_npix+1)/2+
+        #~ #array([region[1],region[3]])/abs(data.dec_cdelt)+ array([0,ycheck])
+        #~ #
+        #~ # data.ra/dec_crpix-1 because FITS start at 1 while Python start at 0
+        #~ x1, x2 = (array([region[0], region[2]])/data.ra_cdelt +
+                        #~ data.ra_crpix + array([0,xcheck]))
+        #~ y1, y2 = (array([region[1], region[3]])/data.dec_cdelt +
+                        #~ data.dec_crpix + array([0,ycheck]))
+#~
+        #~ #
+    #~ elif len(region)==3:
+        #~ check = region[2]==0
+        #~ #x1, x2 = (data.ra_npix+1)/2 +
+        #~ #array([-region[2],region[2]])/(2*abs(data.ra_cdelt)) +
+        #~ #region[0]/data.ra_cdelt + array([0,check])
+        #~ #y1, y2 = (data.dec_npix+1)/2+
+        #~ #array([-region[2],region[2]])/(2*abs(data.dec_cdelt)) +
+        #~ #region[1]/data.dec_cdelt+ array([0,check])
+        #~ #
+        #~ # old below
+        #~ #x1, x2 = (data.ra_crpix + region[0]/data.ra_cdelt + array([-region[2],region[2]])/abs(2*data.ra_cdelt) - 1 + array([0,check]))
+        #~ # new
+        #~ x1, x2 =  self.ra_crpix + region[0]/self.ra_cdelt + array([-region[2],region[2]])/abs(2*self.ra_cdelt) + array([0,check])
+        #~ # old below
+        #~ #y1, y2 = (data.dec_crpix + region[1]/data.dec_cdelt + array([-region[2],region[2]])/abs(2*data.dec_cdelt) - 1 + array([0,check]))
+        #~ # new
+        #~ y1, y2 = self.dec_crpix + region[1]/self.dec_cdelt + array([-region[2],region[2]])/abs(2*self.dec_cdelt) + array([0,check])
+        #~ #
+    #~ elif len(region)==2:
+        #~ xcheck = region[0]==0
+        #~ ycheck = region[1]==0
+        #~ #x1, x2 = (data.ra_npix+1)/2 +
+        #~ #array([-1,1])*region[0]/abs(data.ra_cdelt)  + array([0,xcheck])
+        #~ #y1, y2 = (data.dec_npix+1)/2+
+        #~ #array([-1,1])*region[1]/abs(data.dec_cdelt) + array([0,ycheck])
+        #~ #
+        #~ x1, x2 = (array([-region[0],region[0]])/(2*abs(data.ra_cdelt)) +
+                        #~ data.ra_crpix + array([0,xcheck]))
+        #~ y1, y2 = (array([-region[1],region[1]])/(2*abs(data.dec_cdelt)) +
+                        #~ data.dec_crpix + array([0,ycheck]))
+        #~ #
+    #~ elif():
+        #~ print ('Error, region keyword malformed')
+        #~ sysexit(1)
+        #~ #
+    #~ # so that we are returning usable pixel coordinates
+    #~ if f==False:
+        #~ x1,x2,y1,y2 = array([x1,x2,y1,y2]).round().astype('int')
+    #~ return x1,x2,y1,y2
 def parse_ra (ra,string=False):
     """
 
@@ -666,7 +720,7 @@ def parse_dec (dec, string=False):
     if string:
         return '{0:0>2}:{1:2}:{2:0>4.2f}'.format(degrees,minutes,seconds)
     return degrees,minutes,seconds
-def parse_linelist(linelist):
+def parse_linelist(linelist, out='brief'):
     """
 
     Parse a linelist/CSV file of the lines, so that it is easier to just
@@ -704,20 +758,23 @@ def parse_linelist(linelist):
     *2010/12
         Doc written
 
-    TODO : when list is  [['Name'],[203.45654]] it cannot output the right format.
+    TODO : when list is  [['Name'],[203.45654]] it cannot output
+           the right format.
 
 
 
     """
-    from scipy import size, arange, zeros, array
+    from scipy import size, array # arange, zeros,
     def get_lines(linelist):
         # pars a list of lists scenario
         names = [i for i in linelist[::2]]
+        if len(names) == 1:
+            return linelist
         freqs = [float(i) for i in linelist[1::2]]
         #arr_len = len(names)+len(freqs)
         #list = zeros((arr_len))
-        return array([names,freqs])
-    #
+        return [names, array(freqs)]
+        #
     if size(linelist[1])==1 and type(linelist)==type([]):
         # if it is just a list of lines   e.g. ['Name',203.45654]
         return get_lines(linelist)
@@ -727,23 +784,26 @@ def parse_linelist(linelist):
         # e.g. [['Name1','Name2'],[203.45654,203.45654]]
         return linelist
     elif size(linelist[1])==1 and type(linelist) == type(''):
-        # in case it is the path to a CSV file
+        # in case it is the path to a file
         # load the table with the load ascii table function loadatbl
         try:
-            names, freqs = loadatbl(linelist, dtype='string', sep=':')[0:3:2]
+            names, freqs = loadatbl(linelist,
+                                    dtype='string', rtype='array')[0:2]
             f = []
             n = []
             for i,j in zip(freqs,names):
                 if i != '':
                     f.append(i)
                     n.append(j)
-            freqs=array(f)
+            freqs = array(f)
             names = n
-            freqs = freqs.astype('float64')
         except ValueError:
-            names, freqs = loadatbl(linelist, dtype='string')[0:2]
-        #
-        return array([names,freqs])
+            names, freqs = loadatbl(linelist, dtype='string', rtype='array')[0:2]
+        #freqs = array([float(x) for x in freqs]).astype('float')
+        freqs = array(freqs).astype('float')
+        # return list, if array freq will be a string
+        # cannot mix types in an numpy.ndarray, works in list
+        return [names, freqs]
     else:
         print_warning('Did not parse!')
 def get_indices (arr,vals,disp=False):
@@ -829,7 +889,7 @@ def gauss1d(x, params=None, height=None):
     *using numpy instead of scipy
 
     """
-    from numpy import exp, array, alen, array, log, sqrt, arange
+    from scipy import exp, array, alen, array, log, sqrt, arange
     #
     # Check the input parameters, since this is for plotting, we check them
     #
@@ -856,16 +916,18 @@ def gauss1d(x, params=None, height=None):
     #
     # 2*sqrt(2*log(2)) to convert to sigma (two is cancled out)
     if height==None:
-        gaussian = lambda X, a : a[0]*exp(-(X-a[1])**2/(a[2]**2)*sqrt(2*log(2)))
+        gaussian = lambda X, a : (
+                    a[0]*exp(-(X-a[1])**2/(a[2]**2)*4*log(2)))
     elif height!=None:
-        gaussian = lambda X, a : height + a[0]*exp(-(X-a[1])**2/(a[2]**2)*sqrt(2*log(2)))
+        gaussian = lambda X, a : height + (
+                            a[0]*exp(-(X-a[1])**2/(a[2]**2)*4*log(2)))
     #
     def func (X, p):
         S=0
         try:
             for i in arange(0,len(p),3):
                 S += gaussian(X, p[i:i+3])
-        except IndexError, ex:
+        except IndexError:
             raise ParError(p)
         return S
     #
@@ -918,8 +980,8 @@ def fit_gauss1d((X,Y),
         5  The maximum number of iterations has been reached.
         6  ftol is too small. No further reduction in the sum of squares is
            possible.
-        7  xtol is too small. No further improvement in the approximate solution
-           x is possible.
+        7  xtol is too small. No further improvement in the approximate
+           solution x is possible.
         8  gtol is too small. fvec is orthogonal to the columns of the jacobian
            to machine precision.
 
@@ -930,9 +992,10 @@ def fit_gauss1d((X,Y),
     TODO : minimum width >= X[1]-X[0]
     """
     #from scipy import optimize
-    from numpy import exp, hstack, array, log, sqrt, diag, alen, zeros, where, arange
+    from numpy import exp, array, log, alen, where, arange
+    # hstack, zeros, sqrt, diag
     from mpfit import mpfit
-    from sys import exit as sysexit
+    #from sys import exit as sysexit
     print 'Fitting Gaussians, checking input parameters'
     # flatten the parameters, so it is readable for the gaussian fitting
     params = array(params).flatten()
@@ -1018,7 +1081,7 @@ def fit_gauss1d((X,Y),
     #
     ## Defining the fitting function and the error function
     # NB: we are fitting FWHM directly, and its squared, so sqrt disapears
-    gaussian = lambda X, a : a[0]*exp(-(X-a[1])**2/(a[2]**2)*2*log(2))
+    gaussian = lambda X, a : a[0]*exp(-(X-a[1])**2/(a[2]**2)*4*log(2))
     #
     def fitfunc (X, p):
         S=0
@@ -1082,7 +1145,7 @@ def fit_gauss1d((X,Y),
     if full_output:
         return pfit, pfit_err, chi2, mpfit_out
     else:
-       return pfit, pfit_err
+        return pfit, pfit_err
 def gauss2d (a, X, Y):
     """ Gaussian 2D """
     #
@@ -1129,6 +1192,7 @@ def gaussfit2d((X,Y,Z), params=None, err=None):
 
     from scipy import optimize, exp, hstack, array, cos, sin, indices, ravel
     from scipy import sqrt, arange, pi, ceil, diff
+    from sys import exit as sysexit
     #
     #
     if params==None:
@@ -1306,6 +1370,88 @@ def gauss2d_decon ((bmaj1, bmin1, theta1, bmaj2, bmin2, theta2), ang='rad'):
     #
     # send back the results
     return (bmaj, bmin, bpa, success)
+####
+#### Data output
+####
+def write_latex_table(self, filename):
+    """
+    What Héctor needs in a Latex table
+    -From self.Spect.linedata:
+    Molecule
+    Transition
+    Rest frequency
+    Eu (K)
+    -From self.Spect.v_cdelt & self.Spect.rms:
+    Velocity Resolution
+    RMS
+    -From self.Spect.Fit:
+    Peak intensity (line intensity)
+    Line width
+    Integrated intensity
+    Frequency shift
+    Velocity shift
+
+    separated with &-sign
+    line ended with \\ (and \n)
+    comment, file/table info start with %
+    """
+    from scipy import arange,array
+
+    # mol_data is a ndarray (4xNlines) that we need to loop through
+    # when writing to the file
+    (molecules, rest_frequencies, smu2s,
+    eus, transitions, catalogs) = self.Spect.linedata
+    # format the transitions array entries in latex fashion as:
+    # $N1_{n1,n2} --N2_{n1,n2}$
+    transitions = array(['$'+
+                    i.replace('(','_{').replace(')','}')+
+                    '$' for i in transitions])
+    gaussian_peaks = self.Spect.Fit.params[::3]
+    line_width_error = self.Spect.Fit.errors[2::3]
+    line_pos_error = self.Spect.Fit.errors[1::3]
+    v_res_kms = self.Spect.v_cdeltkms
+    rms = self.Spect.rms
+    #peak_gauss_intensities = self.Spect.Fit.params[::3]
+    #peak_intensities = self.Spect.Fit.peak_intensities
+    line_widths = self.Spect.Fit.line_widths
+    int_intensities = self.Spect.Fit.gauss_intensities
+    error_int_intensities = self.Spect.Fit.error_gauss_intensities
+    #
+    freq_shifts = self.Spect.Fit.freq_shifts
+    vel_shifts = self.Spect.Fit.vel_shifts
+
+    f = open(filename, 'w')
+    f.write('% LaTex table of detected lines\n')
+    f.write('% Created from the file {0}\n'.format(
+                                            self.fitsfile.split('/')[-1]))
+    f.write('% Intensities: I is the peak intensity (Gaussian fit)\n% \
+while Int I is the integrated intensity (Gaussian fit).\n')
+    cols =['Molecule', 'Transition', 'Rest F', 'Eu', 'V res', 'I',
+           'FWHM', 'Int I', 'F shift', 'V shift', 'RMS']
+    info = '% Columns:\n%  {0:15}  {1:28}   {2:12} {3:6}   {4:6}   {5:8}   \
+{6:15} {7:13} {8:13} {9:10} {10} \n'.format(*cols)
+    f.write(info)
+    unitinfo = [
+        '---', '---', 'MHz', 'K', 'km/s', 'mK', 'km/s', 'K km/s', 'MHz',
+        'km/s', 'mK']
+    units = (
+        '%  {0:17}  {1:28} {2:12} {3:8} {4:8} {5:10} {6:15} {7:15} {8:13} \
+{9:9} {10} \n').format(*unitinfo)
+    f.write(units)
+    for i in arange(self.Spect.Fit.nfits):
+        #Molecule Transition Rest frequency Eu (K) Velocity Resolution RMS
+        #Peak intensity Line width Integrated intensity Frequency shift
+        #Velocity shift
+        data = (molecules[i], transitions[i], float(rest_frequencies[i])*1e3,
+float(eus[i]), float(v_res_kms),float(gaussian_peaks[i])*1e3,
+float(line_widths[i]),float(line_width_error[i]), float(int_intensities[i]),
+float(error_int_intensities[i]),float(freq_shifts[i])*1e3, float(vel_shifts[i]),float(line_pos_error[i]),
+float(rms)*1e3)
+        line = '{0:15} & {1:28} & {2:8.2f} & {3:8.3f} & {4:4.2f} & \
+ {5:5.1f} & ${6:4.1f} \\pm{7:4.1f}$ & {8:6.3f} \\pm{9:5.3f} & {10:5.1f}  & \
+ {11:5.1f} \\pm{12:3.2f} & {13:2.1f} \\\\ \n'.format(*data)
+        f.write(line)
+#
 #
 #########################################
 # ASCII TABLE HELP FUNCTIONS
@@ -1348,7 +1494,7 @@ def saveatbl(filename, dataList, names):
         print(' ')
         print('FILE EXISTS ('+str(filename) +') - SKIPPING SAVE')
         print(' ')
-def loadatbl(filename, dtype='float64', rtype='array',sep=None, c_char=['#', '!', '|', '/']):
+def loadatbl(filename, dtype='float', rtype='array',sep=None, c_char=['#', '!', '|', '/']):
     """
     loads a list of data arrays in "filename", returns an array of the
     whole shebang (loads arrays saved with the savetable command). just do:
@@ -1373,7 +1519,10 @@ def loadatbl(filename, dtype='float64', rtype='array',sep=None, c_char=['#', '!'
         raise ValueError('Trying to convert to '+str(dtype)+' while it is a string\
                         try to change it to \'str\'')
     if rtype=='array':
-        return array(values,dtype=dtype).transpose()
+        try:
+            return array(values,dtype=dtype).transpose()
+        except ValueError:
+            raise ValueError('Rows in text file have different number of columns')
     elif rtype=='native':
         return values
 def infoatbl(filename, sep=None, c_char=['#', '!', '|', '/']):
@@ -1417,12 +1566,12 @@ class Fits:
        that Class can output for -32 Bits, (single dish data)
 
     TODO : maybe change the velocity attr, so that it follows naming
-    similar to ra and dec, e.g. Self.v_delt, Self.v_arr
+    similar to ra and dec, e.g. self.v_delt, self.v_arr
 
     TODO : Create a frequency array as well, much simpler later on then
 
     """
-    def __init__(Self, fitsfile, telescope=None, vsys=0, distance=0):
+    def __init__(self, fitsfile, telescope=None, vsys=0, distance=0):
         """
 
         attributes
@@ -1451,7 +1600,7 @@ class Fits:
                     - NAXIS==3 (RA & DEC & Flux/Intensity) 3D Spectral map
                     - Polarization data?
                     (i.e, in SD spectra need to get rid of 3 axes
-                        Self.d = Self.d[0][0][0])
+                        self.d = self.d[0][0][0])
         TODO : make loadcube delete an axis, along with the hdr keywords if all
                the axis keywords/values are empty/null (delet hdr keyword really needed?)
                     o only to loaded data, not save to raw data (fits file)
@@ -1473,6 +1622,7 @@ class Fits:
         from os.path import getsize
         from scipy import where, array, nan
         from string import upper
+        from sys import exit as sysexit
         #
 
         # create the class, but without any init script.
@@ -1481,246 +1631,270 @@ class Fits:
         s  = getsize(fitsfile)
         print " Size %0.2f MB" % (s/(1024.*1024.))
         f = fitsopen(fitsfile)
-        Self.hdr, Self.d = f[0].header, f[0].data
-        #Self.d = Self.d[0] # this is if the stokes axis is present,
+        self.hdr, self.d = f[0].header, f[0].data
+        #self.d = self.d[0] # this is if the stokes axis is present,
         # but it should not be there anymore
         f.close()
         # save the fitsfile, perhaps the path too, for updating it
-        Self.fitsfile = fitsfile
+        self.fitsfile = fitsfile
         # the telescope diameter
         # first check if there was keyword sent in
         if telescope!=None:
-            Self.hdr.update('TELESCOP', telescope)
-            Self.telescope = str(telescope)
+            self.hdr.update('TELESCOP', telescope)
+            self.telescope = str(telescope)
         #
-        if Self.hdr.has_key('TELESCOP'):
+        if self.hdr.has_key('TELESCOP'):
             #~ name = array(['SMA', 'PDBI', 'JCMT', 'AP-H201-F102', 'IRAM30M'])
             #~ dia = array([6, 15, 15, 12, 30])
             #~ try:
-                #~ Self.diameter = dia[where(upper(Self.hdr['TELESCOP'])==name)][0]
+                #~ self.diameter = dia[where(upper(self.hdr['TELESCOP'])==name)][0]
             #~ except IndexError, ex:
-                #~ Self.diameter = 1
-            Self.diameter = get_telescope_diameter(Self.hdr['TELESCOP'])
-            Self.telescope = Self.hdr['TELESCOP']
+                #~ self.diameter = 1
+            self.diameter = get_telescope_diameter(self.hdr['TELESCOP'])
+            self.telescope = self.hdr['TELESCOP']
         else:
-            Self.diameter= 1
-            Self.telescope = None
-        if Self.hdr.has_key('LINE'):
-            Self.linename = Self.hdr['LINE']
+            self.diameter= 1
+            self.telescope = None
+        if self.hdr.has_key('LINE'):
+            self.linename = self.hdr['LINE']
         #
         #
-        # spectra: 3 axis and 3rd axis is >1 in size
-        # image: 2 axis (or 3 axis, 3rd is =1 in size)
+        # spectra, 1 : 3 axis and 3rd axis is >1 in size
+        # image, 2 : 2 axis (or 3 axis, 3rd is =1 in size)
+        # cube,3 : spectral cube
         #
         # simple solution to the common extra empty STOKES axis
         # and sometimes even an extra empty axis for ?
         from numpy import diff, arange
-        while Self.d.shape[0] == 1:
-             Self.d = Self.d[0]
+        while self.d.shape[0] == 1:
+            self.d = self.d[0]
 
-        if Self.hdr['NAXIS']==4 and Self.d.shape[0:2] == (1,1):
-            Self.datatype = 'IMAGE',2
-            Self.d = Self.d[0][0]
-        #naxis = Self.hdr['NAXIS']
-        #axshape = Self.d.shape
+        if self.hdr['NAXIS']==4 and self.d.shape[0:2] == (1,1):
+            self.datatype = 'IMAGE',2
+            self.d = self.d[0][0]
+        #naxis = self.hdr['NAXIS']
+        #axshape = self.d.shape
         #if axshape[0] array([i>1 for i in a.shape[1:]]).all()
         # an image, only 2 dimensions
-        elif Self.hdr['NAXIS']==2 and Self.hdr['NAXIS1']>1 and Self.hdr['NAXIS2']>1:
-            #if Self.hdr['NAXIS']==3 and Self.hdr['NAXIS1']>1 and Self.hdr['NAXIS2']>1 and Self.hdr['NAXIS3']==1:
+        elif self.hdr['NAXIS']==2 and self.hdr['NAXIS1']>1 and self.hdr['NAXIS2']>1:
+            #if self.hdr['NAXIS']==3 and self.hdr['NAXIS1']>1 and self.hdr['NAXIS2']>1 and self.hdr['NAXIS3']==1:
             # image, not SD spectra or anything,
             # really 2D and greater extent than 1x1
-            Self.datatype = 'IMAGE'
+            self.datatype = 'IMAGE',2
             pass
         #
         # spectral image cube (extra axis for frequency/velocity)
-        elif Self.hdr['NAXIS']==3 and Self.hdr['NAXIS1']>1 and Self.hdr['NAXIS2']>1 and Self.hdr['NAXIS3']==1:
-            Self.datatype = 'IMAGE',2
+        elif self.hdr['NAXIS']==3 and self.hdr['NAXIS1']>1 and self.hdr['NAXIS2']>1 and self.hdr['NAXIS3']==1:
+            self.datatype = 'IMAGE',2
             # extra if the continuum image has the freq and width
-            Self.freq = Self.hdr['CRVAL3']
-            Self.freqwidth = Self.hdr['CDELT3']
+            self.freq = self.hdr['CRVAL3']
+            self.freqwidth = self.hdr['CDELT3']
         # a spectra! the 3rd axis is longer than 1
-        elif Self.hdr['NAXIS']>=3 and Self.hdr['NAXIS3']>1:
+        elif self.hdr['NAXIS']>=3 and self.hdr['NAXIS3']>1:
             # spectral cube
             # only support for velo-lsr in 3rd axis
-            Self.datatype = 'CUBE',3
+            self.datatype = 'CUBE',3
             # load the third axis
-            velax = str([x for x in Self.hdr.keys() if x[:-1]=='CTYPE' and 'VELO' in Self.hdr[x]][0][-1:])
+            velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VELO' in self.hdr[x]][0][-1:])
             #data = loadvelocity(data, velax)
             # loading velocity information
-            Self.v_type = velax
-            Self.v_crpix = Self.hdr['CRPIX'+Self.v_type]-1
-            Self.v_crval = Self.hdr['CRVAL'+Self.v_type]
-            Self.v_ctype = Self.hdr['CTYPE'+Self.v_type]
-            Self.v_cdelt = Self.hdr['CDELT'+Self.v_type]
-            Self.v_naxis = Self.hdr['NAXIS'+Self.v_type]
-            Self.v_cdeltkms = Self.v_cdelt/float(1e3)
+            self.v_type = velax
+            self.v_crpix = self.hdr['CRPIX'+self.v_type]-1
+            self.v_crval = self.hdr['CRVAL'+self.v_type]
+            self.v_ctype = self.hdr['CTYPE'+self.v_type]
+            self.v_cdelt = self.hdr['CDELT'+self.v_type]
+            self.v_naxis = self.hdr['NAXIS'+self.v_type]
+            self.v_cdeltkms = self.v_cdelt/float(1e3)
             # plus one because to start at 0 is wrong, need 1 to v_naxis <- this is WRONG
             # start at 0 because we
-            Self.v_arr = ((arange(0,Self.v_naxis)-Self.v_crpix)*Self.v_cdelt+Self.v_crval)/float(1e3) # so it is i kms
-            Self.v_rangekms = Self.v_arr.max()-Self.v_arr.min()
+            self.v_arr = ((arange(0,self.v_naxis)-self.v_crpix)*self.v_cdelt+self.v_crval)/float(1e3) # so it is i kms
+            self.v_rangekms = self.v_arr.max()-self.v_arr.min()
             # not good if vcdletkms has more than 3 significant digits.
-            #Self.v_arr = Self.v_arr.round(3)
-            #Self.v_cdeltkms = round(Self.v_cdeltkms,2)
+            #self.v_arr = self.v_arr.round(3)
+            #self.v_cdeltkms = round(self.v_cdeltkms,2)
 
-            #start = Self.v_crval-Self.v_cdelt*(Self.v_crpix-1)
-            #stop =  Self.v_crval+Self.v_cdelt*(Self.v_naxis-Self.v_crpix)
-            #arr = arange(start,stop-1,Self.v_cdelt)/float(1e3)
-            #print Self.v_arr-arr
+            #start = self.v_crval-self.v_cdelt*(self.v_crpix-1)
+            #stop =  self.v_crval+self.v_cdelt*(self.v_naxis-self.v_crpix)
+            #arr = arange(start,stop-1,self.v_cdelt)/float(1e3)
+            #print self.v_arr-arr
             # calculate the FOV = 58.4*lambda/D*3600 asec
-            Self.restfreq = Self.hdr['RESTFREQ'] # in Hertz
-            Self.fov = 58.4*(3.e8/Self.restfreq)/float(Self.diameter)*3600.
-            print 'Field of view: %.2f asecs, for dish size: %.1f m' % (Self.fov, Self.diameter)
-            #print Self.veltype, Self.v_crpix, Self.v_crval, Self.v_cdeltkms, Self.v_naxis
-            print 'Velocity range \t: %d km/s' % Self.v_rangekms
-            print 'Velocity step \t: %2.4f km/s' % Self.v_cdeltkms
+            self.restfreq = self.hdr['RESTFREQ'] # in Hertz
+            self.fov = 58.4*(3.e8/self.restfreq)/float(self.diameter)*3600.
+            print 'Field of view: %.2f asecs, for dish size: %.1f m' % (self.fov, self.diameter)
+            #print self.veltype, self.v_crpix, self.v_crval, self.v_cdeltkms, self.v_naxis
+            print 'Velocity range \t: %d km/s' % self.v_rangekms
+            print 'Velocity step \t: %2.4f km/s' % self.v_cdeltkms
             #
             # now if we want to have the spectral array as well to use
-            if Self.hdr.has_key('RESTFREQ'):
-                Self.restfreq = Self.hdr['RESTFREQ']
-            #if Self.hdr['NAXIS']==4 and  Self.hdr['NAXIS4']==1:
-            #    Self.d = Self.d[0]
+            if self.hdr.has_key('RESTFREQ'):
+                self.restfreq = self.hdr['RESTFREQ']
+            #if self.hdr['NAXIS']==4 and  self.hdr['NAXIS4']==1:
+            #    self.d = self.d[0]
             #
             # this was just a test
             # SD pointing spectra
-        elif Self.hdr['NAXIS']>1 and Self.hdr['NAXIS2']==1 and Self.hdr['NAXIS3']==1:
-            Self.datatype = 'SDSPECT',1
-            Self.v_cdelt = Self.hdr['DELTAV']
-            Self.v_cdeltkms = Self.hdr['DELTAV']/float(1e3)
-            Self.v_crpix = Self.hdr['CRPIX1']-1
-            Self.v_naxis = Self.hdr['NAXIS1']
-            Self.v_crval = Self.hdr['VELO-LSR']
-            Self.v_arr = ((arange(0,Self.v_naxis)-Self.v_crpix)*Self.v_cdelt+Self.v_crval)/float(1e3)
-            Self.restfreq = Self.hdr['RESTFREQ'] # in Hertz
+        elif self.hdr['NAXIS']>1 and self.hdr['NAXIS2']==1 and self.hdr['NAXIS3']==1:
+            self.datatype = 'SDSPECT',1
+            self.v_cdelt = self.hdr['DELTAV']
+            self.v_cdeltkms = self.hdr['DELTAV']/float(1e3)
+            self.v_crpix = self.hdr['CRPIX1']-1
+            self.v_naxis = self.hdr['NAXIS1']
+            self.v_crval = self.hdr['VELO-LSR']
+            self.v_arr = ((arange(0,self.v_naxis)-self.v_crpix)*self.v_cdelt+self.v_crval)/float(1e3)
+            self.restfreq = self.hdr['RESTFREQ'] # in Hertz
             # huh?
-            Self.fov = 58.4*(3e8/Self.restfreq)/(Self.diameter)*3600
-            if 'BEAMEFF' in Self.hdr:
-                Self.beameff = Self.hdr['BEAMEFF']
-            if 'FORWEFF' in Self.hdr:
-                Self.forweff = Self.hdr['FORWEFF']
-            #Self.d = Self.d[0][0][0] # specific for this data...
-        #~ elif 'Miriad fits' in Self.hdr['ORIGIN']:
+            self.fov = 58.4*(3e8/self.restfreq)/(self.diameter)*3600
+            if 'BEAMEFF' in self.hdr:
+                self.beameff = self.hdr['BEAMEFF']
+            if 'FORWEFF' in self.hdr:
+                self.forweff = self.hdr['FORWEFF']
+            #self.d = self.d[0][0][0] # specific for this data...
+        #~ elif 'Miriad fits' in self.hdr['ORIGIN']:
         # below to load CLASS bits -32
-        #~ elif 'FITS_rec' in str(type(Self.d)) and not Self.hdr['NAXIS']:
-            #~ Self.d = Self.d[0][0]
-            #~ Self.datatype = 'SDSPECT',1
+        #~ elif 'FITS_rec' in str(type(self.d)) and not self.hdr['NAXIS']:
+            #~ self.d = self.d[0][0]
+            #~ self.datatype = 'SDSPECT',1
             #~ #
-            #~ # Self.d.dtype shows SPECTRUM and WAVE for CLASS data
+            #~ # self.d.dtype shows SPECTRUM and WAVE for CLASS data
             #~ #
-            #~ Self.v_cdelt = Self.hdr['DELTAV']
-            #~ Self.v_cdeltkms = Self.hdr['DELTAV']/float(1e3)
-            #~ Self.v_crpix = Self.hdr['CRPIX1']-1
-            #~ Self.v_naxis = Self.hdr['NAXIS1']
-            #~ Self.v_crval = Self.hdr['VELO-LSR']
-            #~ Self.v_arr = ((arange(0,Self.v_naxis)-Self.v_crpix)*Self.v_cdelt+Self.v_crval)/float(1e3)
-            #~ Self.restfreq = Self.hdr['RESTFREQ'] # in Hertz
-            #~ Self.fov = 58.4*(3e8/Self.restfreq)/(Self.diameter)*3600
+            #~ self.v_cdelt = self.hdr['DELTAV']
+            #~ self.v_cdeltkms = self.hdr['DELTAV']/float(1e3)
+            #~ self.v_crpix = self.hdr['CRPIX1']-1
+            #~ self.v_naxis = self.hdr['NAXIS1']
+            #~ self.v_crval = self.hdr['VELO-LSR']
+            #~ self.v_arr = ((arange(0,self.v_naxis)-self.v_crpix)*self.v_cdelt+self.v_crval)/float(1e3)
+            #~ self.restfreq = self.hdr['RESTFREQ'] # in Hertz
+            #~ self.fov = 58.4*(3e8/self.restfreq)/(self.diameter)*3600
         else:
             # if it is not an image or a spectral cube
-            print_error('The dimensions of the data is wrong\n at least the header keywords indicate that.\n The data has '+str(Self.hdr['NAXIS'])+' axes. \n\n Perhaps use the removeaxis script?\n')
+            print_error('The dimensions of the data is wrong\n at least the header keywords indicate that.\n The data has '+str(self.hdr['NAXIS'])+' axes. \n\n Perhaps use the removeaxis script?\n')
             sysexit()
 
         # perhaps check in the header?
         # velref probably at what velocity that middle of spectra is?
-        Self.v_sys = float(vsys)
-        Self.dist = float(distance)
+        self.v_sys = float(vsys)
+        self.dist = float(distance)
         #
         # FREQUENCY ARRAY
         #
         # construct the frequency array!
         # the 3rd axis longer than 1, and 4th axis is the frequency
         # if the data is constructed in gildas
-        if Self.datatype[0] in ['CUBE', 'SDSPECT']:
-            Self.v_arr_syscorr = Self.v_arr - Self.v_sys
+        if self.datatype[0] in ['CUBE', 'SDSPECT']:
+            self.v_arr_syscorr = self.v_arr - self.v_sys
         #
         # load the coordinate parameters
         # for the CRPIXNax parameter I take -1 because
         # FITS starts at 1 and Python starts at 0, hence in
         # an array, crpix-1 will show the Python position of the crpix
         # DEC
-        decax = str([x for x in Self.hdr.keys() if x[:-1]=='CTYPE' and 'DEC' in Self.hdr[x]][0][-1:])
-        Self.dec_cdelt = Self.hdr['CDELT'+decax]*3600 # arcs
-        Self.dec_npix = Self.hdr['NAXIS'+decax]
-        Self.y_npix = Self.hdr['NAXIS'+decax]
-        Self.dec_crpix = Self.hdr['CRPIX'+decax]-1
-        Self.dec_crval = Self.hdr['CRVAL'+decax]
+        decax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'DEC' in self.hdr[x]][0][-1:])
+        self.dec_cdelt = self.hdr['CDELT'+decax]*3600 # arcs
+        self.dec_npix = self.hdr['NAXIS'+decax]
+        self.y_npix = self.hdr['NAXIS'+decax]
+        self.dec_crpix = self.hdr['CRPIX'+decax]-1
+        self.dec_crval = self.hdr['CRVAL'+decax]
         # RA
-        raax = str([x for x in Self.hdr.keys() if x[:-1]=='CTYPE' and 'RA' in Self.hdr[x]][0][-1:])
-        Self.ra_cdelt = Self.hdr['CDELT'+raax]*3600 # arcs
-        Self.ra_npix = Self.hdr['NAXIS'+raax]
-        Self.x_npix = Self.hdr['NAXIS'+raax]
-        Self.ra_crpix = Self.hdr['CRPIX'+raax]-1
-        Self.ra_crval = Self.hdr['CRVAL'+raax]
-        if Self.datatype[0] in ['CUBE','IMAGE']:
+        raax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'RA' in self.hdr[x]][0][-1:])
+        self.ra_cdelt = self.hdr['CDELT'+raax]*3600 # arcs
+        self.ra_npix = self.hdr['NAXIS'+raax]
+        self.x_npix = self.hdr['NAXIS'+raax]
+        self.ra_crpix = self.hdr['CRPIX'+raax]-1
+        self.ra_crval = self.hdr['CRVAL'+raax]
+        if self.datatype[0] in ['CUBE','IMAGE']:
             # create a extent keyword
-            #~ ylen, xlen = Self.d[0].shape
-            #~ ycoords = arange(-ylen/2,ylen/2,1)*Self.dec_cdelt
-            #~ xcoords = arange(-xlen/2,xlen/2,1)*Self.ra_cdelt
+            #~ ylen, xlen = self.d[0].shape
+            #~ ycoords = arange(-ylen/2,ylen/2,1)*self.dec_cdelt
+            #~ xcoords = arange(-xlen/2,xlen/2,1)*self.ra_cdelt
             #~ left, right = xcoords[0],xcoords[-1]
             #~ bottom, top = ycoords[0],ycoords[-1]
             #~ extent=(left,right,bottom,top)
-            X = array([0,Self.ra_npix-1]) # Self.*_npix-1 because we're
-            Y = array([0,Self.dec_npix-1]) # slicing the python-way
-            left,right = (X-Self.ra_crpix)*Self.ra_cdelt
-            bottom,top = (Y-Self.dec_crpix)*Self.dec_cdelt
-            Self.extent = (left,right,bottom,top)
-            #Self.extent = (left,right,bottom,top)
-            #~ xcoords = arange(-(Self.ra_crpix),(Self.ra_npix-Self.ra_crpix),1)*Self.ra_cdelt
-            #~ ycoords = arange(-(Self.dec_crpix),(Self.dec_npix-Self.dec_crpix),1)*Self.dec_cdelt
+            X = array([0,self.ra_npix-1]) # self.*_npix-1 because we're
+            Y = array([0,self.dec_npix-1]) # slicing the python-way
+            left,right = (X-self.ra_crpix)*self.ra_cdelt
+            bottom,top = (Y-self.dec_crpix)*self.dec_cdelt
+            self.extent = (left,right,bottom,top)
+            #self.extent = (left,right,bottom,top)
+            #~ xcoords = arange(-(self.ra_crpix),(self.ra_npix-self.ra_crpix),1)*self.ra_cdelt
+            #~ ycoords = arange(-(self.dec_crpix),(self.dec_npix-self.dec_crpix),1)*self.dec_cdelt
             #~ print xcoords[0],xcoords[-1]
             #~ print left,right
             #~ print ycoords[0],ycoords[-1]
             #~ print bottom,top
         try:
             # Beam size in asecs
-            Self.bmaj = Self.hdr['BMAJ']*3600
-            Self.bmin = Self.hdr['BMIN']*3600
-            Self.bpa = Self.hdr['BPA']
+            self.bmaj = self.hdr['BMAJ']*3600
+            self.bmin = self.hdr['BMIN']*3600
+            self.bpa = self.hdr['BPA']
         except KeyError, ex:
             msg='Header keywords (bmaj,bmin,bpa,restfreq) incomplete and not loaded.'
             print_warning(msg)
-            #~ Self.bmaj = None
-            #~ Self.bmin = None
-            #~ Self.bpa = None
-            #~ Self.gain = None
-        if 'BUNIT' in Self.hdr:
-            Self.unit = Self.hdr['BUNIT']
+            #~ self.bmaj = None
+            #~ self.bmin = None
+            #~ self.bpa = None
+            #~ self.gain = None
+        if 'BUNIT' in self.hdr:
+            self.unit = self.hdr['BUNIT']
             # units
-            if 'JY/BEAM' in upper(Self.unit):
-                Self.unitpixel = u"Jy\u00b7beam\u207b\u00b9\u00b7channel\u207b\u00b9"
-                Self.unitint = u"Jy\u00b7beam\u207b\u00b9\u00b7" + KMS
-            elif 'K' in upper(Self.unit):
-                Self.unitpixel = u"K\u00b7channel\u207b\u00b9"
-                Self.unitint = u"K\u00b7" + KMS
+            if 'JY/BEAM' in upper(self.unit):
+                self.unitpixel = u"Jy\u00b7beam\u207b\u00b9\u00b7channel\u207b\u00b9"
+                self.unitint = u"Jy\u00b7beam\u207b\u00b9\u00b7" + KMS
+            elif 'K' in upper(self.unit):
+                self.unitpixel = u"K\u00b7channel\u207b\u00b9"
+                self.unitint = u"K\u00b7" + KMS
         else:
             print_warning('No beam unit in header.')
-            Self.unitpixel = "INTENSITY"
-            Self.unitint = "INTEGRATED-INTENSITY"
+            self.unitpixel = "INTENSITY"
+            self.unitint = "INTEGRATED-INTENSITY"
         # calculate the GAIN of the observations (interferometric observations?)
-        if Self.datatype[0] in ['CUBE','SDSPECT'] and hasattr(Self,'restfreq') and hasattr(Self,'bmin'):
+        if self.datatype[0] in ['CUBE','SDSPECT'] and hasattr(self,'restfreq') and hasattr(self,'bmin'):
             # gain depends on restfreq being there
-            Self.gain = 8.168e-25*(Self.restfreq)**2*Self.bmin*Self.bmaj
+            self.gain = 8.168e-25*(self.restfreq)**2*self.bmin*self.bmaj
         #
         # Object name
-        Self.obj = Self.hdr['OBJECT']
-    def __str__(Self):
+        self.obj = self.hdr['OBJECT']
+    def __str__(self):
         print '\n','='*40
         print ' '*8,'FITS file\n'
-        print 'Data type : %s' % str(Self.datatype[0])
-        print 'Object : %s' % Self.obj
-        if Self.datatype[0] != 'SDSPECT':
-            Self.ra_size = abs(Self.ra_cdelt)*Self.ra_npix
-            Self.dec_size = abs(Self.dec_cdelt)*Self.dec_npix
-            print 'Spatial size of image\n RA\t: %2.3f asec\n DEC\t: %2.3f asec' % (Self.ra_size, Self.dec_size)
+        print 'Data type : %s' % str(self.datatype[0])
+        if self.datatype[1] in [3]:
+            print 'Shape of image cube : {0}'.format(self.d.shape)
+        print 'Object : %s' % self.obj
+        if hasattr(self,'beameff'):
+            print 'Beam Efficiency : {0:3.4f}'.format(self.beameff)
+        if hasattr(self,'forweff'):
+            print 'Fwd Efficiency : {0:3.4f}'.format(self.forweff)
+        #
+        print ''
+        if self.datatype[0] != 'SDSPECT':
+            self.ra_size = abs(self.ra_cdelt)*self.ra_npix
+            self.dec_size = abs(self.dec_cdelt)*self.dec_npix
+            print 'Spatial size of image\n RA\t: %2.3f asec\n DEC\t: %2.3f asec' % (self.ra_size, self.dec_size)
         print 'Phase center '
-        print '  RA : {0}'.format(parse_ra(Self.ra_crval,string=1))
-        print ' DEC : {0}'.format(parse_dec(Self.dec_crval,string=1))
-        return "\n ADAVIS - Fitsfile Object \n"
-    def parse_pxlcoord (Self, x, y):
+        print '  RA : {0}'.format(parse_ra(self.ra_crval,string=1))
+        print ' DEC : {0}'.format(parse_dec(self.dec_crval,string=1))
+        if hasattr(self,'bmaj') and hasattr(self,'bmin') and hasattr(self,'bpa'):
+            print '\nBeam info'
+            print ' Beam major axis : {0}'.format(self.bmaj)
+            print ' Beam minor axis : {0}'.format(self.bmin)
+            print ' Beam position angle : {0}'.format(self.bpa)
+        #
+        print ''
+        if hasattr(self,'restfreq'):
+            if (1E-9*self.restfreq)<1:
+                freq = 1E-6*self.restfreq
+                freq_unit = 'MHz'
+            else:
+                freq = 1E-9*self.restfreq
+                freq_unit = 'GHz'
+            print 'Rest frequency of data : {0} {1}'.format(freq,freq_unit)
+        return '\n ADAVIS - Fitsfile Object \n'
+    def parse_pxlcoord (self, x, y):
         """ Function doc """
-        xoffset = (x-Self.ra_crpix)*data.ra_cdelt
-        yoffset = (y-Self.dec_crpix)*data.dec_cdelt
+        xoffset = (x-self.ra_crpix)*data.ra_cdelt
+        yoffset = (y-self.dec_crpix)*data.dec_cdelt
         return xoffset, yoffset
-    def parse_region(Self, region, f=False):
+    def parse_region(self, region, f=False):
         """
         Parser for the region parameter, three different possibilities to supply
         the region command:
@@ -1761,6 +1935,7 @@ class Fits:
 
         """
         from scipy import ceil, floor, array
+        from sys import exit as sysexit
         if len(region)==4:
             xcheck = region[0]==region[2]
             ycheck = region[1]==region[3]
@@ -1772,16 +1947,16 @@ class Fits:
             #x1, x2 = (data.ra_npix+1)/2 + array([region[0],region[2]])/abs(data.ra_cdelt) + array([0,xcheck])
             #y1, y2 = (data.dec_npix+1)/2+ array([region[1],region[3]])/abs(data.dec_cdelt)+ array([0,ycheck])
             #
-            x1, x2 = array([region[0],region[2]])/Self.ra_cdelt + Self.ra_crpix + array([0,xcheck])
-            y1, y2 = array([region[1],region[3]])/Self.dec_cdelt + Self.dec_crpix + array([0,ycheck])
+            x1, x2 = array([region[0],region[2]])/self.ra_cdelt + self.ra_crpix + array([0,xcheck])
+            y1, y2 = array([region[1],region[3]])/self.dec_cdelt + self.dec_crpix + array([0,ycheck])
             #
         elif len(region)==3:
             check = region[2]==0
             #x1, x2 = (data.ra_npix+1)/2 + array([-region[2],region[2]])/(2*abs(data.ra_cdelt)) + region[0]/data.ra_cdelt + array([0,check])
             #y1, y2 = (data.dec_npix+1)/2+ array([-region[2],region[2]])/(2*abs(data.dec_cdelt)) +region[1]/data.dec_cdelt+ array([0,check])
             #
-            x1, x2 = Self.ra_crpix + region[0]/Self.ra_cdelt + array([-region[2],region[2]])/abs(2*Self.ra_cdelt) + array([0,check])
-            y1, y2 = Self.dec_crpix + region[1]/Self.dec_cdelt + array([-region[2],region[2]])/abs(2*Self.dec_cdelt) + array([0,check])
+            x1, x2 = self.ra_crpix + region[0]/self.ra_cdelt + array([-region[2],region[2]])/abs(2*self.ra_cdelt) + array([0,check])
+            y1, y2 = self.dec_crpix + region[1]/self.dec_cdelt + array([-region[2],region[2]])/abs(2*self.dec_cdelt) + array([0,check])
             #
         elif len(region)==2:
             xcheck = region[0]==0
@@ -1789,8 +1964,8 @@ class Fits:
             #x1, x2 = (data.ra_npix+1)/2 + array([-1,1])*region[0]/abs(data.ra_cdelt)  + array([0,xcheck])
             #y1, y2 = (data.dec_npix+1)/2+ array([-1,1])*region[1]/abs(data.dec_cdelt) + array([0,ycheck])
             #
-            x1, x2 = array([-region[0],region[0]])/(2*abs(Self.ra_cdelt)) + Self.ra_crpix + array([0,xcheck])
-            y1, y2 = array([-region[1],region[1]])/(2*abs(Self.dec_cdelt)) + Self.dec_crpix + array([0,ycheck])
+            x1, x2 = array([-region[0],region[0]])/(2*abs(self.ra_cdelt)) + self.ra_crpix + array([0,xcheck])
+            y1, y2 = array([-region[1],region[1]])/(2*abs(self.dec_cdelt)) + self.dec_crpix + array([0,ycheck])
             #
         elif():
             print ('Error, region keyword malformed')
@@ -1804,54 +1979,54 @@ class Fits:
         # method to calculate FOV after the correct telescope name/diameter
         # has been input and thus correcting the current FOV of
         # the DataObject
-        if Self.telescope!=None:
-            Self.diameter = get_telescope_diameter(Self.telescope)
-        elif Self.diameter == 1:
+        if self.telescope!=None:
+            self.diameter = get_telescope_diameter(self.telescope)
+        elif self.diameter == 1:
             print 'You have not changed either the diameter of the telescope or the telescope name'
-        Self.fov = 58.4*(3.e8/Self.restfreq)/float(Self.diameter)*3600.
-    def calc_rms(Self, nvals, area):
+        self.fov = 58.4*(3.e8/self.restfreq)/float(self.diameter)*3600.
+    def calc_rms(self, nvals, area):
         from scipy import sqrt,array
-        i1,i2,j1,j2 = Self.parse_region(area)
-        n_channels = get_indices(Self.v_arr, nvals)
+        i1,i2,j1,j2 = self.parse_region(area)
+        n_channels = get_indices(self.v_arr, nvals)
         # just to find out which channels (start, stop) to print
         if len(nvals)==2:
             n = array([n_channels.min(),n_channels.max()])
-            nv = Self.v_arr[n]
+            nv = self.v_arr[n]
             print "RMS calculated in intervals {0} ({1}) and region {2}".format(n, nv,nvals,area)
         if len(nvals)==4:
-            n_1 = get_indices(Self.v_arr,array(nvals)[:2])
+            n_1 = get_indices(self.v_arr,array(nvals)[:2])
             n_1min = min(n_1)
             n_1max = max(n_1)
-            n_2 = get_indices(Self.v_arr,array(nvals)[2:])
+            n_2 = get_indices(self.v_arr,array(nvals)[2:])
             n_2min = min(n_2)
             n_2max = max(n_2)
             #n = array([n_channels.min(),n_channels.max()])
-            #nv = Self.v_arr[n]
+            #nv = self.v_arr[n]
             print "RMS calculated in intervals {0} and {1} ({2}) and region {3}".format([n_1min,n_1max], [n_2min,n_2max],nvals,area)
-        rms_data = Self.d[n_channels]
-        Self.rms = sqrt(((rms_data[:, j1:j2, i1:i2])**2).mean())
+        rms_data = self.d[n_channels]
+        self.rms = sqrt(((rms_data[:, j1:j2, i1:i2])**2).mean())
         rms_data=[]
-    def add_line(Self, name, frequency=None, channels=None, width=None):
+    def add_line(self, name, frequency=None, channels=None, width=None):
         """
         Add identified line(s) to the class
 
         TODO : update the fits file as well?
         '"""
         try:
-            known_lines = Self.known_lines
+            known_lines = self.known_lines
         except AttributeError, ex:
             known_lines = {}
         known_lines[204.38343] = {'name' : 'SO$_2$','frequency' : frequency, 'channels' : channels, 'width' : width}
     #
     # method to change the v_sys
-    def change_v_sys (Self, v_sys):
-        Self.v_sys = v_sys
+    def change_v_sys (self, v_sys):
+        self.v_sys = v_sys
         # now, change the v_arr_syscorr array as well
-        if Self.datatype[0] in ['CUBE', 'SDSPECT']:
-            Self.v_arr_syscorr = Self.v_arr - Self.v_sys
+        if self.datatype[0] in ['CUBE', 'SDSPECT']:
+            self.v_arr_syscorr = self.v_arr - self.v_sys
     #
-    def change_dist (Self, dist):
-        Self.dist = dist # unit of pc
+    def change_dist (self, dist):
+        self.dist = dist # unit of pc
 #
 # MOMENTS DATA CLASS
 # Calculates moment 0 and 1, to use in
@@ -1877,14 +2052,14 @@ class Moments:
 
     ### not shure if it is allowed to use "FITS" as input here.
     # perhaps need some other input name
-    def __init__ (Self, Fits, chvals, nsig):
+    def __init__ (self, Fits, chvals, nsig):
         """
         moment class initialiser
 
         input :
 
 
-        TODO : Check if I take enough levels, i.e. that the Self.maximum
+        TODO : Check if I take enough levels, i.e. that the self.maximum
                really is the maximum of the WHOLE 2D array
 
         """
@@ -1893,37 +2068,37 @@ class Moments:
         # -> never use velocities from/with the v_sys corrected data
         # get the data from the cube
         # copy header for easy acess to stuff
-        Self.hdr = Fits.hdr
-        Self.channels = get_indices(Fits.v_arr,chvals)
-        imgs = Fits.d[Self.channels]
+        self.hdr = Fits.hdr
+        self.channels = get_indices(Fits.v_arr,chvals)
+        imgs = Fits.d[self.channels]
         # calculate the moment 0
-        Self.zero = imgs.sum(axis=0)*abs(Fits.v_cdeltkms)
+        self.zero = imgs.sum(axis=0)*abs(Fits.v_cdeltkms)
         #Isum = imgs.sum(axis=0)*abs(Fits.v_cdeltkms) # make a copy for masking <3sigma values in mom1 map̈́
         # other statistics
-        Self.sigma = sqrt(alen(imgs))*Fits.rms*abs(Fits.v_cdeltkms)
-        Self.minimum = Self.zero.min()
-        Self.maximum = Self.zero.max()
+        self.sigma = sqrt(alen(imgs))*Fits.rms*abs(Fits.v_cdeltkms)
+        self.minimum = self.zero.min()
+        self.maximum = self.zero.max()
         # calculate levels, start at 1 sigma, jump 1 sigma
         # one for positive and one for negative
         # concatenate before displaying if want certain start & jump
-        Self.levels_neg = -1*arange(Self.sigma,abs(Self.minimum)+3*Self.sigma,Self.sigma)
-        Self.levels_pos = arange(Self.sigma,Self.maximum+3*Self.sigma,Self.sigma)
+        self.levels_neg = -1*arange(self.sigma,abs(self.minimum)+3*self.sigma,self.sigma)
+        self.levels_pos = arange(self.sigma,self.maximum+3*self.sigma,self.sigma)
         #levels = arange(nsig*moment0_sigma,moment0_max+moment0_sigma,nsjump*moment0_sigma)
 
         # moment 1
         # create array that matches imgs array
         # only the velocities that we want, i.e. Fits.v_arr[img_channels]
-        velocities_matrix = array([ones(imgs.shape[1:])*i for i in Fits.v_arr[Self.channels]])
+        velocities_matrix = array([ones(imgs.shape[1:])*i for i in Fits.v_arr[self.channels]])
         # removed where(), because a boolean array works fine
         # find out where we calculate the moment 1, i.e. 3 sigma level
         Isum = imgs.sum(axis=0)
-        Isum[Self.zero<=abs(nsig*Self.sigma)] = nan
+        Isum[self.zero<=abs(nsig*self.sigma)] = nan
         Ivsum = (imgs*velocities_matrix).sum(axis=0)
         # calculate the denominator, the sum of all images
         # in our velocity interval
 
         # calculate moment 1
-        Self.one = Ivsum/Isum
+        self.one = Ivsum/Isum
 #
 # SPECTRUM DATA CLASS
 #
@@ -1931,7 +2106,7 @@ class Spectrum:
     """ Class doc """
     ### not shure if it is allowed to use "FITS" as input here.
     # perhaps need some other input name
-    def __init__ (Self, Fits, **args):
+    def __init__ (self, Fits, **args):
         """
         Class initialiser
         ----
@@ -1945,76 +2120,84 @@ class Spectrum:
         """
         # copy the header and other useful stuff
         # a bit redundant, don't you think?
-        Self.hdr = Fits.hdr.copy() # this is a dictionary!
-        Self.v_arr = Fits.v_arr
-        Self.v_cdeltkms = Fits.v_cdeltkms
-        Self.v_cdelt = Fits.v_cdelt
-        Self.v_crpix = Fits.v_crpix
-        Self.v_crval = Fits.v_crval
-        Self.v_sys = Fits.v_sys
-        Self.restfreq = Fits.restfreq
-        Self.unitpixel = Fits.unitpixel
-        Self.unitint = Fits.unitint
+        self.hdr = Fits.hdr.copy() # this is a dictionary!
+        self.v_arr = Fits.v_arr
+        self.v_cdeltkms = Fits.v_cdeltkms
+        self.v_cdelt = Fits.v_cdelt
+        self.v_crpix = Fits.v_crpix
+        self.v_crval = Fits.v_crval
+        self.v_sys = Fits.v_sys
+        self.restfreq = Fits.restfreq
+        self.unitpixel = Fits.unitpixel
+        self.unitint = Fits.unitint
         #
         if Fits.datatype[0] == 'SDSPECT':
             print stylify("SD-SPECTRUM - region keyword not doing anything.",fg='y')
-            Self.d = Fits.d
+            self.d = Fits.d
         elif Fits.datatype[0] in ['CUBE','IMAGE']:
             if 'region' in args:
                 pass
             else:
                 args['region'] = (0,0,0)
-            x1,x2,y1,y2 = parse_region(Fits, args['region'])
+            self.region = args['region']
+            x1,x2,y1,y2 = Fits.parse_region(args['region'])
             area_region = ((y2-y1)*(x2-x1))
-            Self.d = (Fits.d[:,y1:y2,x1:x2].sum(axis=1).sum(axis=1))/float(area_region)
+            self.d = (Fits.d[:,y1:y2,x1:x2].sum(axis=1).sum(axis=1))/float(area_region)
         if hasattr(Fits,'unit'):
-            Self.unit = Fits.unit
-        Self.binned = 0 # it is not binned at this point
+            self.unit = Fits.unit
+        self.binned = 0 # it is not binned at this point
         if 'lines' in args:
-            Self.lines = parse_linelist(args['lines'])
-    def __str__(Self):
-        if Self.binned:
+            self.lines = parse_linelist(args['lines'])
+            try:
+                self.linedata = loadatbl(args['lines'], dtype='string', rtype='array')
+            except:
+                pass
+            #print self.lines[1][0],type(self.lines[1][0])
+    def __str__(self):
+        if self.binned:
             print 'Spectrum has been binned'
+        print 'Extracted from region: {0}'.format(self.region)
         return '<ADAVIS Spectrum Object>'
-    def bin_spectrum(Self, binning, bintype='mean'):
+    def bin_spectrum(self, binning, bintype='mean'):
         from string import lower
         from scipy import alen, arange, array
         from sys import exit as sysexit
         binning = int(binning)
-        Self.binning = binning
+        self.binning = binning
         ##### temporary solution, saving old stuff
         class Original: pass
-        Original.d = Self.d
-        Original.v_arr = Self.v_arr
-        Original.v_cdelt = Self.v_cdelt
-        Original.v_cdeltkms = Self.v_cdeltkms
-        Self.Original = Original
+        Original.d = self.d
+        Original.v_arr = self.v_arr
+        Original.v_cdelt = self.v_cdelt
+        Original.v_cdeltkms = self.v_cdeltkms
+        self.Original = Original
         #
         if lower(bintype) == 'resample':
             from congridding import congrid
             # congridding, proper resampling of data
-            Self.d = congrid(Self.d,(alen(Self.d)/binning,),centre=True, method='neighbour')
-            Self.v_arr = congrid(Self.v_arr,(alen(Self.v_arr)/binning,))
+            self.d = congrid(self.d,(alen(self.d)/binning,),centre=True, method='neighbour')
+            self.v_arr = congrid(self.v_arr,(alen(self.v_arr)/binning,))
             #
-            Self.v_cdeltkms = Self.v_cdeltkms*binning
+            self.v_cdeltkms = self.v_cdeltkms*binning
+            self.v_cdelt = self.v_cdelt*binning
         elif lower(bintype) == 'mean':
-            if alen(Self.d)%binning!=0:
-                print 'Bin has to be evenly devide the number of channels: %d' % alen(Self.d)
+            if alen(self.d)%binning!=0:
+                print 'Bin has to be evenly devide the number of channels: %d' % alen(self.d)
                 sysexit()
             #  Old method - simple binning, just average
-            indices = arange(0,alen(Self.d),binning)
-            Self.d = array([Self.d[x:x+binning].sum(axis=0)/binning for x in indices])
-            Self.v_arr = array([Self.v_arr[x:x+binning].sum(axis=0)/binning for x in indices])
+            indices = arange(0,alen(self.d),binning)
+            self.d = array([self.d[x:x+binning].sum(axis=0)/binning for x in indices])
+            self.v_arr = array([self.v_arr[x:x+binning].sum(axis=0)/binning for x in indices])
             #
-            Self.v_cdeltkms = Self.v_cdeltkms*binning
+            self.v_cdeltkms = self.v_cdeltkms*binning
         elif binning == 0 or binning <0:
             print stylify("\nERROR:\n Variable \"bin\" has to be 1 for no binning, or above 1 \n\
             for the number of channels to bin")
         # print out information about the binning
         print '='*40
         print ' '*11,"Binning of data\n"
-        print "No channels to bin : %d" % Self.binning
-        print "Velocity step : %f" % Self.v_cdeltkms
+        print "No channels to bin : %d" % self.binning
+        print "Velocity step : %f" % self.v_cdeltkms
         if bintype=='mean':
             print 'Type of binning : Simple mean over selected no. bin channels'
         elif bintype=='resample':
@@ -2023,8 +2206,8 @@ class Spectrum:
         # every time we bin, it increases with the number of the binning parameter
         # hence the number of channels that it has been binned is repr
         # by this parameter
-        Self.binned +=Self.binning
-    def calc_rms(Self,Fits,nvals,region='quarter'):
+        self.binned +=self.binning
+    def calc_rms(self,Fits,nvals,region='quarter'):
         from scipy import array, sqrt
         from string import upper
         print '='*40
@@ -2036,7 +2219,7 @@ class Spectrum:
         # change so that when binning, the rms i calculated
         # x1,x2
         # calc two RMS, one for bin and one without
-        # perhaps change this, it just a factor of 1/sqrt(Self.binning)?
+        # perhaps change this, it just a factor of 1/sqrt(self.binning)?
         # also, change to some other algorithm of deducing the rms
         # i.e. histogram or similar
         #
@@ -2046,36 +2229,39 @@ class Spectrum:
 
         """
         if Fits.datatype[0] == 'SDSPECT':
-            if Self.binned>1: # if it is larger than 0
-                Self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals)])**2).mean()/Self.binned)
-                #Self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals),j1:j2,i1:i2])**2).mean()/Self.binned)
+            if self.binned>1: # if it is larger than 0
+                self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals)])**2).mean()/self.binned)
+                #self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals),j1:j2,i1:i2])**2).mean()/self.binned)
             else:
-                Self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals)])**2).mean())
+                self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals)])**2).mean())
         else:
             zlen, ylen, xlen = Fits.d.shape
             ydelt = ylen/6
             xdelt = xlen/6
             i1,i2 = xlen/2-xdelt, xlen/2+xdelt
             j1,j2 = ylen/2-ydelt, ylen/2+ydelt
-            if Self.binned>1: # if it is larger than 0
-                Self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals),j1:j2,i1:i2])**2).mean()/Self.binned)
+            if self.binned>1: # if it is larger than 0
+                self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals),j1:j2,i1:i2])**2).mean()/self.binned)
             else: # if it is 0
-                Self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals),j1:j2,i1:i2])**2).mean())
-        Self.rms_mjy = Self.rms*1e3
+                self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals),j1:j2,i1:i2])**2).mean())
+        self.rms_mjy = self.rms*1e3
         # the sensitivity
         # TODO : if the unit is K km/s how come we divide?
-        Self.sensitivity = Self.rms/sqrt(abs(Self.v_cdeltkms))
+        self.sensitivity = self.rms/sqrt(abs(self.v_cdeltkms))
         # the channels used
-        ind = get_indices(Self.v_arr,nvals)
+        ind = get_indices(self.v_arr,nvals)
         ind1, ind2 = ind.min(), ind.max()
-        print u' RMS \t\t: {0:2.3f} m{1}'.format(Self.rms_mjy, Fits.unitpixel)
-        print u' Sensitivity \t: {0:2.3f} m{1}'.format(Self.sensitivity*1e3, Fits.unitint)
+        if self.binned:
+            print u' RMS \t\t: {0:4.2f} m{1} (Unbinned: {2:3.1f})'.format(self.rms_mjy, Fits.unitpixel, self.rms_mjy*self.binned**0.5)
+        else:
+            print u' RMS \t\t: {0:2.3f} m{1}'.format(self.rms_mjy, Fits.unitpixel)
+        print u' Sensitivity \t: {0:2.3f} m{1}'.format(self.sensitivity*1e3, Fits.unitint)
         print u' Channels used \t: {0:d}, {1:d} ({2} {3})'.format(ind1, ind2, str(nvals), KMS)
-        print u' Region \t: {0} arcsec'.format(region)
-        print u' Channel width \t: {0:2.3f} {1}'.format(abs(Self.v_cdeltkms), KMS)
-        if Self.binned:
-            print 'Binning parameter : {0}'.format(Self.binned)
-    def fit_lines(Self, **args):
+        print u' RMS Region \t: {0} arcsec'.format(region)
+        print u' Channel width \t: {0:2.3f} {1}'.format(abs(self.v_cdeltkms), KMS)
+        if self.binned:
+            print 'Binning parameter : {0}'.format(self.binned)
+    def fit_lines(self, **args):
         """
         TODO : calculate errors for the fit etc, look at Kaper et al (1966)\
                 and Condon (1996)
@@ -2121,9 +2307,9 @@ class Spectrum:
         if 'error' not in fitting:
             # if no error is supplied, use the calculated
             # main class RMS
-            if hasattr(Self,'rms'):
-                fitting['error'] = Self.rms
-            elif  not hasattr(Self,'rms'):
+            if hasattr(self,'rms'):
+                fitting['error'] = self.rms
+            elif  not hasattr(self,'rms'):
                 errmsg = 'No error supplied.\n\
                 Either supply with {\'error\': VALUE} or cal\
                 calculate with Spect.calc_rms(nvals=[n1,n2,n3,n4])'
@@ -2137,12 +2323,12 @@ class Spectrum:
         sigma = lambda x: x/fwhmfromsig
         ##### fits 1D gaussian(s) to spectral data
         if 'chvals' in args: # if we supplied limits for the fit
-            ch = get_indices(Spect.v_arr,[kwargs['chvals']])
-            Fx = Self.d[ch]
-            X = Self.v_arr[ch]
+            ch = get_indices(self.v_arr,[args['chvals']])
+            Fx = self.d[ch]
+            X = self.v_arr[ch]
         else: # else use the eveything
-            Fx = Self.d
-            X = Self.v_arr
+            Fx = self.d
+            X = self.v_arr
         #
         p = fitting['params'] # parameters for the fit
         #
@@ -2177,8 +2363,12 @@ class Spectrum:
             print ' Done in %2.3f seconds' % (time()-t1)
             #
             print ' Number of fits : ', alen(Fit.params)/3
-            print ' Fit status : ', Fit.mp.status, '(if 0, it should have halted)'
-            print ' Chi2 : {0}, reduced : {1}\n'.format(Fit.chi2,Fit.chi2/float(len(Fx)))
+            print(' Fit status : ',
+                  Fit.mp.status,
+                  '(if 0, it should have halted)')
+            print(' Chi2 : {0}, reduced : {1}\n'.format(
+                                                    Fit.chi2,
+                                                    Fit.chi2/float(len(Fx))))
             # now, parse output of fitting and print it out on screen
             Fit.line_widths = []
             Fit.frequencies_fitted = []
@@ -2189,86 +2379,113 @@ class Spectrum:
             Fit.sum_intensities = []
             Fit.sum_intensities2 = []
             Fit.line_names = []
+            Fit.peak_intensities = []
+            Fit.error_gauss_intensities = []
             #
             Fit.nfits = alen(Fit.params)/3
             j = 0
+            from scipy import sqrt
             for i in arange(0,len(Fit.params),3):
                 # add 1 because channel 1 is in pos 0
-                half_fwhm = Fit.params[i+2]/2.
                 fwhm = Fit.params[i+2]
+                half_fwhm = fwhm/2.
+                ampl = Fit.params[i]
+                pos = Fit.params[i+1]
 
                 # first figure out the extent of the gaussian (the line)
                 # jump half a channel down and up so that it finds the correct channels
-                lower_half, upper_half = (Fit.params[i+1] + array([-1,1])*half_fwhm)
-                lower,upper = (Fit.params[i+1] + array([-1,1])*fwhm)
-                lower2,upper2 = (Fit.params[i+1] + array([-1,1])*fwhm*2)
+                lower_half, upper_half = (pos + array([-1,1])*half_fwhm)
+                lower,upper = (pos + array([-1,1])*fwhm)
+                lower2,upper2 = (pos + array([-1,1])*fwhm*2)
                 #channels = where((velocity>lower)*(velocity<upper))[0]+1
-                channels_half = get_indices(Self.v_arr,[lower_half,upper_half])
-                channels = get_indices(Self.v_arr,[lower,upper])
-                channels2 = get_indices(Self.v_arr,[lower2,upper2])
+                channels_half = get_indices(self.v_arr,
+                                            [lower_half,upper_half])
+                channels = get_indices(self.v_arr,[lower,upper])
+                channels2 = get_indices(self.v_arr,[lower2,upper2])
                 #draw_highlight_box(ax_kms, params[i+1], params[i+2]*3)
-                # apply v_sys correction, so that we use v_sys for estimating the correct
-                # frequency for the line, especially importat when using line-identification
-                frequency_fitted = calc_frequency(Fit.params[i+1],Self.restfreq/1e9)
-                frequency_corrected = calc_frequency(Fit.params[i+1]-Self.v_sys,Self.restfreq/1e9)
+                # apply v_sys correction,
+                #so that we use v_sys for estimating the correct
+                # frequency for the line,
+                #especially importat when using line-identification
+                frequency_fitted = calc_frequency(pos, self.restfreq/1e9)
+                frequency_corrected = calc_frequency(pos -
+                                            self.v_sys, self.restfreq/1e9)
                 Fit.line_widths.append(fwhm)
                 Fit.frequencies_corrected.append(frequency_corrected)
                 Fit.frequencies_fitted.append(frequency_fitted)
+                Fit.peak_intensities.append(self.d[channels2].max())
                 #
                 if hasattr(Fits, 'beameff') and hasattr(Fits, 'forweff'):
                     constant = Fits.forweff/Fits.beameff
                 else:
                     constant = 1
-                gauss_int = (sqrt(2*pi)*sigma(Fit.params[i+2])*Fit.params[i])*constant
-                sum_int = (Self.d[channels].sum()*Self.v_cdeltkms)*constant
-                sum_int2 = (Self.d[channels2].sum()*Self.v_cdeltkms)*constant
+                #gauss_int = (sqrt(2 * pi) *
+                #            sigma(Fit.params[i+2]) *
+                #            Fit.params[i])*constant
+                gauss_int = ampl*sigma(fwhm)*sqrt(2*pi)*constant
+                sum_int = (self.d[channels].sum()*abs(self.v_cdeltkms))*constant
+                sum_int2 = (self.d[channels2].sum()*abs(self.v_cdeltkms))*constant
                 Fit.gauss_intensities.append(gauss_int)
                 Fit.sum_intensities.append(sum_int)
                 Fit.sum_intensities2.append(sum_int2)
-                if hasattr(Self, 'lines'):
+                Fit.error_gauss_intensities.append(1.064 *
+                                sqrt((fwhm*Fit.errors[i])**2 +
+                                        (ampl*Fit.errors[i+2])**2))
+                if hasattr(self, 'lines'):
                     # frequency shift = rest frequency - measured frequency
                     # velocity shift  =  c (freq_shift/freq._rest)
                     # 'lines' contain the name and frequency of
                     # the identified lines, that is all the
                     # lines we're fitting
-                    print Self.lines[1][j],type(Self.lines[1][j])
-                    freq_shift = Self.lines[1][j] - frequency_fitted
-                    vel_shift = SOL * freq_shift/Self.lines[1][j] * 1E-3 # in kms
+                    # TODO : self.lines[1] are strings, change to floats
+                    #print self.lines[1][j],type(self.lines[1][j])
+                    freq_shift = self.lines[1][j] - frequency_corrected
+                    vel_shift = SOL * freq_shift/self.lines[1][j] * 1E-3 # in kms
                     Fit.freq_shifts.append(freq_shift)
                     Fit.vel_shifts.append(vel_shift)
-                    Fit.line_names.append(Self.lines[0][j])
+                    Fit.line_names.append(self.lines[0][j])
                 print  stylify('Fit number : {0}'.format(j+1),fg='g',bg='k')
                 intensity_string =\
-                u" Intensity: Fit= {0:2.4f}, Data= {1:2.4f} (\u00b1FWHM), {2:2.4f} (\u00b12*FWHM) {3}".format(gauss_int,sum_int,sum_int2,Self.unitint)
+                u" Intensity: \
+Fit= {0:2.4f}, Data= {1:2.4f} (\u00b1FWHM), \
+{2:2.4f} (\u00b12*FWHM) {3}".format(
+                                gauss_int,sum_int,sum_int2,self.unitint)
                 print intensity_string
                 parameter_string=\
-                u" Ampl= {0:2.3f} (\u00b1{1:2.3f}) {2}, Pos= {3:2.3f} (\u00b1{4:2.3f}) {5}".format(Fit.params[i],Fit.errors[i],Self.unit,Fit.params[i+1],Fit.errors[i+1],KMS)
+                u" Ampl= {0:2.3f} (\u00b1{1:2.3f}) {2}, \
+Pos= {3:2.3f} (\u00b1{4:2.3f} {5})".format(
+                                    Fit.params[i],
+                                    Fit.errors[i],
+                                    self.unit,
+                                    Fit.params[i+1],
+                                    Fit.errors[i+1],
+                                    KMS)
                 print stylify(parameter_string,fg='b')
                 print u" Width= {0:2.3f} (\u00b1{1:2.3f}) {2} (FWHM, \u03c3={3:2.3f})".format(Fit.params[i+2],Fit.errors[i+2],KMS,sigma(Fit.params[i+2]))
                 # calculate frequency and velocity offset if linelist exists
-                if hasattr(Self,'lines'):
+                if hasattr(self,'lines'):
                     # print offset (freq. & vel.)
-                    print "Id molecule : {0}".format(Self.lines[0][j])
+                    print "Id molecule : {0}".format(self.lines[0][j])
                     print u"Frequency shift : {0:2.5} GHz Vel shift : {1:5.5} {2}".format(freq_shift,vel_shift,KMS)
                 frequency_string =\
                 u' Frequency : {0:3.9f} GHz (v_sys corrected)'.format(frequency_corrected)
                 print stylify(frequency_string,fg='b')
                 print u' FWHM      : {0}, {1} ({2}) ([{3:.2f}, {4:.2f}] {5})'.format(channels_half.min(), channels_half.max(),(channels_half.max()-channels_half.min()+1), lower_half, upper_half,KMS)
                 print u' \u00b1FWHM   : {0}, {1} ({2}) ([{3:.2f}, {4:.2f}] {5})'.format(channels.min(), channels.max(), (channels.max()-channels.min()+1), lower,upper,KMS)
-                if Self.binned:
-                    channels_nobin = get_indices(Self.Original.v_arr,[lower,upper])
-                    channels_half_nobin = get_indices(Self.Original.v_arr,[lower_half,upper_half])
-                    print u'Original channels :\n \t FWHM width  : {0}, {1} (\u00b1FWHM)'.format(channels_half_nobin.min(), channels_half_nobin.max())
+                if self.binned:
+                    channels_nobin = get_indices(self.Original.v_arr,[lower,upper])
+                    channels_half_nobin = get_indices(self.Original.v_arr,[lower_half,upper_half])
+                    print u'Original channels :\n \t FWHM width  : {0}, {1} (\u00b1 1/2FWHM)'.format(channels_half_nobin.min(), channels_half_nobin.max())
                     print  u' \t \u00b1FWHM width : {0}, {1} ({2})  \n'.format(channels_nobin.min(), channels_nobin.max(),(channels_nobin.max()-channels_nobin.min()+1))
                 j+=1
             #
             Fit.line_widths = array(Fit.line_widths)
             print 20*'- '
-            print u'Mean FWHM : {0:2.1f} \u00b1{1:2.2f} km\u00b7s\u207b\u00b9'.format(Fit.line_widths.mean(),Fit.line_widths.std())
-            Fit.xarr = arange(X[0],X[-1],(diff(X)[0]/3))
-            # lastly get the Fit class into the Spectrum class (Self)
-            Self.Fit = Fit
-    def identify_lines(Self, writetofile=0,**args):
+            print u'Mean FWHM : {0:2.1f} \u00b1{1:2.2f} km\u00b7s\u207b\u00b9\n'.format(Fit.line_widths.mean(),Fit.line_widths.std())
+            Fit.xarr = arange(X[0],X[-1],(diff(X)[0]/4))
+            # lastly get the Fit class into the Spectrum class (self)
+            self.Fit = Fit
+    def identify_lines(self,**args):
         # later when the kwargs is implemented...
         # checks that we have done a fit first
         #if not kwargs['linefit']:
@@ -2279,10 +2496,13 @@ class Spectrum:
         # so that it works with both a native fit, and with supplied
         # frequencies
         #
-        if not hasattr(Self,'Fit'):
+        #print args
+        if not args.has_key('writetofile'):
+            args['writetofile'] = 0
+        if not hasattr(self,'Fit'):
             print_warning('Spectrum not fitted, aborting line id')
             raise ParError('linefit - need to fit lines')
-        if hasattr(Self,'lines'):
+        if hasattr(self,'lines'):
             print_warning('Line list exists, overwriting...')
         # now import the splatsearch module and other stuff
         import splatsearch as spl
@@ -2294,42 +2514,53 @@ class Spectrum:
         else:
             nfwhm =1.5
         print nfwhm
-        for i in arange(0,len(Self.Fit.params),3):
+        for i in arange(0,len(self.Fit.params),3):
             # correct for v_sys, to get correct frequency for the
             # correct frequency range in the splatalogue search
             # when calculating the "correct" frequency, we subtract v_sys
-            vel_lower, vel_upper = (Self.Fit.params[i+1]-Self.v_sys + array([-1,1])*Self.Fit.params[i+2]*nfwhm)
+            vel_lower, vel_upper = (self.Fit.params[i+1] -
+                                    self.v_sys +
+                                    array([-1,1]) *
+                                    self.Fit.params[i+2] *
+                                    nfwhm)
             # frequency increases when velocity decreases...
-            freq_lower = calc_frequency(vel_upper,Self.restfreq/1e9)
-            freq_upper = calc_frequency(vel_lower,Self.restfreq/1e9)
+            freq_lower = calc_frequency(vel_upper,self.restfreq/1e9)
+            freq_upper = calc_frequency(vel_lower,self.restfreq/1e9)
             frequency_pairs.append([freq_lower,freq_upper])
         list_of_species = []
         list_of_frequencies = []
         number = 1
         lineids = []
-        if writetofile:
-            with open(writetofile,'w') as f:
+        if args['writetofile']:
+            with open(args['writetofile'],'w') as f:
                 f.write('#Results file for Line ID\n#ADAVIS.py - Magnus Persson\n')
-                f.write('{0:15} {1:10} {2:10} {3:10}\n'.format('Species','Frequency','Smu2','Eu(K)'))
+                f.write('#{0:15} {1:10} {2:10} {3:10}   {4:20}\n'.format('Species','Frequency','Smu2','Eu(K)','UResQNr'))
         for i in arange(len(frequency_pairs)):
             tmpspecies, tmpfreq = [],[]
-            df=8e-3 # range to find line
+            #~ df=8e-3 # range to find line
             CSI = "\x1b["
             start =CSI+'1m'+CSI+'32m'+CSI+'40m'
             end = CSI+'m'
             print '\n'+start+'Line number : '+str(number)+'\t\t\t\t'+end
-            print 'Frequency : {0}  GHz'.format(Self.Fit.frequencies_corrected[i])
+            print 'Frequency : {0}  GHz'.format(self.Fit.frequencies_corrected[i])
             # N, species, name, freq, freqerr, freqtype, cfreq, cfreqerr,
             # mfreq, mfreqerr, res_qns (10), ures_qns, cdmsjpl_I, Smu2, Sij,
             # log10Aij, lovasAST_I, ELcm, ELK, EUcm, EUK, u_degen, \
             # mol_tag, QNr, llist
-            result = spl.splatsearch(freq=frequency_pairs[i], send=1, display=1, linelist=['jpl','cdms'], e_to=500)
-            if writetofile:
-                with open(writetofile,'a') as f:
+            result = spl.splatsearch(
+                        freq=frequency_pairs[i],
+                        send=1,
+                        display=1,
+                        linelist=['jpl','cdms'],
+                        e_to=500)
+            if args['writetofile']:
+                with open(args['writetofile'],'a') as f:
                     f.write('\n# Line no. {0}\n'.format(i+1))
             if result!=None:
                 species, freq = result[1],result[3]
                 smu2, eu = result[13], result[20]
+                uresqnr = result[10]
+                llist = result[24]
                 for j in arange(len(freq)):
                     list_of_species.append(species[j])
                     list_of_frequencies.append(freq[j])
@@ -2344,24 +2575,175 @@ class Spectrum:
                         #~ list_of_frequencies.append(freq[i])
                     #~ else:
                         #~ pass
-                    if writetofile:
-                        with open(writetofile,'a') as f:
-                            #~ for name,freq in zip(species[j],freq[j]):
-                            f.write('{0:15} {1: <10} {2:>10} {3:>10}\n'.format(species[j],freq[j],smu2[j],eu[j]))
+                    if args['writetofile']:
+                        with open(args['writetofile'],'a') as f:
+                            f.write(
+                                '{0:20}  {1: <10}  {2:>10}  {3:>10}   {4:<25}  \
+{5}\n'.format(species[j],freq[j],smu2[j],eu[j],uresqnr[j],llist[j]))
                 lineids.append([tmpspecies,tmpfreq])
             else:
-                with open(writetofile,'a') as f:
-                    f.write('NO LINES\n')
+                if args['writetofile']:
+                    with open(args['writetofile'],'a') as f:
+                        f.write('NO LINES\n')
                 print('No lines found...')
             number+=1
             # done now define the linelist
-        Self.lines = [list_of_species,list_of_frequencies]
-        Self.lineids = lineids
+        self.lines = [list_of_species,list_of_frequencies]
+        self.lineids = lineids
+
+
+class Radex:
+    """
+    Input (* = mandatory input)
+    *f      : Frequency - frequency of line (in GHz)
+    df      : Uncertainty of line position (defaults to 20 MHz)
+    *tkin   : Kinetic temperature  - one or array (Kelvin)
+    *h2dens: H2 density - in cm-3 - one or array (Kelvin)
+    tbg     : Background temperature - defaults to 2.73 K
+    *oflux  : Observed flux in K km/s, to compare
+    *lwidth : Line width (FWHM)
+    *molf   : Molecular data file (LAMBDA format)
+    ftol    : How close can the flux be for it to be the same? (0.1)
+    maxiter : Maximum number of iterations (100)
+    eps     : Below what is zero or negative line intensity (1E-20)
+    cdens   : First guess molecular line density (1e12)
+    debug   : Output debug messages? (Boolean)
+    """
+    def __init__(self, **kwargs):
+        """
+        The program will take arrays as input.
+        So fx if you initialize it with
+        Radex(f = 100, tkin = arange(10), h2dens = 1e9, cdens=)
+
+        """
+        from scipy import array, arange
+        import os
+        #~ from multiprocessing import Pool
+        # check input parameters and store in class
+        # and raise ParError if wrong/missing
+        params = array(['f', None, 'df', 0.02, 'tkin', None,
+                        'h2dens', None, 'tbg', 2.73, 'oflux', None,
+                        'lwidth', None, 'molf', None, 'tol', 0.1,
+                        'maxiter', 100, 'eps', 1.0e-20, 'cdinit', 1E12,
+                        'debug', False])
+        for par,stdval in zip(params[0::2],params[1::2]):
+            if par in kwargs:
+                if par == 'molf':
+                    self.molf = kwargs['molf']
+                elif par == 'tkin':
+                    if type(kwargs[par]) in [type([]), type(arange(1))]:
+                        self.tovary = 'tkin'
+                        self.tkin = kwargs[par]
+                    else:
+                        self.tkin = kwargs[par]
+                elif par == 'h2dens':
+                    if type(kwargs[par]) in [type([]), type(arange(1))]:
+                        if hasattr(self, 'tovary'):
+                            raise Exception('\'tkin\' and \'h2dens\' ',
+                                        'are both arrays, only one can',
+                                        ' be varied at a time')
+                        self.tovary = 'h2dens'
+                        self.h2dens = kwargs[par]
+                    else:
+                        self.h2dens = kwargs[par]
+                else:
+                    exec('self.{0} = {1}'.format(par, kwargs[par]))
+            else:
+                if stdval != None:
+                    exec('self.{0} = {1}'.format(par, stdval))
+                    print('Using default value '
+                        'of {0} for {1}'.format(stdval, par))
+                else:
+                    raise ParError(par)
+    def __str__(self):
+        out_string = (40*'='+'\n'+
+                        'Frequency  : {0} GHz\n'.format(self.f)+
+                        'Bandwidth  : {0} MHz\n'.format(self.df*1E3)+
+                        'Kinetic T  : {0} K\n'.format(self.tkin)+
+                        'H2 density : {0} cm-3\n'.format(self.h2dens)+
+                        'Tbg        : {0} K\n'.format(self.tbg)+
+                        'Obs. Flux  : {0} K km s-1\n'.format(self.oflux)+
+                        'Line width : {0} km s-1\n'.format(self.lwidth)+
+                        'Moldata    : {0} \n'.format(self.molf)+
+                        'Tolerance  : {0} \n'.format(self.tol)+
+                        'Max. inter : {0} \n'.format(self.maxiter)+
+                        'Eps        : {0} \n'.format(self.eps)+
+                        'Init Cdens : {0} \n'.format(self.cdinit)+
+                        'Debug      : {0}'.format(self.debug))
+        return out_string
+    def _create_input(self):
+        with open('radex.inp','w') as f:
+            f.write('{0}\n'.format(self.molf))
+            f.write('radex.out\n')
+            f.write('{0} {1}\n'.format((self.f-self.df),
+                                        (self.f+self.df)))
+            f.write('{0}\n'.format(self.tkin))
+            f.write('1\n')
+            f.write('H2\n')
+            f.write('{0:3.2E}\n'.format(self.h2dens))
+            f.write('{0}\n'.format(self.tbg))
+            f.write('{0:3.2E}\n'.format(self.cdinit))
+            f.write('{0}\n'.format(self.lwidth))
+            f.write('0\n')
+    def _read_output(self):
+        import sys
+        with open('radex.out', 'r') as f:
+            lines = f.readlines()
+        if (lines[-2].split()[-1] != '(erg/cm2/s)'):
+            print "Error: Ambiguous line selection. Reduce bandwidth?"
+            print "See radex.out for details"
+            sys.exit()
+        return float(lines[-1].split()[-2])
+    def _find_cdens(self):
+        import os
+        ratio = 0
+        iteration = 0
+        while (ratio > (1+self.tol)) or (ratio < (1-self.tol)) :
+            iteration += 1
+            self._create_input()
+            os.system('radex < radex.inp > /dev/null')
+            mflux  = self._read_output()
+            if (mflux < self.eps):
+                msg = ("Zero or negative line intensity\n"
+                        "See radex.out for details")
+                raise Exception(msg)
+            if self.debug:
+                print "mflx= ",mflux
+            ratio = self.oflux/mflux
+            self.cdinit *= ratio
+            if (iteration > self.maxiter):
+                print "Maximum number of iterations exceeded"
+                ratio = 1
+        self.mflux = mflux
+        return self.cdinit
+    def run_model(self):
+        from scipy import arange, array
+        #
+        #
+        if self.tovary == 'tkin':
+            tkin_inp = self.tkin
+            self.cdens = []
+            print 'Running model and varying kinetic temperature.'
+            for i in tkin_inp:
+                self.tkin = i
+                self.cdens.append(self._find_cdens())
+            self.tkin = array(tkin_inp)
+        elif self.tovary == 'h2dens':
+            h2dens_inp = self.h2dens
+            self.cdens = []
+            print 'Running model and varying H2 density.'
+            for i in h2dens_inp:
+                self.h2dens = i
+                self.cdens.append(self._find_cdens())
+            self.h2dens = array(h2dens_inp)
+        self.cdens = array(self.cdens)
+        print 'Done!'
+
 
 ###########################################
 # MAIN FUNCTIONS
 
-def plot_spectrum (Self,
+def plot_spectrum (self,
     region=[0,0,0,0],
     source = dict(),
     show_freq=False,
@@ -2497,7 +2879,7 @@ def plot_spectrum (Self,
     from scipy import array, where, median, std, sign, arange, alen, vstack, \
                     concatenate, sqrt, log10, exp, log, ceil, floor, diff, \
                     flipud, pi, nan
-    from string import lower
+    #from string import lower
     import matplotlib.pyplot as pl
     from mpl_toolkits.axes_grid1 import AxesGrid
     #from matplotlib.patches import Circle
@@ -2522,7 +2904,7 @@ def plot_spectrum (Self,
     #~ inputdict = dict(region=region)
     # create the spectrum object
     inputargs = args
-    Spect = Spectrum(Self,region=region, **inputargs)
+    Spect = Spectrum(self,region=region, **inputargs)
     if binning>1:
         if bintype=='resample':
             Spect.bin_spectrum(binning=binning,bintype=bintype)
@@ -2531,9 +2913,11 @@ def plot_spectrum (Self,
     # calculate RMS
     #~ print args
     if 'nvals' in args:
-        Spect.calc_rms(Self,nvals=args['nvals'])
+        Spect.calc_rms(self,nvals=args['nvals'])
     else:
         pass
+    if 'linefit' in args:
+        Spect.fit_lines(linefit=args['linefit'])
     # fit data?
     #~ if 'linefit' in args:
         #~ Spect.fit
@@ -2547,12 +2931,12 @@ def plot_spectrum (Self,
 
     # OLD CODE IN COMMENT BELOW
     """
-    #Self.freqarr = calc_frequency(Self.v_arr,Self.restfreq)
+    #self.freqarr = calc_frequency(self.v_arr,self.restfreq)
     #
     # parse the region parameter
     # does it exist?
     # now parse the region keyword
-    x1,x2,y1,y2 = parse_region(Self, region)
+    x1,x2,y1,y2 = parse_region(self, region)
     #
     # now start the plotting
     """
@@ -2561,13 +2945,13 @@ def plot_spectrum (Self,
     #      extract the spectra        #
     ###################################
     """
-    if Self.datatype[0] != 'SDSPECT': # if it is a cube
+    if self.datatype[0] != 'SDSPECT': # if it is a cube
         area_region = ((y2-y1)*(x2-x1))
-        spect = (Self.d[:,y1:y2,x1:x2].sum(axis=1).sum(axis=1))/float(area_region)
-    elif Self.datatype[0] == 'SDSPECT': # if it is a single dish spectra
+        spect = (self.d[:,y1:y2,x1:x2].sum(axis=1).sum(axis=1))/float(area_region)
+    elif self.datatype[0] == 'SDSPECT': # if it is a single dish spectra
         area_region = 1
         print stylify("SD-SPECTRUM - region keyword not doing anything.",fg='r')
-        spect = Self.d
+        spect = self.d
     """
     ####################################
     #          binning of data         #
@@ -2582,7 +2966,7 @@ def plot_spectrum (Self,
             spect = congrid(spect,(alen(spect)/binning,),centre=True, method='neighbour')
             velocity = congrid(velocity,(alen(velocity)/binning,))
             #
-            velocity_delta = Self.v_cdeltkms*binning
+            velocity_delta = self.v_cdeltkms*binning
         elif lower(bintype) == 'mean':
             if alen(spect)%binning!=0:
                 print 'Bin has to be evenly devide the number of channels: %d' % alen(spect)
@@ -2592,7 +2976,7 @@ def plot_spectrum (Self,
             spect = array([spect[x:x+binning].sum(axis=0)/binning for x in indices])
             velocity = array([velocity[x:x+binning].sum(axis=0)/binning for x in indices])
             #
-            velocity_delta = Self.v_cdeltkms*binning
+            velocity_delta = self.v_cdeltkms*binning
         elif binning == 0 or binning <0:
             print stylify("\nERROR:\n Variable \"bin\" has to be 1 for no binning, or above 1 \n\
             for the number of channels to bin")
@@ -2622,20 +3006,20 @@ def plot_spectrum (Self,
         # change x1,x2,y1,y2 to quarter region
         # change so that when binning, the rms i calculated
         # x1,x2
-        if Self.datatype[0] == 'SDSPECT':
-            rms = sqrt(((Self.d[get_indices(velocity,args['nvals'])])**2).mean()/float(binning))
+        if self.datatype[0] == 'SDSPECT':
+            rms = sqrt(((self.d[get_indices(velocity,args['nvals'])])**2).mean()/float(binning))
         else:
-            zlen, ylen, xlen = Self.d.shape
+            zlen, ylen, xlen = self.d.shape
             ydelt = ylen/6
             xdelt = xlen/6
             i1,i2 = xlen/2-xdelt, xlen/2+xdelt
             j1,j2 = ylen/2-ydelt, ylen/2+ydelt
-            rms = sqrt(((Self.d[get_indices(velocity,args['nvals']),j1:j2,i1:i2])**2).mean()/float(binning))
+            rms = sqrt(((self.d[get_indices(velocity,args['nvals']),j1:j2,i1:i2])**2).mean()/float(binning))
         rms_mjy = rms*1e3
         #rms_0 = sqrt(((spect[get_indices(velocity,args['nvals'])])**2).mean())
-        #rms_2 = sqrt(((Self.d[get_indices(velocity,args['nvals']),:,:])**2).mean())
+        #rms_2 = sqrt(((self.d[get_indices(velocity,args['nvals']),:,:])**2).mean())
 
-        #rms_0= rms/sqrt(abs(Self.v_cdeltkms))
+        #rms_0= rms/sqrt(abs(self.v_cdeltkms))
         #print rms_0
         #print 'rms_0 =', rms_0*1e3
         #print 'rms_2 =', rms_2*1e3
@@ -2748,14 +3132,14 @@ def plot_spectrum (Self,
                 lower_half, upper_half = (params[i+1] + array([-1,1])*half_fwhm)
                 lower,upper = (params[i+1] + array([-1,1])*fwhm)
                 #channels = where((velocity>lower)*(velocity<upper))[0]+1
-                channels_half_nobin = get_indices(Self.v_arr,[lower_half,upper_half])
-                channels_nobin = get_indices(Self.v_arr,[lower,upper])
+                channels_half_nobin = get_indices(self.v_arr,[lower_half,upper_half])
+                channels_nobin = get_indices(self.v_arr,[lower,upper])
                 channels_half = get_indices(velocity,[lower_half,upper_half])
                 channels = get_indices(velocity,[lower,upper])
                 #draw_highlight_box(ax_kms, params[i+1], params[i+2]*3)
                 # apply v_sys correction, so that we use v_sys for estimating the correct
                 # frequency for the line, especially importat when using line-identification
-                frequency = calc_frequency(params[i+1]-v_sys,Self.restfreq/1e9)
+                frequency = calc_frequency(params[i+1]-v_sys,self.restfreq/1e9)
                 frequencies.append(frequency)
                 print  'Fit number : %i' % j
                 print  ' Intensity : %2.4f \t=calculate it=' % (sqrt(2*pi)*sigma(params[i+2])*params[i]) # the area under the 1D Gaussian
@@ -2779,7 +3163,7 @@ def plot_spectrum (Self,
                 #~ j = 1
                 #~ f = []
                 #~ for i in arange(1,len(params),3):
-                    #~ nu = calc_frequency(params[i]-v_sys,Self.restfreq/1e9)
+                    #~ nu = calc_frequency(params[i]-v_sys,self.restfreq/1e9)
                     #~ f.append(nu)
                     #~ print '%3.9f' % nu
                     #~ j+=1
@@ -2811,8 +3195,8 @@ def plot_spectrum (Self,
                         # when calculating the "correct" frequency, we subtract v_sys
                         vel_lower, vel_upper = (params[i+1]-v_sys + array([-1,1])*params[i+2]*1.5)
                         # frequency increases when velocity decreases...
-                        freq_lower = calc_frequency(vel_upper,Self.restfreq/1e9)
-                        freq_upper = calc_frequency(vel_lower,Self.restfreq/1e9)
+                        freq_lower = calc_frequency(vel_upper,self.restfreq/1e9)
+                        freq_upper = calc_frequency(vel_lower,self.restfreq/1e9)
                         frequency_pairs.append([freq_lower,freq_upper])
                     list_of_species = []
                     list_of_frequencies = []
@@ -2849,23 +3233,24 @@ def plot_spectrum (Self,
     ####################################
     if send:
         return Spect
+    #    return Spect
         #~ if nvals!=None and linefit['type']!=None: # send everything!
         #~ if 'nvals' in args and 'type' in args: # send everything!
             #~ txt = '\n sending you spectra, v_arr, data, noise-spectra'
             #~ print stylify(txt,fg='g')
-            #~ return spect, velocity, Self, Tmp
+            #~ return spect, velocity, self, Tmp
         #~ elif linefit['type']=='gauss': # gaussian fitting
             #~ txt = '\n sending you spect, v_arr, data'
             #~ print stylify(txt,fg='g')
-            #~ return spect, velocity, Self, Tmp
+            #~ return spect, velocity, self, Tmp
         #~ elif 'nvals' in args and 'type' not in linefit: # no fit but noise
             #~ txt =  '\n sending you spect, v_arr, data, noise-spectra'
             #~ print stylify(txt,fg='g')
-            #~ return spect, velocity, Self, spect[get_indices(velocity,args['nvals'])]
+            #~ return spect, velocity, self, spect[get_indices(velocity,args['nvals'])]
         #~ else: # well non of them are supplied
             #~ txt =  '\n sending you spectra, v_arr, data'
             #~ print stylify(txt,fg='g')
-            #~ return spect, velocity, Self
+            #~ return spect, velocity, self
     # use set_rc here!
     #set_rc
 
@@ -2894,13 +3279,13 @@ def plot_spectrum (Self,
     """
     PLOTTING NOT ACCOUNTING FOR BINNING!!!
     Just overwrite old value and add a flag binned True or False
-    Done?
+    DONE?
 
     """
     # now correct so that negative values are to the left
     if Spect.v_cdelt<0:
         ax_kms.step(flipud(Spect.v_arr), flipud(Spect.d), 'k',  where='mid')
-    elif Self.v_cdelt>=0:
+    elif self.v_cdelt>=0:
         ax_kms.step(Spect.v_arr, Spect.d, 'k', where='mid')
     # if we want som space in the figure
     cx1 = axspace[0]
@@ -2920,8 +3305,8 @@ def plot_spectrum (Self,
     #
     # plot dotted lines at y=0
     # and x=0 if v_sys is in the range that we plot
-    if (Spect.v_arr<Self.v_sys).any()*(Spect.v_arr>Self.v_sys).any() or (Spect.v_arr==Self.v_sys).any():
-        ax_kms.plot([xmin-10,xmax+10],[0,0],'g:',[Self.v_sys,Self.v_sys],[ymin-1,ymax+1],'g:')
+    if (Spect.v_arr<self.v_sys).any()*(Spect.v_arr>self.v_sys).any() or (Spect.v_arr==self.v_sys).any():
+        ax_kms.plot([xmin-10,xmax+10],[0,0],'g:',[self.v_sys,self.v_sys],[ymin-1,ymax+1],'g:')
     else:
         ax_kms.plot([xmin-10,xmax+10],[0,0],'g:')
     #####################
@@ -2941,26 +3326,35 @@ def plot_spectrum (Self,
     # just so we se something! :)
     ax_kms.set_ylim(ymin,ymax); ax_kms.set_xlim(xmin,xmax);pl.draw()
     if 'linefit' in args:
-        Spect.fit_lines(linefit=args['linefit'])
+        #Spect.fit_lines(linefit=args['linefit'])
         # what if the fitting fails, no "Fit" subclass is created!
+        j=1
         for i in arange(0,len(Spect.Fit.params),3):
             lower,upper = (Spect.Fit.params[i+1] + array([-1,1])*Spect.Fit.params[i+2]*4)
             channels = get_indices(Spect.Fit.xarr,[lower,upper])
             ax_kms.plot(Spect.Fit.xarr[channels], gauss1d(Spect.Fit.xarr[channels],Spect.Fit.params[i:i+3]))
-            #draw_highlight_box(ax_kms, Spect.Fit.params[i+1], Spect.Fit.params[i+2]*2)
+            ax_kms.text(Spect.Fit.params[i+1],
+                        -5*Spect.rms,
+                        str(j),
+                        verticalalignment='top',
+                        horizontalalignment='center')
+            j += 1
+            draw_highlight_box(ax_kms, Spect.Fit.params[i+1], Spect.Fit.params[i+2]*2)
         ax_kms.plot(Spect.Fit.xarr, gauss1d(Spect.Fit.xarr,Spect.Fit.params), color='0.2', lw=1, alpha=0.6)
         pl.draw()
         if args['linefit'].has_key('lineid'):
             if 'lines' in args:
                 print_warning('You have supplied a lines keyword, this will be ignored now')
-            if args['linefit'].has_key('writetofile'):
-                writetofile = args['linefit']['writetofile']
-            else:
-                writetofile=0
-            Spect.identify_lines(writetofile=writetofile,**args['linefit']['lineid'])
+            #if args['linefit']['lineid'].has_key('writetofile'):
+            #    writetofile = args['linefit']['lineid']['writetofile']
+            #else:
+            #    args['linefit']['lineid']['writetofile'] = 0
+            Spect.identify_lines(**args['linefit']['lineid'])
     if hasattr(Spect,'lines'):
         print u'Marking the lines, using %2.2f km\u00b7s\u207b\u00b9' % Spect.v_sys
+        #~ print Spect.lines
         lines = parse_linelist(Spect.lines)
+        #~ print lines
         #~ print Spect.lines, lines
         # add v_sys so that it plots it at the right v_sys
         #~ if len(lines) == 2:
@@ -2968,13 +3362,16 @@ def plot_spectrum (Self,
         #~ print Spect.lines
         #~ print lines
         #~ print [float(lines[i+1]) for i in arange(0, len(lines), 2)]
-        v = array([calc_vlsr(float(lines[i+1])*1e9,Self.restfreq)+Self.v_sys for i in arange(0, len(lines), 2)])
-        colors = ['k']*len(lines)
+        #~ print lines
+        v = array([calc_vlsr(float(lines[1][i])*1e9,self.restfreq)+self.v_sys for i in arange(0, len(lines[1]))])
+        colors = ['k']*len(lines[1])
         x = 0
-        for i,j in zip(arange(0, len(lines), 2), arange(0, len(lines),1)):
+        for i in arange(len(lines[1])):
             # only check for lines behind the new line
-            no_dbl = len(where(array(v)[0:j].round(0) == round(v[j],0))[0])
-            put_line_indicator(ax_kms, Spect.v_arr, Spect.d, v[j], lines[i],lc=colors[x], offset=no_dbl, text_color=colors[x])
+            # change this so that it takes the number of channels away
+            # check lineid_plot.py script for inspiration
+            no_dbl = len(where(array(v)[:i+1].round(0) == round(v[i],0))[0])
+            put_line_indicator(ax_kms, Spect.v_arr, Spect.d, v[i], lines[0][i],lc=colors[x], offset=no_dbl, text_color=colors[x])
             #put_line_indicator(ax_kms, velocity, spect, v[j], lines[i],lc='k', offset=no_dbl)
             # verbose output
             #print u'Line %1d : %2.2f\t km\u00b7s\u207b\u00b9 (%2.3f)' % (j+1,v[j],v[j]+obj_dict['vsys'])
@@ -2989,13 +3386,14 @@ def plot_spectrum (Self,
         #~ ax_kms.set_ylim(ymin,ymax)
     if ylimits!=None:
         ax_kms.set_ylim(ylimits)
-    #ax_kms.set_title(Self.obj)
-    ax_kms.text(0.07,0.87 ,Self.obj, transform=ax_kms.transAxes)
+    #ax_kms.set_title(self.obj)
+    ax_kms.text(0.07,0.87 ,self.obj, transform=ax_kms.transAxes)
     ax_kms.set_xlabel('$v$ [km s$^{-1}$]')
-    if Self.unit=='Jy/beam':
-        ax_kms.set_ylabel('$I$ [Jy beam$^{-1}$]')
-    else:
-        ax_kms.set_ylabel('$I$ ['+Self.unit+']')
+    #~ if self.unit=='Jy/beam':
+        #~ ax_kms.set_ylabel('$I$ [Jy beam$^{-1}$]')
+    #~ else:
+        #~ ax_kms.set_ylabel('$I$ ['+self.unit+']')
+    ax_kms.set_ylabel('$I$ ['+self.unit+']')
     # to show the channel numbers
     if show_freq==True:
         # create the frequency axis
@@ -3014,7 +3412,7 @@ def plot_spectrum (Self,
 
         x_1, x_2 = ax_kms.get_xlim()
         # i want the frequency in GHz so, divide by 1e9
-        ax_hz.set_xlim(calc_frequency(x_1,Self.restfreq/1e9), calc_frequency(x_2,Self.restfreq/1e9))
+        ax_hz.set_xlim(calc_frequency(x_1,self.restfreq/1e9), calc_frequency(x_2,self.restfreq/1e9))
         pl_top -= 0.1
         pl.xticks(rotation=40,horizontalalignment ='left')
     #
@@ -3032,15 +3430,15 @@ def plot_spectrum (Self,
     #pl.show()
     #pl.draw()
     pl.subplots_adjust(left=pl_left, bottom=pl_bottom, right=pl_right, top=pl_top)
-    #~ return spect, velocity, Self, Tmp
+    #~ return spect, velocity, self, Tmp
     #
     #
     # LASTLY modify the indata object so that it has the spectrum (and fits)
-    Self.Spect = Spect
+    self.Spect = Spect
 
 #
 # new!
-def plot_moment_map (Self, moment,
+def plot_moment_map (self, moment,
                 chvals=None,
                 nvals=None,
                 region=[0,0,0,0],
@@ -3106,7 +3504,7 @@ def plot_moment_map (Self, moment,
 
 
 # old
-def plot_moment0 (Self,
+def plot_moment0 (self,
                 cfile=None,
                 chvals=None,
                 nvals=None,
@@ -3181,45 +3579,45 @@ def plot_moment0 (Self,
         pl_right*=1.2
         pl_bottom*=2
     # parse the region, get the area for the spectra
-    x1,x2,y1,y2 = parse_region(Self, region)
+    x1,x2,y1,y2 = self.parse_region(region)
     # if any is limits are None, draw spectra and ask for them/it
     # INTERACTIVE
-    if hasattr(Self,'rms'):
+    if hasattr(self,'rms'):
         pass
-    elif nvals==None or chvals==None: # if Self.rms does not exist and nvals not given
+    elif nvals==None or chvals==None: # if self.rms does not exist and nvals not given
         # draw spectrum
-        plot_spectrum(Self,region=region, source= source)
+        plot_spectrum(self,region=region, source= source)
         #
         chvals, nvals = get_vals(chvals=chvals, nvals=nvals)
         if nvals==None: # if no nvals where still not given...
-            n1 = Self.v_arr.min()+5*abs(Self.v_cdeltkms)
-            n2 = v1-5*abs(Self.v_cdeltkms)
-            n3 = v2+5*abs(Self.v_cdeltkms)
-            n4 =  Self.v_arr.max()-5*abs(Self.v_cdeltkms)
+            n1 = self.v_arr.min()+5*abs(self.v_cdeltkms)
+            n2 = chvals[0]-5*abs(self.v_cdeltkms)
+            n3 = chvals[1]+5*abs(self.v_cdeltkms)
+            n4 =  self.v_arr.max()-5*abs(self.v_cdeltkms)
             nvals = [n1, n2, n3, n4]
         #
-        Self.calc_rms(nvals, rms_area)
-    else: # if nvals was given and Self.rms does not exist
-        Self.calc_rms(nvals, rms_area)
+        self.calc_rms(nvals, rms_area)
+    else: # if nvals was given and self.rms does not exist
+        self.calc_rms(nvals, rms_area)
     #
     ### for the plotting box
-    ylen, xlen = Self.d[0].shape
-    ycoords = arange(-ylen/2,ylen/2,1)*Self.dec_cdelt
-    xcoords = arange(-xlen/2,xlen/2,1)*Self.ra_cdelt
+    ylen, xlen = self.d[0].shape
+    ycoords = arange(-ylen/2,ylen/2,1)*self.dec_cdelt
+    xcoords = arange(-xlen/2,xlen/2,1)*self.ra_cdelt
     # for the extent keyword
     #~ left, right = xcoords[0],xcoords[-1]
     #~ bottom, top = ycoords[0],ycoords[-1]
-    left,right,bottom,top = Self.extent
+    left,right,bottom,top = self.extent
     # set plot boundaries
     if box == [0,0]:
         i1,i2 = left,right
         j1,j2 = bottom,top
     elif box != [0,0]:
-        i1,i2 = array([-1,1])*box[0]/2.*sign(Self.ra_cdelt)
-        j1,j2 = array([-1,1])*box[1]/2.*sign(Self.dec_cdelt)
+        i1,i2 = array([-1,1])*box[0]/2.*sign(self.ra_cdelt)
+        j1,j2 = array([-1,1])*box[1]/2.*sign(self.dec_cdelt)
 
-    #~ moments, [moment0_sigma, moment0_min, moment0_max], img_channels, levels = calc_moments(Self, chvals=chvals, nvals=nvals, nsig=nsig, nsjump=nsjump, negcontours=negcontours, rms=rms)
-    Mom = Moments(Self, chvals=chvals, nsig=nsig)
+    #~ moments, [moment0_sigma, moment0_min, moment0_max], img_channels, levels = calc_moments(self, chvals=chvals, nvals=nvals, nsig=nsig, nsjump=nsjump, negcontours=negcontours, rms=rms)
+    Mom = Moments(self, chvals=chvals, nsig=nsig)
     #
     # now create the levels for the contours
     if negcontours:
@@ -3246,7 +3644,7 @@ def plot_moment0 (Self,
     print ' '*8,'INFORMATION : Line data'
     print '='*40
     print '\n Summing from channel %3d to %3d' % (Mom.channels.min(), Mom.channels.max())
-    print ' RMS \t\t: %2.3f \tmJy/beam/channel\n Sigma \t\t: %2.3f \tmJy/beam/km/s' % (1e3*Self.rms, 1e3*Mom.sigma)
+    print ' RMS \t\t: %2.3f \tmJy/beam/channel\n Sigma \t\t: %2.3f \tmJy/beam/km/s' % (1e3*self.rms, 1e3*Mom.sigma)
     print ' Map min/max \t: %2.2f/%2.2f \tmJy/beam/km/s' % (1e3*Mom.minimum, 1e3*Mom.maximum)
     print ' Start sigma \t: %2.3f (%1.1f) \tmJy/beam/km/s\n Sigma step \t: %2.3f (%1.1f) \tmJy/beam/km/s\n' % (1e3*nsig*Mom.sigma, nsig, 1e3*nsjump*Mom.sigma, nsjump)
     #
@@ -3278,10 +3676,10 @@ def plot_moment0 (Self,
     print ' '*15,'BEAM(S)'
     print '='*40
     print 'Line cube:'
-    print u' Minor (FWHM)\t: %2.3f \tasec' % Self.bmin
-    print u' Major (FWHM)\t: %2.3f  \tasec' % Self.bmaj
-    print ' PA \t\t: %2.3f \tDegrees (0<theta<180)' % Self.bpa
-    print u' Gain\t\t: %2.4f \tJy\u00b7K\u207b\u00b9\n' % Self.gain
+    print u' Minor (FWHM)\t: %2.3f \tasec' % self.bmin
+    print u' Major (FWHM)\t: %2.3f  \tasec' % self.bmaj
+    print ' PA \t\t: %2.3f \tDegrees (0<theta<180)' % self.bpa
+    print u' Gain\t\t: %2.4f \tJy\u00b7K\u207b\u00b9\n' % self.gain
     #
     # plot the continuum data
     #~ if cfile != None:
@@ -3303,22 +3701,22 @@ def plot_moment0 (Self,
         # just contours
         levs = levs.round(3)
         #~ levs_contour = levs_contour.round(3)
-        cs = ax.contour(Mom.zero, levs, colors=ccol, extent=Self.extent)
+        cs = ax.contour(Mom.zero, levs, colors=ccol, extent=self.extent)
     elif cfile == None and colormap!=None:
         levs = levs.round(3)
         levs_contour = levs_contour.round(3)
-        cs1 = ax.contourf(Mom.zero, levs, cmap=colormap, extent=Self.extent)
-        #cs2 = ax.contour(img, cs1.levels[::2], colors=ccol, extent=Self.extent)
+        cs1 = ax.contourf(Mom.zero, levs, cmap=colormap, extent=self.extent)
+        #cs2 = ax.contour(img, cs1.levels[::2], colors=ccol, extent=self.extent)
         #return cs1
-        cs2 = ax.contour(Mom.zero, levs_contour, colors=ccol, extent=Self.extent)
+        cs2 = ax.contour(Mom.zero, levs_contour, colors=ccol, extent=self.extent)
         cbar = pl.colorbar(cs1, ticks=levs_contour, format=cbar_tick_label_formatter)#label_X.replace('X','%2.2f'))
         cbar.add_lines(cs2)
-        if str(Self.unit) == 'Jy/beam':
+        if str(self.unit) == 'Jy/beam':
             cbar.ax.set_ylabel(r'Jy\,beam$^{-1}$')
         else:
-            cbar.ax.set_ylabel(str(Self.unit))
+            cbar.ax.set_ylabel(str(self.unit))
     else:
-        line = ax.contour(Mom.zero, levels=levs, colors='r', extent=Self.extent)
+        line = ax.contour(Mom.zero, levels=levs, colors='r', extent=self.extent)
 
     #ax.text(0.5,0.5,'test',transform = ax.transAxes)
     draw_beam(ax, self)
@@ -3327,8 +3725,8 @@ def plot_moment0 (Self,
     # check distance key
     if sbar.has_key('dist'):
         dist_mark = sbar['dist']
-    elif Self.dist != 0:
-        dist_mark = Self.dist
+    elif self.dist != 0:
+        dist_mark = self.dist
     else:
         dist_mark = 200
     # check the length of the scale bar
@@ -3337,7 +3735,7 @@ def plot_moment0 (Self,
     else:
         au_mark = 200
     print 'Using distance {0} pc to source. Scale bar length {1} AU'.format(dist_mark, au_mark)
-    draw_sizebar(ax, Self, dist=dist_mark, au=au_mark)
+    draw_sizebar(ax, self, dist=dist_mark, au=au_mark)
     # parse the cpeak keyword
     if len(cpeak) == 3:
         mark = cpeak[2]
@@ -3364,13 +3762,13 @@ def plot_moment0 (Self,
 
     ax.set_xlabel('RA Offset ($^{\prime\prime}$)')
     ax.set_ylabel('Dec Offset ($^{\prime\prime}$)')
-    #fig.suptitle(Self.obj+' (%s km s$^{-1}$)'% str(Self.unit))
+    #fig.suptitle(self.obj+' (%s km s$^{-1}$)'% str(self.unit))
     #if cfile!=None:
     #    fig.subplots_adjust(bottom=0.08, right=0.77, top=0.90)
     if source.has_key('title'):
         ax.text(0.05,0.92, source['title'], transform = ax.transAxes)
     else:
-        ax.text(0.05,0.92, Self.obj, transform = ax.transAxes)
+        ax.text(0.05,0.92, self.obj, transform = ax.transAxes)
     ax.set_xlim(i1,i2)
     ax.set_ylim(j1,j2)
     ax.set_aspect(1)
@@ -3496,7 +3894,7 @@ def plot_moment0 (Self,
             print ' PA \t\t: %2.3f (degrees)\n' % c
             j+=1
 #
-def plot_moment1 (Self,
+def plot_moment1 (self,
                 cfile=None,
                 chvals=None,
                 nvals=None,
@@ -3592,13 +3990,13 @@ def plot_moment1 (Self,
     pl_left, pl_bottom, pl_right,pl_top = plot_adjust
 
     #
-    velocity = Self.v_arr
+    velocity = self.v_arr
 
     # parse the channel values
     if chvals!=None:
         v1, v2 = chvals
     # parse the region, get the area for the spectra
-    x1,x2,y1,y2 = parse_region(Self, region)
+    x1,x2,y1,y2 = self.parse_region(region)
     # if any is limits are None, draw spectra and ask for them/it
     # INTERACTIVE
     if nvals==None or chvals==None:
@@ -3623,14 +4021,14 @@ def plot_moment1 (Self,
         chvals, nvals = get_vals()
     # calculate common stuff
     ### for the plotting box
-    ylen, xlen = Self.d[0].shape
-    ycoords = arange(-ylen/2,ylen/2,1)*Self.dec_cdelt
-    xcoords = arange(-xlen/2,xlen/2,1)*Self.ra_cdelt
+    ylen, xlen = self.d[0].shape
+    ycoords = arange(-ylen/2,ylen/2,1)*self.dec_cdelt
+    xcoords = arange(-xlen/2,xlen/2,1)*self.ra_cdelt
     #
     # for the extent keyword
     #~ left, right = xcoords[0],xcoords[-1]
     #~ bottom, top = ycoords[0],ycoords[-1]
-    left,right,bottom,top = Self.extent
+    left,right,bottom,top = self.extent
     #
     # parse the noise channel values
     if nvals!=None:
@@ -3649,7 +4047,7 @@ def plot_moment1 (Self,
     j1,j2 = ylen/2+array([-1,1])*ylen/4
 
     # the noise, rms
-    noise = Self.d[noise_channels]
+    noise = self.d[noise_channels]
     rms = sqrt(((noise[:,j1:j2,i1:i2])**2).mean())
 
     # set boundaries
@@ -3657,24 +4055,34 @@ def plot_moment1 (Self,
         i1,i2 = left,right
         j1,j2 = bottom,top
     elif box != [0,0]:
-        i1,i2 = array([-1,1])*box[0]/2.*sign(Self.ra_cdelt)
-        j1,j2 = array([-1,1])*box[1]/2.*sign(Self.dec_cdelt)
+        i1,i2 = array([-1,1])*box[0]/2.*sign(self.ra_cdelt)
+        j1,j2 = array([-1,1])*box[1]/2.*sign(self.dec_cdelt)
 
 
-    moments, [moment0_sigma, moment0_min, moment0_max], img_channels, levels = calc_moments(Self, chvals=chvals, nvals=nvals, nsig=nsig, nsjump=nsjump, negcontours=negcontours, rms=rms)
+    Mom = Moments(self, chvals=chvals, nsig=nsig)
+
+    moment0, moment1, [moment0_sigma, moment0_min, moment0_max], img_channels, levels\
+    = Mom.zero, Mom.one, [Mom.sigma, Mom.minimum, Mom.maximum], Mom.channels, Mom.levels_pos
+    #~ moments, [moment0_sigma, moment0_min, moment0_max], img_channels, levels
+
+
+    #~ moments, [moment0_sigma, moment0_min, moment0_max], img_channels, levels
+    #~
+    #~
+    #~ = calc_moments(self, chvals=chvals, nvals=nvals, nsig=nsig, nsjump=nsjump, negcontours=negcontours, rms=rms)
 
     #~ img_channels = get_indices(velocity,[v1,v2])
-    imgs = Self.d[img_channels]
+    imgs = self.d[img_channels]
     #
     # do the summing
     #
     # M1 = dv * sum(I(a,b,vi))_x1^x2
     # or perhaps without dv to save calc?
-    moment0 = imgs.sum(axis=0)*abs(Self.v_cdeltkms)
+    #~ moment0 = imgs.sum(axis=0)*abs(self.v_cdeltkms)
 
-    moment0 = moments[0]
+    #~ moment0 = moments[0]
 
-    moment0_sigma = sqrt(alen(imgs))*rms*abs(Self.v_cdeltkms)
+    moment0_sigma = sqrt(alen(imgs))*rms*abs(self.v_cdeltkms)
     moment0_max = moment0.max()
     moment0_min = moment0.min()
 
@@ -3701,7 +4109,7 @@ def plot_moment1 (Self,
     #~ # division
     #~ moment1 = Ivsum/Isum
 
-    moment1 = moments[1]
+    #~ moment1 = moments[1]
 
     ###
     ###
@@ -3714,10 +4122,10 @@ def plot_moment1 (Self,
                 #~ 'moment1': moment1,
                 #~ 'levels':levels,
                 #~ 'moment0_sigma':moment0_sigma,
-                #~ 'extent':Self.extent,
+                #~ 'extent':self.extent,
                 #~ 'lims': (i1,i2,j1,j2),
                 #~ 'data':self}
-        return moment0, moment1, levels, moment0_sigma, Self.extent, self
+        return moment0, moment1, levels, moment0_sigma, self.extent, self
     #
     #
     # calculating the velocity for vmin and vmax
@@ -3726,7 +4134,7 @@ def plot_moment1 (Self,
     # remember it uses the region keyword, so
     print('remember that the calculation for vmin and vmax uses the region keyword')
     from string import lower
-    arr = array([line for line in moment1[y1:y2,x1:x2].flatten() if lower(str(line)) != 'nan'])
+    arr = array([line for line in moment1[y1:y2,x1:x2].flatten() if str(line).lower() != 'nan'])
     w = arr.std()
     from scipy import median
     m = median(arr)
@@ -3750,38 +4158,38 @@ def plot_moment1 (Self,
     ax = fig.add_subplot(111)
     #
     # print beam parameters for the data
-    gain = 8.168e-25*(Self.restfreq)**2*Self.bmin*Self.bmaj
+    gain = 8.168e-25*(self.restfreq)**2*self.bmin*self.bmaj
     print '='*40
     print ' '*15,'BEAM(S)'
     print '='*40
     print 'Line cube:'
-    print u' Minor (FWHM)\t: %2.3f \tasec' % Self.bmin
-    print u' Major (FWHM)\t: %2.3f  \tasec' % Self.bmaj
-    print ' PA \t\t: %2.3f \tDegrees (0<theta<180)' % Self.bpa
+    print u' Minor (FWHM)\t: %2.3f \tasec' % self.bmin
+    print u' Major (FWHM)\t: %2.3f  \tasec' % self.bmaj
+    print ' PA \t\t: %2.3f \tDegrees (0<theta<180)' % self.bpa
     print u' Gain\t\t: %2.4f \tJy\u00b7K\u207b\u00b9\n' % gain
 
     #levs=levs.round(2)
-    #cs1 = ax.contourf(img, levels=levs, cmap=cm.bone_r, extent=Self.extent)
-    #cs2 = ax.contour(cs1, levels=cs1.levels[::2], colors=ccol, extent=Self.extent)
-    #im = pl.imshow(moment1,vmin=6.79,vmax=7,extent=Self.extent)
+    #cs1 = ax.contourf(img, levels=levs, cmap=cm.bone_r, extent=self.extent)
+    #cs2 = ax.contour(cs1, levels=cs1.levels[::2], colors=ccol, extent=self.extent)
+    #im = pl.imshow(moment1,vmin=6.79,vmax=7,extent=self.extent)
     if type:
         im = pl.imshow(moment1,cmap=cm.jet,vmin=m-2*w,vmax=m+2*w,extent=(left,right,bottom,top),interpolation='nearest')
     elif not type:
         im = ax.contourf(moment1, levels=arange(m-2*w,m+2*w,4*w/20), cmap=cm.jet, extent=(left,right,bottom,top))
-    cs2 = ax.contour(moment0, levels=levels, colors='k', extent=Self.extent)
+    cs2 = ax.contour(moment0, levels=levels, colors='k', extent=self.extent)
     cbar = pl.colorbar(im,format=cbar_tick_label_formatter) #label_X.replace('X','%2.2f'))
 
     cbar.ax.set_ylabel(r'km\,s$^{\sf -1}$')
 
 
 
-    #draw_beam(ax, Self,box=0)
+    #draw_beam(ax, self,box=0)
     draw_fov(ax, self)
 
     if 'dist' and 'au' in sbar.keys():
-        draw_sizebar(ax,Self,dist=sbar['dist'],au=sbar['au'])
+        draw_sizebar(ax,self,dist=sbar['dist'],au=sbar['au'])
     elif 'dist' in sbar.keys():
-        draw_sizebar(ax,Self,dist=sbar['dist'])
+        draw_sizebar(ax,self,dist=sbar['dist'])
     else :
         raise ParError(sbar)
     if len(cpeak) == 3:
@@ -3810,11 +4218,11 @@ def plot_moment1 (Self,
     ax.set_xlabel('RA Offset ($^{\prime\prime}$)')
     ax.set_ylabel('Dec Offset ($^{\prime\prime}$)')
 
-    #fig.suptitle(Self.obj+' (%s km s$^{-1}$)'% str(Self.unit))
+    #fig.suptitle(self.obj+' (%s km s$^{-1}$)'% str(self.unit))
     #if cfile!=None:
     #    fig.subplots_adjust(bottom=0.08, right=0.77, top=0.90)
     ax.text(0.05,0.93,
-    Self.obj,
+    self.obj,
     transform = ax.transAxes,
     backgroundcolor='w')
     ax.set_xlim(i1,i2)
@@ -3825,7 +4233,7 @@ def plot_moment1 (Self,
     pl.subplots_adjust(left=pl_left, bottom=pl_bottom, right=pl_right, top=pl_top)
 #
 
-def plot_moment2 (Self,
+def plot_moment2 (self,
                 cfile=None,
                 chvals=None,
                 nvals=None,
@@ -3878,29 +4286,29 @@ def plot_moment2 (Self,
 
     pl_left, pl_bottom, pl_right,pl_top = plot_adjust
 
-    velocity = Self.v_arr - source['vsys'] #now all the velocities are based on the LSR
+    velocity = self.v_arr - source['vsys'] #now all the velocities are based on the LSR
 
     # parse the region, get the area for the spectra
-    x1,x2,y1,y2 = parse_region(Self, region)
+    x1,x2,y1,y2 = parse_region(self, region)
     # if any is limits are None, draw spectra and ask for them/it
     if nvals==None or chvals==None:
         # make it a bit interactive
         # draw spectrum
-        plot_spectrum(Self,region=region, source=source)
+        plot_spectrum(self,region=region, source=source)
         # ask for chvals and nvals
         # if one is not None, it will just be sent around
         chvals, nvals = get_vals(chvals, nvals)
 
     # calculate common stuff
     ### for the plotting box
-    ylen, xlen = Self.d[0].shape
-    ycoords = arange(-ylen/2,ylen/2,1)*Self.dec_cdelt
-    xcoords = arange(-xlen/2,xlen/2,1)*Self.ra_cdelt
+    ylen, xlen = self.d[0].shape
+    ycoords = arange(-ylen/2,ylen/2,1)*self.dec_cdelt
+    xcoords = arange(-xlen/2,xlen/2,1)*self.ra_cdelt
     #
     # for the extent keyword
     #~ left, right = xcoords[0],xcoords[-1]
     #~ bottom, top = ycoords[0],ycoords[-1]
-    left,right,bottom,top = Self.extent
+    left,right,bottom,top = self.extent
     #
     # parse the noise channel values
     if nvals!=None:
@@ -3919,7 +4327,7 @@ def plot_moment2 (Self,
     j1,j2 = ylen/2+array([-1,1])*ylen/4
 
     # the noise, rms
-    noise = Self.d[noise_channels]
+    noise = self.d[noise_channels]
     rms = sqrt(((noise[:,j1:j2,i1:i2])**2).mean())
 
     # set boundaries
@@ -3927,18 +4335,18 @@ def plot_moment2 (Self,
         i1,i2 = left,right
         j1,j2 = bottom,top
     elif box != [0,0]:
-        i1,i2 = array([-1,1])*box[0]/2.*sign(Self.ra_cdelt)
-        j1,j2 = array([-1,1])*box[1]/2.*sign(Self.dec_cdelt)
+        i1,i2 = array([-1,1])*box[0]/2.*sign(self.ra_cdelt)
+        j1,j2 = array([-1,1])*box[1]/2.*sign(self.dec_cdelt)
 
     img_channels = get_indices(velocity,chvals)
-    imgs = Self.d[img_channels]
+    imgs = self.d[img_channels]
     #
     # do the summing
     #
     # M1 = dv * sum(I(a,b,vi))_x1^x2
     # or perhaps without dv to save calc?
-    moment0 = imgs.sum(axis=0)*abs(Self.v_cdeltkms)
-    moment0_sigma = sqrt(alen(imgs))*rms*abs(Self.v_cdeltkms)
+    moment0 = imgs.sum(axis=0)*abs(self.v_cdeltkms)
+    moment0_sigma = sqrt(alen(imgs))*rms*abs(self.v_cdeltkms)
 
     """
     Fit gaussian in the chvals interval, using velocity and cut out spectra
@@ -4131,7 +4539,7 @@ Future modifications to the PARINFO structure, if any, will involve
                 'moment1': moment1,
                 'levels':levels,
                 'moment0_sigma':moment0_sigma,
-                'extent':Self.extent,
+                'extent':self.extent,
                 'lims': (i1,i2,j1,j2),
                 'data':linedata}
     #
@@ -4178,10 +4586,10 @@ Future modifications to the PARINFO structure, if any, will involve
     #cs2 = ax.contour(cs1, levels=cs1.levels[::2], colors=ccol, extent=(left,right,bottom,top))
     #im = pl.imshow(moment1,vmin=6.79,vmax=7,extent=(left,right,bottom,top))
     if type:
-        im = pl.imshow(moment1,cmap=cm.jet,vmin=m-2*w,vmax=m+2*w,extent=Self.extent,interpolation='nearest')
+        im = pl.imshow(moment1,cmap=cm.jet,vmin=m-2*w,vmax=m+2*w,extent=self.extent,interpolation='nearest')
     elif not type:
-        im = ax.contourf(moment1, levels=arange(m-2*w,m+2*w,4*w/20), cmap=cm.jet, extent=Self.extent)
-    cs2 = ax.contour(moment0, levels=levels, colors='k', extent=Self.extent)
+        im = ax.contourf(moment1, levels=arange(m-2*w,m+2*w,4*w/20), cmap=cm.jet, extent=self.extent)
+    cs2 = ax.contour(moment0, levels=levels, colors='k', extent=self.extent)
     cbar = pl.colorbar(im,format=cbar_tick_label_formatter) #label_X.replace('X','%2.2f'))
 
     if str(linedata.unit) == 'Jy/beam':
@@ -4296,11 +4704,11 @@ def plot_vgradient(radecfile,
     ################################
     # we are using latex formatting here!
     # following sets the ticklabel format string
-    data_fmt = '%g'         # for normal y and x axis
-    cbar_data_fmt = '%2.2f'         # for normal y and x axis
-    label_X = parse_tick_font(font)
-    tick_label_formatter = FormatStrFormatter(label_X.replace('X',data_fmt))
-    cbar_tick_label_formatter = FormatStrFormatter(label_X.replace('X',cbar_data_fmt))
+#    data_fmt = '%g'         # for normal y and x axis
+#    cbar_data_fmt = '%2.2f'         # for normal y and x axis
+#    label_X = parse_tick_font(font)
+#    tick_label_formatter = FormatStrFormatter(label_X.replace('X',data_fmt))
+#    cbar_tick_label_formatter = FormatStrFormatter(label_X.replace('X',cbar_data_fmt))
     # ticksize
     rc('xtick',**{'minor.size':3, 'major.size':7})
     rc('ytick',**{'minor.size':3, 'major.size':7})
@@ -4317,7 +4725,7 @@ def plot_vgradient(radecfile,
     #
     if fitsfile!=None and nvals!=None:
         # first get the fitsfile
-        linedata = loadcube(filename,telescope)
+        linedata = Fits(filename,telescope=telescope)
         #
         linedata.v_arr = linedata.v_arr - source['vsys'] #now all the velocities are based on the LSR
          # parse the region, get the area for the spectra
@@ -4613,7 +5021,7 @@ def plot_vgradient(radecfile,
     print '\t\tResults for the perpendicular t-axis:\n'
     print u'Velocity gradient: %2.2f km\u00b7s\u207b\u00b9\u00b7arcsec\u207b\u00b9' % p[0]**-1
 #
-def plot_pv (Self,
+def plot_pv (self,
                 cfile=None,
                 chvals=None,
                 nvals=None,
@@ -4738,7 +5146,7 @@ def plot_pv (Self,
     pl.xlabel(r'asec')
     pl.ylabel(r'asec')
 #
-def plot_chmap (Self,
+def plot_chmap (self,
                 chvals=None,
                 nvals=None,
                 region=[0,0,0,0],
@@ -4765,11 +5173,13 @@ def plot_chmap (Self,
     from scipy import array, where, median, std, sign, arange, alen, vstack, \
     concatenate, sqrt, log10, exp, flipud, ceil
     import pyfits as pf
+    import matplotlib
     import matplotlib.pyplot as pl
     from matplotlib.pyplot import contour, contourf
     if matplotlib.__version__<'1':
         from mpl_toolkits.axes_grid1 import AxesGrid
-        from mpl_toolkits.axes_grid1 import AxesGrid
+    else:
+        from mpl_toolkits.axes_grid import AxesGrid
     from matplotlib.ticker import MultipleLocator, FormatStrFormatter
     from matplotlib import cm, rc
     print 'done'
@@ -4817,11 +5227,11 @@ def plot_chmap (Self,
     ################################
     # first get the fitsfile
     #~ linedata = loadcube(filename)
-    linedata = Self
+    linedata = self
 
 
     # this line below is temporary, fix this in Fits.__init__ method
-    linedata.d = linedata.d[0]
+    #linedata.d = linedata.d[0]
     #linedata.v_arr = linedata.v_arr - source['vsys'] #so that now all the velocities are based on the objects
     #if cfile!=None:
     #    contdata= loadcube(cfile)
@@ -4921,7 +5331,6 @@ def plot_chmap (Self,
         # units of Jy/beam kms
         data = linedata.d[channels]*abs(velocity_delta)
         maps = data
-
     #
     if nvals!=None:
         noise_channels = get_indices(linedata.v_arr,nvals)
@@ -4946,7 +5355,7 @@ def plot_chmap (Self,
     # for the extent keyword
     #~ left, right = xcoords[0],xcoords[-1]
     #~ bottom, top = ycoords[0],ycoords[-1]
-    left,right,bottom,top = Self.extent
+    left,right,bottom,top = self.extent
     #
     # calculate the RMS
     noise = linedata.d[noise_channels]
@@ -4975,7 +5384,7 @@ def plot_chmap (Self,
     # the rms is per channel, ie with the new
     # channel widht "velocity_delta"
     # so the sigma is just rms*abs(velocity_delta) ie. N=1
-    sigma =  calc_sigma(1,rms,velocity_delta)
+    sigma = calc_sigma(1,rms,velocity_delta)
     #
     chans_min = array([i.min() for i in maps])
     chans_max = array([i.max() for i in maps])
@@ -4984,7 +5393,9 @@ def plot_chmap (Self,
     if levs_global:
         vmin, vmax = chans_min.min(),chans_max.max()
         # levs_stat, i.e. contourf starts and end at global min/max
-        levs_stat = concatenate((arange(vmin,-nsig*sigma,nsjump*sigma), arange(nsig*sigma,vmax,nsjump*sigma)))
+        levs_stat = concatenate((
+                    arange(vmin,-nsig*sigma,nsjump*sigma),
+                    arange(nsig*sigma,vmax,nsjump*sigma)))
         levs = [levs_stat for x in arange(N_channels)]
     elif not levs_global:
         # levs, i.e. contour starts and ends at local min/max
@@ -4999,9 +5410,9 @@ def plot_chmap (Self,
     print u'\u0394 vel \t : %2.3f km\u00b7s\u207b\u00b9 (channel width in km\u00b7s\u207b\u00b9)' % abs(velocity_delta)
     if send==True:
         if cfile!=None:
-            return {'ch_map data': maps, 'levs':levs, 'chans_sig':sigma, 'vels':velocity, 'extent':Self.extent, 'data':linedata, 'continuum':contdata}
+            return {'ch_map data': maps, 'levs':levs, 'chans_sig':sigma, 'vels':velocity, 'extent':self.extent, 'data':linedata, 'continuum':contdata}
         if cfile==None:
-            return {'ch_map data': maps, 'levs':levs, 'chans_sig':sigma, 'vels':velocity, 'extent':Self.extent, 'data':linedata}
+            return {'ch_map data': maps, 'levs':levs, 'chans_sig':sigma, 'vels':velocity, 'extent':self.extent, 'data':linedata}
 
 
     if velocity_delta<0:
@@ -5056,7 +5467,7 @@ def plot_chmap (Self,
             im = grid[i].contour(maps[i],
                                 levs_stat,
                                 colors=('k'),
-                                extent=Self.extent)
+                                extent=self.extent)
     #
     elif filled==True:
         grid = AxesGrid(fig, 111, # similar to subplot(111)
@@ -5072,7 +5483,7 @@ def plot_chmap (Self,
             grid[i].set_aspect('equal')
             im = grid[i].contourf(maps[i],
                                 levs[i],
-                                extent=Self.extent,
+                                extent=self.extent,
                                 cmap=color_map)
         grid.cbar_axes[0].colorbar(im)
         # add a unit to the colorbar
@@ -5191,46 +5602,46 @@ def plot_chmap (Self,
         levs = [concatenate((arange(x,-nsig*z,nsjump*z),arange(nsig*z,y,nsjump*z))) for x,y,z in zip(maps_min, maps_max, maps_sigma)]
     """
 #
-def cubetracking (Self,box=False, nsum=False):
+def cubetracking (self,box=False, nsum=False):
     import matplotlib.pyplot as pl
     from matplotlib import cm
     from scipy import clip, array, sign, alen, arange
     pl.ion()
     class IndexTracker:
-        def __init__(Self, ax, data, velocity):
-            Self.ax = ax
+        def __init__(self, ax, data, velocity):
+            self.ax = ax
             ax.set_title('Use scroll wheel to navigate images')
-            Self.X = data
-            Self.vel = velocity
-            #Self.data = dobject
-            Self.slices,cols,rows = data.shape
-            Self.ind  = Self.slices/2
-            Self.im = ax.imshow(Self.X[Self.ind,:,:],interpolation='nearest',origin='lower', cmap=cm.jet)
+            self.X = data
+            self.vel = velocity
+            #self.data = dobject
+            self.slices,cols,rows = data.shape
+            self.ind  = self.slices/2
+            self.im = ax.imshow(self.X[self.ind,:,:],interpolation='nearest',origin='lower', cmap=cm.jet)
             pl.show()
-            Self.update()
+            self.update()
 
-        def onscroll(Self, event):
+        def onscroll(self, event):
             #print event.button, event.step
             if event.button=='up':
-                Self.ind = clip(Self.ind+1, 0, Self.slices-1)
+                self.ind = clip(self.ind+1, 0, self.slices-1)
             elif event.button=='down':
-                Self.ind = clip(Self.ind-1, 0, Self.slices-1)
-            Self.update()
+                self.ind = clip(self.ind-1, 0, self.slices-1)
+            self.update()
 
         def update(self):
-            Self.im.set_data(Self.X[Self.ind,:,:])
-            ax.set_title(r'vel: '+str(round(Self.vel[Self.ind],2))+' kms$^{-1}$')
-            Self.im.axes.figure.canvas.draw()
+            self.im.set_data(self.X[self.ind,:,:])
+            ax.set_title(r'vel: '+str(round(self.vel[self.ind],2))+' kms$^{-1}$')
+            self.im.axes.figure.canvas.draw()
     #
     pl.ioff()
     X = self
     if box!=False:
-        i1,i2 = array([-1,1])*box[0]/2.*sign(Self.ra_cdelt)
-        j1,j2 = array([-1,1])*box[1]/2.*sign(Self.dec_cdelt)
-        i1, i2, j1, j2 = parse_region(Self,[i1,i2,j1,j2])
-        data = Self.d[:, j1:j2, i1:i2]
+        i1,i2 = array([-1,1])*box[0]/2.*sign(self.ra_cdelt)
+        j1,j2 = array([-1,1])*box[1]/2.*sign(self.dec_cdelt)
+        i1, i2, j1, j2 = parse_region(self,[i1,i2,j1,j2])
+        data = self.d[:, j1:j2, i1:i2]
     else:
-        data = Self.d
+        data = self.d
     if nsum!=False:
         if alen(data)%nsum!=0:
             raise ParError(nsum)
@@ -5239,16 +5650,16 @@ def cubetracking (Self,box=False, nsum=False):
         # getting the data to sum
         indices = arange(0, alen(data), nsum)
         #data = linedata.d[channels]
-        velocity = Self.v_arr
+        velocity = self.v_arr
         # the mean velocity is the middle one
         velocity = array([velocity[x:x+nsum].mean() for x in indices])
-        velocity_delta = Self.v_cdeltkms*nsum
+        velocity_delta = self.v_cdeltkms*nsum
         print u'The velocity interval over which you create the maps is %2.3f to %2.3f km\u207b\u00b9\u00b7s' % (velocity.min()-abs(velocity_delta)/2,velocity.max()+abs(velocity_delta)/2)
         print 'Velocity delta : %2.3f' % velocity_delta
-        data = array([data[x:x+nsum].sum(axis=0)*abs(Self.v_cdeltkms) for x in indices])
+        data = array([data[x:x+nsum].sum(axis=0)*abs(self.v_cdeltkms) for x in indices])
         N_channels = alen(data)/nsum
     else:
-        velocity = Self.v_arr
+        velocity = self.v_arr
     fig = pl.figure(1)
     ax = fig.add_subplot(111)
     #ax = pwg.axes(header=X.hdr)
@@ -5265,10 +5676,9 @@ if __name__ == '__main__':
     # wee hooo...
 
     print '\nThe ADAVIS program was run from the command line\n'
-    import os
-    import sys
+    #import os
     from optparse import OptionParser as op
-    import pyfits as pf
+    #import pyfits as pf
     from string import lower
 
     #version

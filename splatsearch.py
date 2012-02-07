@@ -142,7 +142,7 @@ def splatsearch(**arg):
                 print_greeting()
     ### import dependencies
     try:
-        from urllib2 import urlopen
+        from urllib2 import urlopen, URLError
     except (ImportError):
         print 'You need the module \'urllib2\''
     try:
@@ -152,13 +152,13 @@ def splatsearch(**arg):
         print 'If you instead have the newer \'mechanize\' module (http://wwwsearch.sourceforge.net/mechanize/) contact the programmer for implementation...'
 
     #from BeautifulSoup import BeautifulSoup as bfs
-    from scipy import array, where, nan, arange
-    from string import lower, upper
+    from scipy import array, where, arange
+    #from string import lower, upper
 
     # get the form from the splatalogue search page
     try:
         response = urlopen("http://www.cv.nrao.edu/php/splat/b.php")
-    except URLError, ex:
+    except URLError:
         import sys
         sys.stderr.write(stylify('ERROR : ',f='b',fg='r')+stylify(' You have to be connected to the internet to access the splatalogue.net database.',f='b',fg='k'))
         return None
@@ -207,7 +207,7 @@ def splatsearch(**arg):
         raise ParError('freq=None and dfreq='+str(arg['dfreq']))
     elif not arg.has_key('freq') and not arg.has_key('dfreq') and len(arg.keys()) != 0:
         # no frequency given, but other parameters
-        tmp = str(raw_input('No frequency limits given, continue? Press Enter to continue, Ctrl+C to abort.'))
+        #tmp = str(raw_input('No frequency limits given, continue? Press Enter to continue, Ctrl+C to abort.'))
         f1 = ''
         f2 = ''
     else:
@@ -221,7 +221,7 @@ def splatsearch(**arg):
     #### FREQUENCY UNIT
     #
     if arg.has_key('funit'):
-        if lower(arg['funit']) in ['ghz', 'mhz']:
+        if arg['funit'].lower() in ['ghz', 'mhz']:
             form['frequency_units'] = [arg['funit']]
         else:
             print 'Allowed frequency units : \'GHz\' or \'MHz\''
@@ -237,7 +237,7 @@ def splatsearch(**arg):
     # TODO : after getting it, should sort the list of dictionaries
     #        clean it up a bit
     # get the avaliable species from the form
-    sel_species = [i.attrs for i in form.find_control('sid[]').items]
+    #~ sel_species = [i.attrs for i in form.find_control('sid[]').items]
     #
     #### LINE LIST
     #
@@ -251,18 +251,18 @@ def splatsearch(**arg):
     if arg.has_key('linelist'):
         if type(arg['linelist'])==type('string'):
             # if linelist is given as linelist='all'
-            if lower(arg['linelist']) == 'all':
+            if arg['linelist'].lower() == 'all':
                 # if we want to set all, just copy mylinelist
                 arg['linelist'] = mylinelist
             else:
                 print 'Linelist input not understood'
-                raise ParError(linelist)
+                raise ParError(arg['linelist'])
         elif type(arg['linelist'])==type(['list']):
             # get all values to lower case, to accept capitals
-            arg['linelist'] = [lower(x) for x in arg['linelist']]
+            arg['linelist'] = [x.lower() for x in arg['linelist']]
         else:
             print 'Linelist input not understood'
-            raise ParError(linelist)
+            raise ParError(arg['linelist'])
     else:
         # if none given, search with all
         arg['linelist'] = mylinelist
@@ -295,7 +295,7 @@ def splatsearch(**arg):
             form['energy_range_to'] = str(arg['e_to'])
         if arg.has_key('e_from') or arg.has_key('e_to'):
             if arg.has_key('e_type'):
-                if lower(arg['e_type']) in e_type_ref:
+                if arg['e_type'].lower() in e_type_ref:
                     pass
                 else:
                     print 'Energy range type keyword \'e_type\' malformed.'
@@ -317,13 +317,13 @@ def splatsearch(**arg):
     #
     ### Line Intensity Lower Limits
     if arg.has_key('lill'):
-        if lower(arg['lill'][1]) == 'cdms_jpl':
+        if arg['lill'][1].lower() == 'cdms_jpl':
             form.find_control('lill_cdms_jpl').disabled = False
             form['lill_cdms_jpl'] = str(arg['lill'][0])
-        elif lower(arg['lill'][1]) == 'sijmu2':
+        elif arg['lill'][1].lower() == 'sijmu2':
             form.find_control('lill_sijmu2').disabled = False
             form['lill_sijmu2'] = str(arg['lill'][0])
-        elif lower(arg['lill'][1]) == 'aij':
+        elif arg['lill'][1].lower() == 'aij':
             form.find_control('lill_aij').disabled = False
             form['lill_aij'] = str(arg['lill'][0])
     #
@@ -366,13 +366,20 @@ def splatsearch(**arg):
             print stylify('Energy range \t:',fg='g')+'to '+str(arg['e_to'])+'( Type : %s)' % str([arg['e_type'],'def (EU(K))'][e_type_default])
         else:
             #print stylify('Energy range \t:',fg='g')+upper(arg['e_type'][:2])+' from '+str(arg['e_from'])+' to '+str(arg['e_to'])+' 'upper(arg['e_type'][3:])+'( Type : %s)' % str([arg['e_type'],'yes'][e_type_default])
-            print stylify('Energy range \t:',fg='g')+' %s from %s to %s %s (Type : %s)' % (upper(arg['e_type'][:2]),str(arg['e_from']),str(arg['e_to']),upper(arg['e_type'][3:]), str([arg['e_type'],'yes'][e_type_default]))
+            print (
+            stylify('Energy range \t:',fg='g')+
+            ' {0} from {1} to {2} {3} (Type : {4})'.format(
+                    arg['e_type'][:2].upper()), 
+                    str(arg['e_from']), 
+                    str(arg['e_to']), 
+                    arg['e_type'][3:].upper(), 
+                    str([arg['e_type'], 'yes'][e_type_default]))
     if arg.has_key('lill'):
-        if lower(arg['lill'][1]) == 'cdms_jpl':
+        if arg['lill'][1].lower() == 'cdms_jpl':
             print stylify('Line lower lim \t:',fg='g')+' 1E('+str(arg['lill'][0])+') - CDMS/JPL Intensity'
-        elif lower(arg['lill'][1]) == 'sijmu2':
+        elif arg['lill'][1].lower() == 'sijmu2':
             print stylify('Line lower lim \t:',fg='g')+' '+str(arg['lill'][0])+' Debye^2 - Sijmu^2'
-        elif lower(arg['lill'][1]) == 'aij':
+        elif arg['lill'][1].lower() == 'aij':
             print stylify('Line lower lim \t:',fg='g')+' 1E('+str(arg['lill'][0])+') - Aij'
     if arg.has_key('transition'):
         print stylify('Transition \t:',fg='g')+' '+arg['transition']
@@ -513,16 +520,16 @@ def get_mol_species():
 
 class ParError(Exception):
     # input parameter error
-     def __init__(self, value):
-         """ Parameter Error Class
-         Takes the wrong parameter as input.
-         """
-         self.value = value
-     def __str__(self):
-         """ Prints a message and the wrong parameter with value """
-         s1 = '\nWrong format/number of parameters. You input:\n    '
-         s2 = '\nas parameters. Check it/them.'
-         return s1+str(self.value)+s2
+    def __init__(self, value):
+        """ Parameter Error Class
+        Takes the wrong parameter as input.
+        """
+        self.value = value
+    def __str__(self):
+        """ Prints a message and the wrong parameter with value """
+        s1 = '\nWrong format/number of parameters. You input:\n    '
+        s2 = '\nas parameters. Check it/them.'
+        return s1+str(self.value)+s2
 #
 ###########################################
 # HELP FUNCTIONS
@@ -617,7 +624,7 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
         style = [str(x) for x in style]
         formatted_text = CSI+';'.join(style)+'m'
         formatted_text += s + end
-    except KeyError, ex:
+    except KeyError:
         raise ParError((f,fg,bg))
 
     return formatted_text
