@@ -555,7 +555,7 @@ def put_line_indicator(ax, velocity, spect, xpos, text_string, \
     ha='center',va='bottom',rotation='vertical',\
     transform = ax.transData)
 def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
-        'size':8},
+        'size':10},
         quality=[300, 150]):
     from matplotlib import rc
     ################################
@@ -825,17 +825,24 @@ def get_indices (arr,vals,disp=False):
     Assumes the values in 'arr' is the mid values and that it is evenly
     spaced for all values.
 
+    ********************** Important! **********************************
+    The output indices are Python friendly, i.e. they are 0-based. Take
+    when using the indices in other software e.g. GILDAS, MIRIAD, which
+    are 1-based.
 
-    ---------------------------------------------------------------------------
+    --------------------------------------------------------------------
 
                             oOO Changelog OOo
 
-    *2010/06
-        Funciton created
-
+    *2012/02
+        Added more documentation, "important" notice about indexing
+    *2011/07
+        Removed +1 in the output indices to be compatible with rest of
+        module, where Pythons 0-based indexing is used.
     *2010/12
         Doc written
-
+    *2010/06
+        Funciton created
     """
 
     from scipy import concatenate, where, array, diff
@@ -848,11 +855,9 @@ def get_indices (arr,vals,disp=False):
         channels = concatenate((low,high))
     elif len(vals)==2:
         v1,v2 = vals + array([-1,1])*dx
-        #  if input just want one velocity area to calculate noise
-        # 28/07/2011 removed +1 here, why did I have that?
-        #            seems to be more correct without +1
-        #            changed arr<v2 to arr<=v2
         #channels = where((arr>=v1)*(arr<v2))[0]+1
+        # this is because if +1 it is FITS/Fortran safe
+        # changed: removed +1 for consistency in program
         channels = where((arr>=v1)*(arr<=v2))[0]
     #
     if disp and len(vals)==2:
@@ -2445,15 +2450,10 @@ class Spectrum:
                     Fit.vel_shifts.append(vel_shift)
                     Fit.line_names.append(self.lines[0][j])
                 print  stylify('Fit number : {0}'.format(j+1),fg='g',bg='k')
-                intensity_string =\
-                u" Intensity: \
-Fit= {0:2.4f}, Data= {1:2.4f} (\u00b1FWHM), \
-{2:2.4f} (\u00b12*FWHM) {3}".format(
+                intensity_string = u" Intensity: Fit= {0:2.4f}, Data= {1:2.4f} (\u00b1FWHM), {2:2.4f} (\u00b12*FWHM) {3}".format(
                                 gauss_int,sum_int,sum_int2,self.unitint)
                 print intensity_string
-                parameter_string=\
-                u" Ampl= {0:2.3f} (\u00b1{1:2.3f}) {2}, \
-Pos= {3:2.3f} (\u00b1{4:2.3f} {5})".format(
+                parameter_string=u" Ampl= {0:2.3f} (\u00b1{1:2.3f}) {2}, Pos= {3:2.3f} (\u00b1{4:2.3f} {5})".format(
                                     Fit.params[i],
                                     Fit.errors[i],
                                     self.unit,
@@ -2470,13 +2470,13 @@ Pos= {3:2.3f} (\u00b1{4:2.3f} {5})".format(
                 frequency_string =\
                 u' Frequency : {0:3.9f} GHz (v_sys corrected)'.format(frequency_corrected)
                 print stylify(frequency_string,fg='b')
-                print u' FWHM      : {0}, {1} ({2}) ([{3:.2f}, {4:.2f}] {5})'.format(channels_half.min(), channels_half.max(),(channels_half.max()-channels_half.min()+1), lower_half, upper_half,KMS)
-                print u' \u00b1FWHM   : {0}, {1} ({2}) ([{3:.2f}, {4:.2f}] {5})'.format(channels.min(), channels.max(), (channels.max()-channels.min()+1), lower,upper,KMS)
+                print u' FWHM      : {0}, {1} ({2}) (0-based) ([{3:.2f}, {4:.2f}] {5})'.format(channels_half.min(), channels_half.max(),(channels_half.max()-channels_half.min()+1), lower_half, upper_half,KMS)
+                print u' \u00b1FWHM   : {0}, {1} ({2}) (0-based) ([{3:.2f}, {4:.2f}] {5})'.format(channels.min(), channels.max(), (channels.max()-channels.min()+1), lower,upper,KMS)
                 if self.binned:
                     channels_nobin = get_indices(self.Original.v_arr,[lower,upper])
                     channels_half_nobin = get_indices(self.Original.v_arr,[lower_half,upper_half])
-                    print u'Original channels :\n \t FWHM width  : {0}, {1} (\u00b1 1/2FWHM)'.format(channels_half_nobin.min(), channels_half_nobin.max())
-                    print  u' \t \u00b1FWHM width : {0}, {1} ({2})  \n'.format(channels_nobin.min(), channels_nobin.max(),(channels_nobin.max()-channels_nobin.min()+1))
+                    print u'Original channels :\n \t FWHM width  : {0}, {1} (\u00b1 1/2FWHM) (0-based)'.format(channels_half_nobin.min(), channels_half_nobin.max())
+                    print  u' \t \u00b1FWHM width : {0}, {1} ({2}) (0-based) \n'.format(channels_nobin.min(), channels_nobin.max(),(channels_nobin.max()-channels_nobin.min()+1))
                 j+=1
             #
             Fit.line_widths = array(Fit.line_widths)
@@ -2706,10 +2706,11 @@ class Radex:
             if (mflux < self.eps):
                 msg = ("Zero or negative line intensity\n"
                         "See radex.out for details")
-                raise Exception(msg)
+                if self.debug:
+                    raise Exception(msg)
             if self.debug:
                 print "mflx= ",mflux
-            ratio = self.oflux/mflux
+            ratio = self.oflux/[self.oflux,mflux][mflux==0]
             self.cdinit *= ratio
             if (iteration > self.maxiter):
                 print "Maximum number of iterations exceeded"
@@ -2726,7 +2727,9 @@ class Radex:
             print 'Running model and varying kinetic temperature.'
             for i in tkin_inp:
                 self.tkin = i
-                self.cdens.append(self._find_cdens())
+                density = self._find_cdens()
+                self.cdens.append(density)
+                print 'density : ',density
             self.tkin = array(tkin_inp)
         elif self.tovary == 'h2dens':
             h2dens_inp = self.h2dens
@@ -2734,7 +2737,9 @@ class Radex:
             print 'Running model and varying H2 density.'
             for i in h2dens_inp:
                 self.h2dens = i
-                self.cdens.append(self._find_cdens())
+                density = self._find_cdens()
+                print 'density : ',density
+                self.cdens.append(density)
             self.h2dens = array(h2dens_inp)
         self.cdens = array(self.cdens)
         print 'Done!'
@@ -3339,7 +3344,7 @@ def plot_spectrum (self,
                         verticalalignment='top',
                         horizontalalignment='center')
             j += 1
-            draw_highlight_box(ax_kms, Spect.Fit.params[i+1], Spect.Fit.params[i+2]*2)
+            #draw_highlight_box(ax_kms, Spect.Fit.params[i+1], Spect.Fit.params[i+2]*2)
         ax_kms.plot(Spect.Fit.xarr, gauss1d(Spect.Fit.xarr,Spect.Fit.params), color='0.2', lw=1, alpha=0.6)
         pl.draw()
         if args['linefit'].has_key('lineid'):
@@ -3442,16 +3447,16 @@ def plot_moment_map (self, moment,
                 chvals=None,
                 nvals=None,
                 region=[0,0,0,0],
-                nx=6,
+
                 filled=True,
                 box=[0,0],
+                nx=6,
                 nsig=3,
                 nsjump=2,
                 source = dict(v_sys=0,dist=250),
                 font={'family':'serif', 'serif': ['Times New Roman'],
                 'size':8},
-                fit = dict(gauss = None, params = None, continuum = False,
-                    interactive = False),
+                fit = dict(params = None, interactive = False),
                 send=False,
                 quality=[300, 300],
                 cbar=True,
