@@ -577,100 +577,6 @@ def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
 #
 """ Data parsing functions """
 #
-#~ def parse_region(data, region, f=False):
-    #~ """
-    #~ Parser for the region parameter, three different possibilities to supply
-    #~ the region command:
-#~
-        #~ o region = [i1, j1, i2, j2]
-            #~ The four corners of a square around the object, in offset from
-            #~ phase center position.
-#~
-        #~ o region = [i1, j1, a]
-            #~ The center coordinate (i1, j1) and the side (a) of a square around
-            #~ the center coordinate (i1, j1).
-#~
-        #~ o region = [d1, d2]
-            #~ Just the square sides length, will be centered on the phase center.
-#~
-    #~ All the coorinates are given in lenghts and offsets (in asec) from the
-    #~ data center as displayed normally in radio data.
-#~
-    #~ Inspired by the miriad 'region' parameter
-#~
-    #~ ---------------------------------------------------------------------------
-#~
-                            #~ oOO Changelog OOo
-#~
-    #~ *2010/06 Funciton created
-#~
-    #~ *2010/10(11) Doc written and some errors in the code corrected (+-1 in
-    #~ some places)
-#~
-    #~ *2010/12/09 in len(region)==3, changed the division with an abs()
-    #~ array([-region[2],region[2]])/(2*data.ra_cdelt) to abs(2*data.ra_cdelt).
-    #~ In len(region)==2 same change, now it is correct, I hope.
-#~
-    #~ *2010/12/13 the previous "fix" made the len=3 procedure to be erronous.
-    #~ corrected it
-#~
-    #~ """
-    #~ from scipy import array # ceil, floor,
-    #~ from sys import exit as sysexit
-    #~ if len(region)==4:
-        #~ xcheck = region[0]==region[2]
-        #~ ycheck = region[1]==region[3]
-        #~ #x1, x2 = (data.ra_npix+1)/2 +
-        #~ #array([region[0],region[2]])/abs(data.ra_cdelt) + array([0,xcheck])
-        #~ #y1, y2 = (data.dec_npix+1)/2+
-        #~ #array([region[1],region[3]])/abs(data.dec_cdelt)+ array([0,ycheck])
-        #~ #
-        #~ # data.ra/dec_crpix-1 because FITS start at 1 while Python start at 0
-        #~ x1, x2 = (array([region[0], region[2]])/data.ra_cdelt +
-                        #~ data.ra_crpix + array([0,xcheck]))
-        #~ y1, y2 = (array([region[1], region[3]])/data.dec_cdelt +
-                        #~ data.dec_crpix + array([0,ycheck]))
-#~
-        #~ #
-    #~ elif len(region)==3:
-        #~ check = region[2]==0
-        #~ #x1, x2 = (data.ra_npix+1)/2 +
-        #~ #array([-region[2],region[2]])/(2*abs(data.ra_cdelt)) +
-        #~ #region[0]/data.ra_cdelt + array([0,check])
-        #~ #y1, y2 = (data.dec_npix+1)/2+
-        #~ #array([-region[2],region[2]])/(2*abs(data.dec_cdelt)) +
-        #~ #region[1]/data.dec_cdelt+ array([0,check])
-        #~ #
-        #~ # old below
-        #~ #x1, x2 = (data.ra_crpix + region[0]/data.ra_cdelt + array([-region[2],region[2]])/abs(2*data.ra_cdelt) - 1 + array([0,check]))
-        #~ # new
-        #~ x1, x2 =  self.ra_crpix + region[0]/self.ra_cdelt + array([-region[2],region[2]])/abs(2*self.ra_cdelt) + array([0,check])
-        #~ # old below
-        #~ #y1, y2 = (data.dec_crpix + region[1]/data.dec_cdelt + array([-region[2],region[2]])/abs(2*data.dec_cdelt) - 1 + array([0,check]))
-        #~ # new
-        #~ y1, y2 = self.dec_crpix + region[1]/self.dec_cdelt + array([-region[2],region[2]])/abs(2*self.dec_cdelt) + array([0,check])
-        #~ #
-    #~ elif len(region)==2:
-        #~ xcheck = region[0]==0
-        #~ ycheck = region[1]==0
-        #~ #x1, x2 = (data.ra_npix+1)/2 +
-        #~ #array([-1,1])*region[0]/abs(data.ra_cdelt)  + array([0,xcheck])
-        #~ #y1, y2 = (data.dec_npix+1)/2+
-        #~ #array([-1,1])*region[1]/abs(data.dec_cdelt) + array([0,ycheck])
-        #~ #
-        #~ x1, x2 = (array([-region[0],region[0]])/(2*abs(data.ra_cdelt)) +
-                        #~ data.ra_crpix + array([0,xcheck]))
-        #~ y1, y2 = (array([-region[1],region[1]])/(2*abs(data.dec_cdelt)) +
-                        #~ data.dec_crpix + array([0,ycheck]))
-        #~ #
-    #~ elif():
-        #~ print ('Error, region keyword malformed')
-        #~ sysexit(1)
-        #~ #
-    #~ # so that we are returning usable pixel coordinates
-    #~ if f==False:
-        #~ x1,x2,y1,y2 = array([x1,x2,y1,y2]).round().astype('int')
-    #~ return x1,x2,y1,y2
 def parse_ra (ra,string=False):
     """
 
@@ -868,6 +774,7 @@ def get_indices (arr,vals,disp=False):
 ####
 #### Help functions for fitting
 ####
+# 1D
 def gauss1d(x, params=None, height=None):
     """
 
@@ -1151,6 +1058,7 @@ def fit_gauss1d((X,Y),
         return pfit, pfit_err, chi2, mpfit_out
     else:
         return pfit, pfit_err
+# 2D
 def gauss2d (a, X, Y):
     """ Gaussian 2D """
     #
@@ -2032,7 +1940,157 @@ class Fits:
     #
     def change_dist (self, dist):
         self.dist = dist # unit of pc
-#
+# UV-FITS DATA CLASS
+class Uvfits:
+    """
+    Reads uv-fits data...
+
+
+
+    --------------------------------------------------------------------
+    Normal structure of UV-fits data:
+
+    Header : same as for normal fits
+
+    Data : Gropu data
+
+    --------------------------------------------------------------------
+
+    TODO :  Assumes that CRVAL4 is frequency, is that always true?
+            Make it more robust, look for the frequency keyword, either as
+            "restfreq" or as a "crvalX"
+
+    TODO :  UV fit method
+    TODO :
+    """
+    def __init__(self, uvfitsfile, telescope=None, vsys=0, distance=0):
+        """
+
+        Reads the uvfits and calculates useful things, e.g. u,v,w,
+        phase and amplitude
+
+        """
+        from pyfits import open as pfopen
+        from scipy import sqrt, pi, arctan2
+        f = pfopen(uvfitsfile)
+
+        if f[0].header['NAXIS1'] != 0:
+            print "error: this file may not be a UV FITS."
+            raise FileError('File format error.')
+        f.info()
+        try:
+            self.hdu = f[0]
+        except:
+            print "error: cannot open uv data HDU."
+        self.hdr = self.hdu.header
+        self.data = self.hdu.data
+        #f.close() # is this really needed for pyfits file objects?
+        """
+        The standard unit is to give UU and VV in seconds (??!?)
+        So we have to convert to whatever we want.
+        """
+        # unit nano seconds
+        self.u_nsec = self.hdu.data.par(0) * 1.e+9
+        self.v_nsec = self.hdu.data.par(1) * 1.e+9
+        self.w_nsec = self.hdu.data.par(2) * 1.e+9
+        # unit kilo-lambda
+        #SOL_cm = a.SOL*1e2 # light speed in cm/s
+        freq = self.hdu.header['CRVAL4'] #TODO
+        #lmd = lsp / freq
+        # u_klam = uu * SOL_cm / (SOL_cm/freq)
+        self.u_klam = self.hdu.data.par(0) * freq * 1.e-3
+        self.v_klam = self.hdu.data.par(1) * freq * 1.e-3
+        self.w_klam = self.hdu.data.par(2) * freq * 1.e-3
+        # unit meters
+        self.u_m = self.hdu.data.par(0) * SOL
+        self.v_m = self.hdu.data.par(1) * SOL
+        self.w_m = self.hdu.data.par(2) * SOL
+        # uv distance
+        self.uvdist_nsec= sqrt(self.u_nsec**2 +self.v_nsec**2)
+        self.uvdist_klam = sqrt(self.u_klam**2 +self.v_klam**2)
+        self.uvdist_m = sqrt(self.u_m**2 +self.v_m**2)
+        # read amplitude and phase
+        self.visdata = self.hdu.data.data[:,0,0,0,0,:]
+        self.re = self.visdata[:,0]
+        self.im = self.visdata[:,1]
+        self.amplitude = sqrt(self.re**2 + self.im**2)
+        self.phase = arctan2(self.im, self.re) / pi * 180.
+
+
+def plot_uvdata(self, x='uvdist', xunit='klam', y='amp', overplot=0, average=0):
+    """
+    average : average every X unit
+              e.g. average=10 and unit klam, means average every
+              10 kilolambda togeter.
+
+
+    TODO : averaging not done correct.
+    TODO : labels
+    TODO : plot several things in one figure
+    TODO : plot UV fits
+    TODO : plot several UV sets in one figure
+    """
+    import matplotlib.pyplot as pl
+    pl.ion()
+    from scipy import arange, where, zeros, array
+    set_rc()
+    self.average = average
+
+    class Uvplt1: pass
+
+    # first take care of X-axis
+    Uvplt1.xunit = xunit
+    xunits = array(['k$\lambda$', 'm', 'nsec'])
+    xunit_which = where(array(['klam', 'm', 'nsec']) == xunit)[0][0]
+    Uvplt1.xunitstr = xunits[xunit_which]
+    Uvplt1.x = [self.uvdist_klam,
+                self.uvdist_m,
+                self.uvdist_nsec][xunit_which]
+    # get the Y-axis
+    ytype_which = where(array(['amp','pha']) == y)[0][0]
+    Uvplt1.y = [self.amplitude, self.phase][ytype_which]
+    if average:
+        x = arange(Uvplt1.x.min()+average/2.,\
+                              Uvplt1.x.max()-average/2.,\
+                              average)
+        y = zeros(len(x)); j = 0
+        for i in x:
+            ipos = where((Uvplt1.x>=(i-average/2))*\
+                (Uvplt1.x<(i+average/2)))[0]
+
+            y[j] = Uvplt1.y[ipos].mean()
+            j += 1
+        Uvplt1.x = x
+        Uvplt1.y = y
+    if overplot:
+        class Uvplt2: pass
+        Uvplt2.x = [overplot.uvdist_klam,
+                    overplot.uvdist_m,
+                    overplot.uvdist_nsec][xunit_which]
+        Uvplt2.y = [overplot.amplitude, overplot.phase][ytype_which]
+        if average:
+            x = arange(Uvplt2.x.min()+average/2.,\
+                                  Uvplt2.x.max()-average/2.,\
+                                  average)
+            y = zeros(len(x)); j = 0
+            for i in x:
+                ipos = where((Uvplt2.x>=(i-average/2))*\
+                    (Uvplt2.x<(i+average/2)))[0]
+                y[j] = Uvplt2.y[ipos].mean()
+                j += 1
+            Uvplt2.x = x
+            Uvplt2.y = y
+    class Plot_data: pass
+    Plot_data.Uvplt1 = Uvplt1
+    pl.close(1)
+    fig = pl.figure(1, figsize=((ONE_COL_FIG_WIDTH*1.7,ONE_COL_FIG_HEIGHT*1.5)))
+    pl.plot(Uvplt1.x, Uvplt1.y, '.b', ms=2)
+    if overplot:
+        pl.plot(Uvplt2.x, Uvplt2.y, '.r', ms=2)
+        Plot_data.Uvplt2 = Uvplt2
+    pl.xlabel(Uvplt1.xunitstr)
+    self.Plot_data = Plot_data
+
 # MOMENTS DATA CLASS
 # Calculates moment 0 and 1, to use in
 # the moment_map function
@@ -2608,6 +2666,7 @@ class Radex:
     eps     : Below what is zero or negative line intensity (1E-20)
     cdens   : First guess molecular line density (1e12)
     debug   : Output debug messages? (Boolean)
+    silent  : Output any msgs at all? (Boolean)
     """
     def __init__(self, **kwargs):
         """
@@ -2621,11 +2680,11 @@ class Radex:
         #~ from multiprocessing import Pool
         # check input parameters and store in class
         # and raise ParError if wrong/missing
-        params = array(['f', None, 'df', 0.02, 'tkin', None,
+        params = array(['silent', False, 'f', None, 'df', 0.02,
                         'h2dens', None, 'tbg', 2.73, 'oflux', None,
                         'lwidth', None, 'molf', None, 'tol', 0.1,
                         'maxiter', 100, 'eps', 1.0e-20, 'cdinit', 1E12,
-                        'debug', False])
+                        'debug', False, 'tkin', None])
         for par,stdval in zip(params[0::2],params[1::2]):
             if par in kwargs:
                 if par == 'molf':
@@ -2651,7 +2710,8 @@ class Radex:
             else:
                 if stdval != None:
                     exec('self.{0} = {1}'.format(par, stdval))
-                    print('Using default value '
+                    if not self.silent:
+                        print('Using default value '
                         'of {0} for {1}'.format(stdval, par))
                 else:
                     raise ParError(par)
@@ -2708,12 +2768,12 @@ class Radex:
                         "See radex.out for details")
                 if self.debug:
                     raise Exception(msg)
-            if self.debug:
-                print "mflx= ",mflux
-            ratio = self.oflux/[self.oflux,mflux][mflux==0]
+            if self.debug: print "mflx= ",mflux
+            ratio = self.oflux/[mflux,self.oflux][mflux==0]
             self.cdinit *= ratio
+            if self.debug: print ratio
             if (iteration > self.maxiter):
-                print "Maximum number of iterations exceeded"
+                if not self.silent: print "Maximum number of iterations exceeded"
                 ratio = 1
         self.mflux = mflux
         return self.cdinit
@@ -2724,25 +2784,26 @@ class Radex:
         if self.tovary == 'tkin':
             tkin_inp = self.tkin
             self.cdens = []
-            print 'Running model and varying kinetic temperature.'
+            if not self.silent: print 'Running model and varying kinetic temperature.'
             for i in tkin_inp:
                 self.tkin = i
                 density = self._find_cdens()
                 self.cdens.append(density)
-                print 'density : ',density
+                if self.debug: print 'density : ',density
             self.tkin = array(tkin_inp)
         elif self.tovary == 'h2dens':
             h2dens_inp = self.h2dens
             self.cdens = []
-            print 'Running model and varying H2 density.'
+            if not self.silent: print 'Running model and varying H2 density.'
             for i in h2dens_inp:
                 self.h2dens = i
                 density = self._find_cdens()
-                print 'density : ',density
+                if self.debug: print 'density : ',density
                 self.cdens.append(density)
             self.h2dens = array(h2dens_inp)
         self.cdens = array(self.cdens)
-        print 'Done!'
+        if not self.silent: print 'Done!'
+
 
 
 ###########################################
