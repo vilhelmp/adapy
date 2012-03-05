@@ -1961,7 +1961,12 @@ class Uvfits:
             "restfreq" or as a "crvalX"
 
     TODO :  UV fit method
-    TODO :
+    TODO : __init__ method, print information about:
+                - Phase center
+                - No correlations
+                - No baselines
+                - No antennas
+                - Telescope
     """
     def __init__(self, uvfitsfile, telescope=None, vsys=0, distance=0):
         """
@@ -2017,7 +2022,29 @@ class Uvfits:
         self.phase = arctan2(self.im, self.re) / pi * 180.
 
 
-def plot_uvdata(self, x='uvdist', xunit='klam', y='amp', overplot=0, average=0):
+def plot_uvplane(self, units='klam'):
+    import matplotlib.pyplot as pl
+    from scipy import where, array
+    pl.ion()
+    pl.close(1)
+    unit = array(['k$\lambda$', 'm', 'nsec'])
+    unit_which = where(array(['klam', 'm', 'nsec']) == units)[0][0]
+    x = [self.u_klam,
+                self.u_m,
+                self.u_nsec][unit_which]
+    y = [self.v_klam,
+                self.v_m,
+                self.v_nsec][unit_which]
+
+    fig = pl.figure(1, figsize=((ONE_COL_FIG_WIDTH,ONE_COL_FIG_HEIGHT*1.5)))
+    ax = fig.add_subplot(111)
+    ax.plot(x, y, '.b', ms=0.8)
+    ax.set_aspect(1)
+    ax.set_xlabel(unit[unit_which])
+    ax.set_ylabel(unit[unit_which])
+    fig.subplots_adjust(bottom=0.14,left=0.16)
+
+def plot_uvdata(self, x='uvdist', xunit='klam', y='amp', overplot=0, avg=0, **kwargs):
     """
     average : average every X unit
               e.g. average=10 and unit klam, means average every
@@ -2029,12 +2056,13 @@ def plot_uvdata(self, x='uvdist', xunit='klam', y='amp', overplot=0, average=0):
     TODO : plot several things in one figure
     TODO : plot UV fits
     TODO : plot several UV sets in one figure
+    TODO : function to average
     """
     import matplotlib.pyplot as pl
     pl.ion()
     from scipy import arange, where, zeros, array
     set_rc()
-    self.average = average
+    self.avg = avg
 
     class Uvplt1: pass
 
@@ -2049,47 +2077,62 @@ def plot_uvdata(self, x='uvdist', xunit='klam', y='amp', overplot=0, average=0):
     # get the Y-axis
     ytype_which = where(array(['amp','pha']) == y)[0][0]
     Uvplt1.y = [self.amplitude, self.phase][ytype_which]
-    if average:
-        x = arange(Uvplt1.x.min()+average/2.,\
-                              Uvplt1.x.max()-average/2.,\
-                              average)
-        y = zeros(len(x)); j = 0
+    Uvplt1.yunitstr = array(['Amplitude [Jy]','Phase [Degrees]'])[ytype_which]
+    if avg:
+        x = arange(Uvplt1.x.min()+avg/2.,\
+                              Uvplt1.x.max()-avg/2.,\
+                              avg)
+        y = zeros(len(x))
+        yerr = zeros(len(x)); j = 0
         for i in x:
-            ipos = where((Uvplt1.x>=(i-average/2))*\
-                (Uvplt1.x<(i+average/2)))[0]
+            ipos = where((Uvplt1.x>=(i-avg/2))*\
+                (Uvplt1.x<(i+avg/2)))[0]
 
             y[j] = Uvplt1.y[ipos].mean()
+            yerr[j] = Uvplt1.y[ipos].std()
             j += 1
         Uvplt1.x = x
         Uvplt1.y = y
+        Uvplt1.yerr = yerr
     if overplot:
         class Uvplt2: pass
         Uvplt2.x = [overplot.uvdist_klam,
                     overplot.uvdist_m,
                     overplot.uvdist_nsec][xunit_which]
         Uvplt2.y = [overplot.amplitude, overplot.phase][ytype_which]
-        if average:
-            x = arange(Uvplt2.x.min()+average/2.,\
-                                  Uvplt2.x.max()-average/2.,\
-                                  average)
+        if avg:
+            x = arange(Uvplt2.x.min()+avg/2.,\
+                                  Uvplt2.x.max()-avg/2.,\
+                                  avg)
             y = zeros(len(x)); j = 0
+            yerr = zeros(len(x))
             for i in x:
-                ipos = where((Uvplt2.x>=(i-average/2))*\
-                    (Uvplt2.x<(i+average/2)))[0]
+                ipos = where((Uvplt2.x>=(i-avg/2))*\
+                    (Uvplt2.x<(i+avg/2)))[0]
                 y[j] = Uvplt2.y[ipos].mean()
+                yerr[j] = Uvplt2.y[ipos].std()
                 j += 1
             Uvplt2.x = x
             Uvplt2.y = y
+            Uvplt2.yerr = yerr
+    print Uvplt1.x.shape
+    print Uvplt1.y.shape
     class Plot_data: pass
     Plot_data.Uvplt1 = Uvplt1
     pl.close(1)
     fig = pl.figure(1, figsize=((ONE_COL_FIG_WIDTH*1.7,ONE_COL_FIG_HEIGHT*1.5)))
-    pl.plot(Uvplt1.x, Uvplt1.y, '.b', ms=2)
+    ax = fig.add_subplot(111)
+    ax.errorbar(Uvplt1.x, Uvplt1.y, fmt='.',color='b')
     if overplot:
-        pl.plot(Uvplt2.x, Uvplt2.y, '.r', ms=2)
+        ax.plot(Uvplt2.x, Uvplt2.y, '.r', ms=2)
         Plot_data.Uvplt2 = Uvplt2
-    pl.xlabel(Uvplt1.xunitstr)
+    ax.set_xlabel('UV distance ['+Uvplt1.xunitstr+']')
+    ax.set_ylabel(Uvplt1.yunitstr)
+    fig.subplots_adjust(bottom=0.15,right=0.97,top=0.9)
+    ax.set_title('UV Plot')
     self.Plot_data = Plot_data
+    if 'send' in kwargs:
+        return ax
 
 # MOMENTS DATA CLASS
 # Calculates moment 0 and 1, to use in
