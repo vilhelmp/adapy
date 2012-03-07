@@ -2020,7 +2020,11 @@ class Uvfits:
         self.im = self.visdata[:,1]
         self.amplitude = sqrt(self.re**2 + self.im**2)
         self.phase = arctan2(self.im, self.re) / pi * 180.
-
+    def avgamp(self, avg):
+        """
+        averages amplitude over 'avg' number of uvdist units
+        """
+        return (0,0)
 
 def plot_uvplane(self, units='klam'):
     import matplotlib.pyplot as pl
@@ -2060,10 +2064,12 @@ def plot_uvdata(self, x='uvdist', xunit='klam', y='amp', overplot=0, avg=0, **kw
     """
     import matplotlib.pyplot as pl
     pl.ion()
-    from scipy import arange, where, zeros, array
+    from scipy import arange, where, zeros, array, sqrt
     set_rc()
     self.avg = avg
-
+    #~ if avg>1:
+        #~ if y == 'amp':
+            #~ x,y = self.avgamp(avg)
     class Uvplt1: pass
 
     # first take care of X-axis
@@ -2088,7 +2094,8 @@ def plot_uvdata(self, x='uvdist', xunit='klam', y='amp', overplot=0, avg=0, **kw
             ipos = where((Uvplt1.x>=(i-avg/2))*\
                 (Uvplt1.x<(i+avg/2)))[0]
 
-            y[j] = Uvplt1.y[ipos].mean()
+            #~ y[j] = Uvplt1.y[ipos].mean()
+            y[j] = sqrt(self.re[ipos].mean()**2 + self.im[ipos].mean()**2)
             yerr[j] = Uvplt1.y[ipos].std()
             j += 1
         Uvplt1.x = x
@@ -3547,11 +3554,10 @@ def plot_spectrum (self,
 
 #
 # new!
-def plot_moment_map (self, moment,
+def plot_moment_map(self,
                 chvals=None,
                 nvals=None,
                 region=[0,0,0,0],
-
                 filled=True,
                 box=[0,0],
                 nx=6,
@@ -3565,14 +3571,14 @@ def plot_moment_map (self, moment,
                 quality=[300, 300],
                 cbar=True,
                 colormap=True,
-                plot_adjust= [0.13, 0.06, 0.75, 0.99],
+                plot_adjust= [0.07, 0.06, 0.82, 0.99],
                 cpeak=[0,0,'k'],
                 ccol='k',
                 sbar=dict(au=200),
                 locators = [2,1],
                 telescope=None,
                 negcontours=True,
-                fsize=(ONE_COL_FIG_WIDTH,ONE_COL_FIG_WIDTH*0.8),
+                fsize=(TWO_COL_FIG_WIDTH,ONE_COL_FIG_WIDTH*0.8),
                 **kwargs):
     # imports
     #import scipy as sp
@@ -3607,9 +3613,328 @@ def plot_moment_map (self, moment,
 
 
     pl_left, pl_bottom, pl_right,pl_top = plot_adjust
+
     if filled==0:
         pl_right*=1.2
         pl_bottom*=2
+    if hasattr(self,'rms'):
+        pass
+    elif not nvals:
+        raise(Exception,'Missing nvals/RMS input for level calculation')
+    else: # if nvals was given and self.rms does not exist
+        self.calc_rms(nvals, rms_area)
+    ### for the plotting box
+    ylen, xlen = self.d[0].shape
+    ycoords = arange(-ylen/2,ylen/2,1)*self.dec_cdelt
+    xcoords = arange(-xlen/2,xlen/2,1)*self.ra_cdelt
+    left,right,bottom,top = self.extent
+    # set plot boundaries
+    if box == [0,0]:
+        i1,i2 = left,right
+        j1,j2 = bottom,top
+    elif box != [0,0]:
+        i1,i2 = array([-1,1])*box[0]/2.*sign(self.ra_cdelt)
+        j1,j2 = array([-1,1])*box[1]/2.*sign(self.dec_cdelt)
+    # calculate the moments (0/1 so far)
+    Mom = Moments(self, chvals=chvals, nsig=nsig)
+    #
+    d1,d2,r1,r2 = self.parse_region([0,0,box[0]])
+    print 'No. sigmas for max in box: ', (Mom.zero[d1:d2,r1:r2].max()/Mom.sigma)
+
+    x1,x2,y1,y2 = self.parse_region(region)
+
+    # now create the levels for the contours
+    if negcontours:
+        #return flipud(arange(nsig,alen(Mom.levels_neg),nsjump)), arange(nsig,alen(Mom.levels_pos),nsjump), Mom
+        #
+        # not correct, at least not the negative levels
+        #
+        levs = concatenate((
+                Mom.levels_neg[flipud(arange(nsig-1,alen(Mom.levels_neg),nsjump))],
+                Mom.levels_pos[arange(nsig-1,alen(Mom.levels_pos),nsjump)]
+                          ))
+        levs_contour = concatenate((
+                Mom.levels_neg[flipud(arange(nsig-1,alen(Mom.levels_neg),2*nsjump))],
+                Mom.levels_pos[arange(nsig-1,alen(Mom.levels_pos),2*nsjump)]
+                                  ))
+    else:
+        #~ levs = arange(nsig*img_sigma,img_max+img_sigma,nsjump*img_sigma)
+        levs = Mom.levels_pos[arange(nsig,alen(Mom.levels_pos),nsjump)]
+        #~ levs_contour = arange(nsig*img_sigma,img_max+img_sigma,2*nsjump*img_sigma)
+        levs_contour = Mom.levels_pos[arange(nsig,alen(Mom.levels_pos),2*nsjump)]
+    #levs = arange(nsig*img_sigma, img_max, nsjump*img_sigma)
+    #
+    # print some info out
+    print '\n','='*40
+    print ' '*8,'INFORMATION : Line data'
+    print '='*40
+    print '\n Summing from channel %3d to %3d' % (Mom.channels.min(), Mom.channels.max())
+    print ' RMS \t\t: %2.3f \tmJy/beam/channel\n Sigma \t\t: %2.3f \tmJy/beam/km/s' % (1e3*self.rms, 1e3*Mom.sigma)
+    print ' Map min/max \t: %2.2f/%2.2f \tmJy/beam/km/s' % (1e3*Mom.minimum, 1e3*Mom.maximum)
+    print ' Start sigma \t: %2.3f (%1.1f) \tmJy/beam/km/s\n Sigma step \t: %2.3f (%1.1f) \tmJy/beam/km/s\n' % (1e3*nsig*Mom.sigma, nsig, 1e3*nsjump*Mom.sigma, nsjump)
+    #
+    # print beam parameters for the data
+    print '='*40
+    print ' '*15,'BEAM(S)'
+    print '='*40
+    print 'Line cube:'
+    print u' Minor (FWHM)\t: %2.3f \tasec' % self.bmin
+    print u' Major (FWHM)\t: %2.3f  \tasec' % self.bmaj
+    print ' PA \t\t: %2.3f \tDegrees (0<theta<180)' % self.bpa
+    print u' Gain\t\t: %2.4f \tJy\u00b7K\u207b\u00b9\n' % self.gain
+
+    if send==True:
+        print 'sending you moment class and extents'
+        return Mom, (left,right,bottom,top)
+
+    ####################################################################
+    ####                  END CALCULATION BLOCK                     ####
+    ####################################################################
+
+    #
+    # tick density
+    majorLocator = MultipleLocator(locators[0])
+    minorLocator = MultipleLocator(locators[1])
+    set_rc()
+
+
+
+    pl.ion()
+    pl.close()
+    fig = pl.figure(1, figsize=fsize)
+    fig.clf()
+    #
+    ax1 = fig.add_subplot(121)
+    #
+
+    #
+    # plot the continuum data
+    #~ if cfile != None:
+        #~ cont = ax.imshow(contdata.d, cmap=cm.gray_r, extent=(left,right,bottom,top))
+        #~ if cbar:
+            #~ cb = pl.colorbar(cont)
+            #~ cb.ax.set_ylabel(str(contdata.unit))
+#~
+        #~ print '-'*40
+        #~ print 'Continuum data:'
+        #~ print u' Minor (FWHM)\t: %2.3f \tasec' % contdata.bmin
+        #~ print u' Major (FWHM)\t: %2.3f  \tasec' % contdata.bmaj
+        #~ print ' PA \t\t: %2.3f Degrees (0<theta<180) \n' % contdata.bpa
+    #
+    #
+    if colormap and filled==True:
+        colormap = cm.bone_r
+        # parse colormap command!
+    if colormap == None or filled==False:
+        # just contours
+        levs = levs.round(3)
+        #~ levs_contour = levs_contour.round(3)
+        cs = ax1.contour(Mom.zero, levs, colors=ccol, extent=self.extent)
+    elif colormap!=None:
+        levs = levs.round(3)
+        levs_contour = levs_contour.round(3)
+        cs1 = ax1.contourf(Mom.zero, levs, cmap=colormap, extent=self.extent)
+        #cs2 = ax1.contour(img, cs1.levels[::2], colors=ccol, extent=self.extent)
+        #return cs1
+        cs2 = ax1.contour(Mom.zero, levs_contour, colors=ccol, extent=self.extent)
+        cax = fig.add_axes([0.35, 0.185, 0.02, 0.68]) # left, bottom, width, height
+        cbar = pl.colorbar(cs1, cax=cax, ticks=levs_contour, format=cbar_tick_label_formatter)
+        cbar.ax.set_ylabel(self.unitint)
+        #~ cbar = pl.colorbar(cs1, ticks=levs_contour, format=cbar_tick_label_formatter)#label_X.replace('X','%2.2f'))
+        cbar.add_lines(cs2)
+        if str(self.unit) == 'Jy/beam':
+            cbar.ax.set_ylabel(r'Jy\,beam$^{-1}$')
+        else:
+            cbar.ax.set_ylabel(str(self.unit))
+    else:
+        line = ax1.contour(Mom.zero, levels=levs, colors='r', extent=self.extent)
+
+    #ax1.text(0.5,0.5,'test',transform = ax1.transax1es)
+    draw_beam(ax1, self)
+    draw_fov(ax1, self)
+
+    # check distance key
+    if sbar.has_key('dist'):
+        dist_mark = sbar['dist']
+    elif self.dist != 0:
+        dist_mark = self.dist
+    else:
+        dist_mark = 200
+    # check the length of the scale bar
+    if sbar.has_key('au'):
+        au_mark = sbar['au']
+    else:
+        au_mark = 200
+    print 'Using distance {0} pc to source. Scale bar length {1} AU'.format(dist_mark, au_mark)
+    draw_sizebar(ax1, self, dist=dist_mark, au=au_mark)
+    # parse the cpeak keyword
+    if len(cpeak) == 3:
+        mark = cpeak[2]
+        xmark, ymark = cpeak[0:2]
+    elif len(cpeak) >4:
+        xmark = cpeak[0:-1:2]
+        ymark = cpeak[1:-1:2]
+        mark = cpeak[-1]
+    else:
+        mark = '+k'
+    cross = ax1.plot(xmark, ymark, mark, ms=6)#, mew=3, alpha=0.9)
+
+    #
+    ax1.xaxis.set_major_formatter(tick_label_formatter)
+    ax1.yaxis.set_major_formatter(tick_label_formatter)
+
+    ax1.xaxis.set_major_locator(majorLocator)
+    ax1.xaxis.set_minor_locator(minorLocator)
+    ax1.yaxis.set_major_locator(majorLocator)
+    ax1.yaxis.set_minor_locator(minorLocator)
+
+    ax1.set_xlabel('RA Offset ($^{\prime\prime}$)')
+    ax1.set_ylabel('Dec Offset ($^{\prime\prime}$)')
+    if source.has_key('title'):
+        ax1.text(0.05,0.92, source['title'], transform = ax1.transAxes)
+    else:
+        ax1.text(0.05,0.92, self.obj, transform = ax1.transAxes)
+    ax1.set_xlim(i1,i2)
+    ax1.set_ylim(j1,j2)
+    ax1.set_aspect(1)
+
+
+    ax2 = fig.add_subplot(122)
+
+
+    print('remember that the calculation for vmin and vmax uses the region keyword')
+    from string import lower
+    arr = array([line for line in Mom.one[y1:y2,x1:x2].flatten() if str(line).lower() != 'nan'])
+    w = arr.std()
+    from scipy import median
+    m = median(arr)
+
+
+
+
+    if type:
+        im = ax2.imshow(Mom.one,cmap=cm.jet,vmin=m-2*w,vmax=m+2*w,extent=(left,right,bottom,top),interpolation='nearest')
+    elif not type:
+        im = ax2.contourf(Mom.one, levels=arange(m-2*w,m+2*w,4*w/20), cmap=cm.jet, extent=(left,right,bottom,top))
+    cs2 = ax2.contour(Mom.zero, levels=levs_contour, colors='k', extent=self.extent)
+    #~ cbar = pl.colorbar(im,format=cbar_tick_label_formatter) #label_X.replace('X','%2.2f'))
+    #~ cbar.ax.set_ylabel(r'km\,s$^{\sf -1}$')
+
+    cax = fig.add_axes([0.837, 0.185, 0.02, 0.68]) # left, bottom, width, height
+    cbar = pl.colorbar(im, format='%.2f', cax=cax)
+    cbar.ax.set_ylabel(r'km\,s$^{\sf -1}$')
+
+
+    #draw_beam(ax, self,box=0)
+    draw_fov(ax2, self)
+
+    # check distance key
+    if sbar.has_key('dist'):
+        dist_mark = sbar['dist']
+    elif self.dist != 0:
+        dist_mark = self.dist
+    else:
+        dist_mark = 200
+    # check the length of the scale bar
+    if sbar.has_key('au'):
+        au_mark = sbar['au']
+    else:
+        au_mark = 200
+    print 'Using distance {0} pc to source. Scale bar length {1} AU'.format(dist_mark, au_mark)
+    draw_sizebar(ax1, self, dist=dist_mark, au=au_mark)
+    if len(cpeak) == 3:
+        mark = cpeak[2]
+        xmark, ymark = cpeak[0:2]
+    elif len(cpeak) >4:
+        xmark = cpeak[0:-1:2]
+        ymark = cpeak[1:-1:2]
+        mark = cpeak[-1]
+    else:
+        mark = '+k'
+    cross = ax2.plot(xmark, ymark, mark, ms=13, mew=3, alpha=0.9)
+
+
+    #~ if colormap and filled==True:
+        #~ colormap = cm.jet
+        #~ # parse colormap command!
+    #~ if colormap == None or filled==False:
+        #~ # just contours
+        #~ levs = levs.round(3)
+        #~ #levs_contour = levs_contour.round(3)
+        #~ cs = ax2.contour(Mom.one, levs, colors=ccol, extent=self.extent)
+    #~ elif colormap!=None:
+        #~ levs = levs.round(3)
+        #~ levs_contour = levs_contour.round(3)
+        #~ cs1 = ax2.contourf(Mom.one, levs, cmap=colormap, extent=self.extent)
+        #~ #cs2 = ax2.contour(img, cs1.levels[::2], colors=ccol, extent=self.extent)
+        #~ #return cs1
+        #~ cs2 = ax2.contour(Mom.zero, levs_contour, colors=ccol, extent=self.extent)
+        #~ cbar = pl.colorbar(cs1, ticks=levs_contour, format=cbar_tick_label_formatter)#label_X.replace('X','%2.2f'))
+        #~ cbar.add_lines(cs2)
+        #~ if str(self.unit) == 'Jy/beam':
+            #~ cbar.ax.set_ylabel(r'Jy\,beam$^{-1}$')
+        #~ else:
+            #~ cbar.ax.set_ylabel(str(self.unit))
+    #~ else:
+        #~ line = ax2.contour(Mom.zero, levels=levs, colors='r', extent=self.extent)
+
+    #~ #ax2.text(0.5,0.5,'test',transform = ax2.transax2es)
+    #~ draw_beam(ax2, self)
+    #~ draw_fov(ax2, self)
+
+    #~ # check distance key
+    #~ if sbar.has_key('dist'):
+        #~ dist_mark = sbar['dist']
+    #~ elif self.dist != 0:
+        #~ dist_mark = self.dist
+    #~ else:
+        #~ dist_mark = 200
+    #~ # check the length of the scale bar
+    #~ if sbar.has_key('au'):
+        #~ au_mark = sbar['au']
+    #~ else:
+        #~ au_mark = 200
+    #~ print 'Using distance {0} pc to source. Scale bar length {1} AU'.format(dist_mark, au_mark)
+    #~ draw_sizebar(ax2, self, dist=dist_mark, au=au_mark)
+    #~ # parse the cpeak keyword
+    #~ if len(cpeak) == 3:
+        #~ mark = cpeak[2]
+        #~ xmark, ymark = cpeak[0:2]
+    #~ elif len(cpeak) >4:
+        #~ xmark = cpeak[0:-1:2]
+        #~ ymark = cpeak[1:-1:2]
+        #~ mark = cpeak[-1]
+    #~ else:
+        #~ mark = '+k'
+    #~ cross = ax2.plot(xmark, ymark, mark, ms=6)#, mew=3, alpha=0.9)
+
+    #
+    ax2.xaxis.set_major_formatter(tick_label_formatter)
+    ax2.yaxis.set_major_formatter(tick_label_formatter)
+
+    ax2.xaxis.set_major_locator(majorLocator)
+    ax2.xaxis.set_minor_locator(minorLocator)
+    ax2.yaxis.set_major_locator(majorLocator)
+    ax2.yaxis.set_minor_locator(minorLocator)
+
+    ax2.set_xlabel('RA Offset ($^{\prime\prime}$)')
+    ax2.set_ylabel('Dec Offset ($^{\prime\prime}$)')
+    if source.has_key('title'):
+        ax2.text(0.05,0.92, source['title'], transform = ax2.transAxes)
+    else:
+        ax2.text(0.05,0.92, self.obj, transform = ax2.transAxes)
+    ax2.set_xlim(i1,i2)
+    ax2.set_ylim(j1,j2)
+    ax2.set_aspect(1)
+
+
+
+
+    pl.subplots_adjust(left=pl_left, bottom=pl_bottom, right=pl_right, top=pl_top,wspace=0.8)
+
+
+
+
 
 
 # old
@@ -3728,6 +4053,9 @@ def plot_moment0 (self,
     #~ moments, [moment0_sigma, moment0_min, moment0_max], img_channels, levels = calc_moments(self, chvals=chvals, nvals=nvals, nsig=nsig, nsjump=nsjump, negcontours=negcontours, rms=rms)
     Mom = Moments(self, chvals=chvals, nsig=nsig)
     #
+    d1,d2,r1,r2 = self.parse_region([0,0,box[0]])
+    print 'No. sigmas for max in box: ', (Mom.zero[d1:d2,r1:r2].max()/Mom.sigma)
+
     # now create the levels for the contours
     if negcontours:
         #return flipud(arange(nsig,alen(Mom.levels_neg),nsjump)), arange(nsig,alen(Mom.levels_pos),nsjump), Mom
@@ -3756,6 +4084,7 @@ def plot_moment0 (self,
     print ' RMS \t\t: %2.3f \tmJy/beam/channel\n Sigma \t\t: %2.3f \tmJy/beam/km/s' % (1e3*self.rms, 1e3*Mom.sigma)
     print ' Map min/max \t: %2.2f/%2.2f \tmJy/beam/km/s' % (1e3*Mom.minimum, 1e3*Mom.maximum)
     print ' Start sigma \t: %2.3f (%1.1f) \tmJy/beam/km/s\n Sigma step \t: %2.3f (%1.1f) \tmJy/beam/km/s\n' % (1e3*nsig*Mom.sigma, nsig, 1e3*nsjump*Mom.sigma, nsjump)
+
     #
     # tick density
     majorLocator = MultipleLocator(locators[0])
@@ -5347,7 +5676,7 @@ def plot_chmap (self,
     cfile=None
     #
     # parse the region parameter
-    x1, x2, y1, y2 = parse_region(linedata, region)
+    x1, x2, y1, y2 = self.parse_region(region)
 
     if ion==True:
         plot_spectrum(filename, region=region)
@@ -5531,7 +5860,7 @@ def plot_chmap (self,
     #
     def print_vel(ax,x,fc='w'):
         ax.text(0.03,.91,
-        str(round(velocity[x],2)),
+        str(round(velocity[x],1)),
         fontsize=6,
         bbox=dict(edgecolor='k',facecolor=fc, pad=4, lw=0.5),
         transform = ax.transAxes)
@@ -5618,14 +5947,14 @@ def plot_chmap (self,
     fig.text(0.95,0.14,r'SO$_2$', rotation=90)
     fig.text(0.95,0.86,r'H$_2^{18}$O', rotation=90)
 
-    #~ grid[2].plot([21,-2], [-1.8,-1.3],'-', color='#FFAAAA', lw=3, alpha=0.7 ,clip_on=False)
-    #~ #grid[2].plot([21,-2], [-1.8-1.7,-1.3-1.7],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    #~ grid[2].plot([11,-2], [-3.2,-2.9],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    #~ grid[5].plot([21,-2], [-3.6,-3.2],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    #~ grid[8].plot([21,-2], [-3.76,-2.53],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    #~ grid[11].plot([21,-2], [-2.16,-0.93],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    #~ grid[14].plot([21,-2], [-0.93,0.0],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    #grid[12].axhline(y=-2.64, xmin=0.1, xmax=1.4 ,clip_on=False )
+    grid[2].plot([21,-2], [-1.8,-1.3],'-', color='#FFAAAA', lw=3, alpha=0.7 ,clip_on=False)
+    grid[2].plot([21,-2], [-1.8-1.7,-1.3-1.7],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    grid[2].plot([11,-2], [-3.2,-2.9],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    grid[5].plot([21,-2], [-3.6,-3.2],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    grid[8].plot([21,-2], [-3.76,-2.53],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    grid[11].plot([21,-2], [-2.16,-0.93],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    grid[14].plot([21,-2], [-0.93,0.0],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    #~ grid[12].axhline(y=-2.64, xmin=0.1, xmax=1.4 ,clip_on=False )
 
     draw_beam(grid[0].axes, linedata, box=1)
 
