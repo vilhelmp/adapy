@@ -18,18 +18,40 @@
 #
 #       Magnus Vilhelm Persson 19.05.2011.
 
+"""
+
+
+---[ Change log ]---
+
+[*] 19.03.2012
+    Fixed bug causing search on upper energy level to fail
+    Various un-logged changes up until now.
+        - New colorify function
+        - Fixed form handling after they changed the table export
+          form on Splatalogue.net.
+
+[*] 19.05.2011
+    Script created
+"""
+
 
 
 """
-Module with a function to query Splatalogue.net
+What to do
 
-TODO : page output if it is long, i.e. input a pause and clear screen
+TODO : Page output if it is long, i.e. input a pause and clear screen
 
-TODO : control display-output more
+TODO : Control display-output more, now a broad window is needed to
+        display everything
 
-TODO : solve the parsing, the removal of tags...
+TODO : Solve the parsing, the removal of tags... (huh?)
+
+TODO : Should be able to search on specific molecules
+        - but how? molecular weight, and or just text?
+        - available in cmd version?
 
 TODO : get the export-to-file directly from splatalogue?
+        - initial testing indicates > does not work
 
 TODO : add so that one can enter the wavelength/wavenumber in m, cm, m-1, cm-1
         just translate to frequency after input
@@ -305,7 +327,7 @@ def splatsearch(**arg):
                 e_type_default = 1
                 arg['e_type'] = 'eu_k'
             # now set the radio button to the correct value
-            form.find_control('energy_range_type').toggle(arg['e_type'])
+            form.find_control('energy_range_type').toggle(arg['e_type'].lower())
         if not arg.has_key('e_from') and not arg.has_key('e_to') and arg.has_key('e_type'):
             print 'You gave the Enery range type keyword, but no energy range...'
             raise ParError(arg['e_type'])
@@ -369,11 +391,11 @@ def splatsearch(**arg):
             print (
             stylify('Energy range \t:',fg='g')+
             ' {0} from {1} to {2} {3} (Type : {4})'.format(
-                    arg['e_type'][:2].upper()), 
-                    str(arg['e_from']), 
-                    str(arg['e_to']), 
-                    arg['e_type'][3:].upper(), 
-                    str([arg['e_type'], 'yes'][e_type_default]))
+                    arg['e_type'][:2].upper(),
+                    str(arg['e_from']),
+                    str(arg['e_to']),
+                    arg['e_type'][3:].upper(),
+                    str([arg['e_type'], 'yes'][e_type_default])))
     if arg.has_key('lill'):
         if arg['lill'][1].lower() == 'cdms_jpl':
             print stylify('Line lower lim \t:',fg='g')+' 1E('+str(arg['lill'][0])+') - CDMS/JPL Intensity'
