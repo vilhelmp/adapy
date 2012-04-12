@@ -1,10 +1,33 @@
-########################################################################
-# CONSTANTS
-# from "Physics Handbook for Science and Engineering" 2002
-# and some  from script natconst.py by Jes Joergensen which
-# some in turn are from C. P. Dullemond's IDL scripts
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
+
 #
-#Perhaps put in a separate 'constants' module?
+#       cgsconst.py
+#
+#
+#       Copyright 2012 Magnus Persson <magnusp@nbi.dk>
+#
+#       This program is free software; you can redistribute it and/or modify
+#       it under the terms of the GNU General Public License as published by
+#       the Free Software Foundation; either version 2 of the License, or
+#       (at your option) any later version.
+#
+#       This program is distributed in the hope that it will be useful,
+#       but WITHOUT ANY WARRANTY; without even the implied warranty of
+#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#       GNU General Public License for more details.
+#
+#
+#       ver 0.1 alpha
+#
+#
+#
+
+
+
+########################################################################
+# CONSTANTS OBJECT
 #
 class Constant(float):
     """
@@ -28,6 +51,14 @@ class Constant(float):
         self.unit = args[0] if args else None
         self.desc = kwargs.pop('desc', None)
 
+
+########################################################################
+# CONSTANTS
+# from "Physics Handbook for Science and Engineering" 2002
+# and some  from script natconst.py by Jes Joergensen which
+# some in turn are from C. P. Dullemond's IDL scripts
+#
+
 # Astronomy constants in cgs units
 
 MEARTH = Constant(5.977e27, 'g',     desc = 'Mass of the Earth')
@@ -47,6 +78,7 @@ GG = Constant(constants.G * 1e3,  'cm^3/(g.s^2)', desc = 'Gravitational constant
 MP = Constant(constants.m_p * 1e3,      'g?',     desc = 'Mass of proton')
 ME = Constant(constants.m_e * 1e3,      'g?',     desc = 'Mass of electron')
 SS = Constant(constants.Stefan_Bolzmann * 1e3, 'erg/cm^3/K^4', desc = 'Stefan-Boltzmann constant')
+
 #~ EE  = Constant(constants.,      '?',            desc = 'Unit charge')
 #~ ST  = Constant(constants.,      'cm^2',         desc = 'Thomson cross-section')
 
@@ -79,8 +111,3 @@ YEAR = Constant(3.1536e7, 's', desc='Year')
 HOUR = Constant(3.6000e3, 's', desc='Hour')
 DAY  = Constant(8.64e4,   's', desc='Day')
 
-
-
-########################################################################
-# USEFUL STRINGS
-KMS = u"km\u00b7s\u207b\u00b9"
