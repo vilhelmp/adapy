@@ -23,6 +23,21 @@
 #
 #
 #
+"""
+Python module for handling Astronomical data and analysis
+
+Reads fits cubes and spectra.
+
+Plots spectra, mom0/1/2,
+
+Interfaces with
+
+Transphere (Dust continuum model?)
+RADEX
+
+RATRAN
+
+"""
 
 """
 Python tips!
@@ -54,18 +69,15 @@ Need : o scipy (and numpy),
 #Top of the list TODO:
 """
 
-TODO : RATRAN wrapper
-        - Initialisation routine
-
-TODO : RADEX wrapper
-        - Ability to run grids
-        -
-
-TODO : Update constants (AU, LY, etc)
+TODO : RADEX / RATRAN / TRANSPHERE wrappers
+        RADEX:
+            - Ability to run grids
+        RATRAN
+            - Initialisation routine
 
 TODO : implement different lineID plot, make it more object oriented
 
-TODO : update the __init__ method of all the classes to print as much
+TODO : update the __str__ method of all the classes to print as much
         info as possible
 
 TODO : Moment 2 maps
@@ -91,17 +103,24 @@ TODO : Change to handle DataObject in all functions.
         O The rest
 
 TODO : How to divide it into a runnable program
-        Perhaps use **kwargs i.e. dictionaries
+        Perhaps use **kwargs i.e. dictionaries more which can
+        easily be passed along from e.g. OptParser
 
+TODO : The Error classes should take two input, which parameter
+        is raising the error and the reason
 
 ------------------------------------------------------------------------
 History:
+
+DONE : Update constants (AU, LY, etc)
+       Created a Constant - object, so that they are more useful
+            (can check unit and description of the constant).
 
 DONE : The "extent" keyword is not computed exactly. use crval/crpix
         FITS keyword to compute it, so it is truly from phase center.
         -> DONE but needs testing.
 
-DONE : disabled the general parse_region function, it was wrong.
+DONE : Disabled the general parse_region function, it was wrong.
         use the method method instead or correct the general function?
 
 DONE : Common function for moment maps?
@@ -176,7 +195,7 @@ FIG_SIZE = [ONE_COL_FIG_WIDTH,ONE_COL_FIG_HEIGHT]
 # and some  from script natconst.py by Jes Joergensen which
 # some in turn are from C. P. Dullemond's IDL scripts
 #
-#Perhaps put in a separate module?
+#Perhaps put in a separate 'constants' module?
 #
 class Constant(float):
     """
@@ -200,7 +219,6 @@ class Constant(float):
         self.unit = args[0] if args else None
         self.desc = kwargs.pop('desc', None)
 
-
 # Astronomy constants in cgs units
 
 MEARTH = Constant(5.977e27, 'g',     desc = 'Mass of the Earth')
@@ -217,9 +235,9 @@ CC = Constant(constants.c * 1e2,  'cm/s',         desc = 'Speed Of Light')
 KK = Constant(constants.k * 1e7,  'erg/K',        desc = 'Bolzmann\'s constant')
 HH = Constant(constants.h * 1e7,  'erg.s',        desc = 'Planck\'s constant')
 GG = Constant(constants.G * 1e3,  'cm^3/(g.s^2)', desc = 'Gravitational constant')
-MP = Constant(constants.m_p * 1e3,      'g?',           desc = 'Mass of proton')
-ME = Constant(constants.m_e * 1e3,      'g?',           desc = 'Mass of electron')
-SS = Constant(constants.Stefan_Bolzmann * 1e3,       'erg/cm^3/K^4', desc = 'Stefan-Boltzmann constant')
+MP = Constant(constants.m_p * 1e3,      'g?',     desc = 'Mass of proton')
+ME = Constant(constants.m_e * 1e3,      'g?',     desc = 'Mass of electron')
+SS = Constant(constants.Stefan_Bolzmann * 1e3, 'erg/cm^3/K^4', desc = 'Stefan-Boltzmann constant')
 #~ EE  = Constant(constants.,      '?',            desc = 'Unit charge')
 #~ ST  = Constant(constants.,      'cm^2',         desc = 'Thomson cross-section')
 
@@ -255,7 +273,7 @@ DAY  = Constant(8.64e4,   's', desc='Day')
 
 
 ########################################################################
-# STRINGS
+# USEFUL STRINGS
 KMS = u"km\u00b7s\u207b\u00b9"
 
 
@@ -265,14 +283,14 @@ KMS = u"km\u00b7s\u207b\u00b9"
 #
 # input parameter error
 class ParError(Exception):
-    def __init__(self, value):
+    def __init__(self, value, reason=None):
         self.value = value
     def __str__(self):
         s1 = 'Parameter(s) \"{0}\" is(are) malformed or missing.'.format(self.value)
         return stylify(s1, fg='r')
 
 class FitsError(Exception):
-    def __init__(self, value):
+    def __init__(self, value, reason=None):
         self.value = value
     def __str__(self):
         s1 = 'Error reading fits file: {0}'.format(self.value)
@@ -3060,17 +3078,176 @@ class Ratran:
 
 class Transphere:
     def __init__(self,**kwargs):
-
+        from scipy import array
         # if a dust opacity file is given
-        # i.e. no kappa file given e.g. "jena_thick/think_eX.tab"
+        # that is it is not tabulated correctly
+        # as a dustopac.inp file
         if 'opacfile' in kwargs:
+            if 'freqfile' not in kwargs:
+                sysexit('No frequency file given. Cannot proceed. '
+                'Need file with opacity file, at corresponding frequency')
             with open(kwargs['opacfile']) as f:
                 lines = f.read().split('\n')
             # get the "header" info,
             # that is the number of tabulated entries in
             # absorption and scattering each.
-            nf, ns = [int(i) for i in lines[:2][0].split()]
+            try:
+                nf, ns = [int(i) for i in lines[:2][0].split()]
+            except:
+                errmsg = 'Error parsing Opacity-file. Wrong format.'
+                raise Exception(errmsg)
+            if nf >= 1:
+                # shape of the arrays, for absorption and scattering
+                # (nf, ns)
+                # so we have to nest the list comprehensions, and
+                # call float() on the smallest possible element
+                # (i.e. when ns > 1).
+                try:
+                    cabs = array([[float(i) for i in j.split()] for j in lines[2:nf+2]])
+                    csca = array([[float(i) for i in j.split()] for j in lines[nf+2:-1]])
+                except:
+                    errmsg = 'Error parsing Opacity-file. Wrong format.'
+                    raise Exception(errmsg)
+                nrtrange=1
+                trange=[0.e0,0.e0]
+            else:
+                ########################################################
+                # this part not edited, dont have a file like this
+                nf = ns
+                ismooth = 0
+                nrtrange = 0
+                with open(kwargs['opacfile']) as f:
+                    line=f.readline().strip()
+                    line=f.readline().strip()
+                    ns,ismooth,nrtrange=line.split()
+                    ns,ismooth,nrtrange=int(ns),int(ismooth),int(nrtrange)
+                    if ismooth != 0: import sys; sys.exit('Error: Smoothing not yet allowed.')
+                    import numpy as np
+                    cabs = np.zeros((nf,ns),float)
+                    csca = np.zeros((nf,ns,nrtrange),float)
+                    dum  = 0.e0
+                    trange=np.zeros(nrtrange+1,float)
 
+                    for ir in range(0,nrtrange):
+                        a,b=f.readline().strip().split()
+                        a,b=int(a),int(b)
+                        trange[ir]=b
+                        for kk in range(0,nf):
+                            for iss in range(0,ns):
+                                dum=float(f.readline().split())
+                                cabs[kk,iss,ir] = dum
+
+                        for kk in range(0,nf):
+                            for iss in range(0,ns):
+                                dum=float(f.readline().split())
+                                csca[kk,iss,ir] = dum
+                ########################################################
+                with open(kwargs['freqfile']) as f:
+                    lines = f.read().split('\n')
+
+                nf=int(f.readline().strip())
+                #   if nnf != nf: sys.exit("ERROR: frequency file has different nr of points as dustopac file")
+                dum=f.readline()
+                freq = np.zeros(nf,float)
+                wave = np.zeros(nf,float)
+                for kk in range(0,nf):
+                    dum=float(f.readline().strip())
+                    freq[kk] = dum
+                    wave[kk] = 2.9979e14 / dum
+                f.close
+
+                opacity={'ns': ns, 'nf': nf, 'freq': freq, 'wave': wave, 'cabs': cabs, 'csca': csca, 'nrt': nrtrange, 'trange': trange}
+
+                return opacity
+
+
+
+
+        else:
+            print ('No opacity-file given, assuming '
+                    'correct format exists.')
+
+
+    def readopac(nr='1'):
+        import numpy as np
+        import sys
+
+        if nr == -1: nr=1
+        filename = 'dustopac_'+str(nr)+'.inp'
+        print "Reading "+filename
+        f=open(filename,'r')
+        nf,ns = f.readline().strip().split()
+        nf,ns=int(nf),int(ns)
+        f.readline()
+        if nf >= 1:
+            cabs = np.zeros((nf,ns),float)
+            csca = np.zeros((nf,ns),float)
+            dum  = 0.e0
+            print ns
+            for kk in range(0,nf):
+                for iss in range(0,ns):
+                    dum=float(f.readline().strip())
+                    cabs[kk,iss] = dum
+
+            for kk in range(0,nf):
+                for iss in range(0,ns):
+                    dum=float(f.readline().strip())
+                    csca[kk,iss] = dum
+
+            nrtrange=1
+            trange=[0.e0,0.e0]
+
+        else:
+            nf=ns
+            ismooth=0
+            nrtrange=0
+            line=f.readline().strip()
+            line=f.readline().strip()
+            ns,ismooth,nrtrange=line.split()
+            ns,ismooth,nrtrange=int(ns),int(ismooth),int(nrtrange)
+            if ismooth != 0: sys.exit('Error: Smoothing not yet allowed.')
+            cabs = np.zeros((nf,ns),float)
+            csca = np.zeros((nf,ns,nrtrange),float)
+            dum  = 0.e0
+            trange=np.zeros(nrtrange+1,float)
+
+            for ir in range(0,nrtrange):
+                a,b=f.readline().strip().split()
+                a,b=int(a),int(b)
+                trange[ir]=b
+                for kk in range(0,nf):
+                    for iss in range(0,ns):
+                        dum=float(f.readline().split())
+                        cabs[kk,iss,ir] = dum
+
+                for kk in range(0,nf):
+                    for iss in range(0,ns):
+                        dum=float(f.readline().split())
+                        csca[kk,iss,ir] = dum
+
+        f.close
+        file='frequency.inp'
+        f=open(file,'r')
+        nf=int(f.readline().strip())
+     #   if nnf != nf: sys.exit("ERROR: frequency file has different nr of points as dustopac file")
+        dum=f.readline()
+        freq = np.zeros(nf,float)
+        wave = np.zeros(nf,float)
+        for kk in range(0,nf):
+            dum=float(f.readline().strip())
+            freq[kk] = dum
+            wave[kk] = 2.9979e14 / dum
+        f.close
+
+        opacity={'ns': ns, 'nf': nf, 'freq': freq, 'wave': wave, 'cabs': cabs, 'csca': csca, 'nrt': nrtrange, 'trange': trange}
+
+        return opacity
+
+
+    def writeopac(f, localdust, nr):
+        return 0
+    def findkappa(localdust, f):
+        return 0
 
 
 ########################################################################
