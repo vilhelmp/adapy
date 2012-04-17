@@ -3,23 +3,23 @@
 
 
 #
-#       adavis.py
+#   adavis.py
 #
 #
-#       Copyright 2012 Magnus Persson <magnusp@nbi.dk>
+#   Copyright 2012 Magnus Persson <magnusp@nbi.dk>
 #
-#       This program is free software; you can redistribute it and/or modify
-#       it under the terms of the GNU General Public License as published by
-#       the Free Software Foundation; either version 2 of the License, or
-#       (at your option) any later version.
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
 #
-#       This program is distributed in the hope that it will be useful,
-#       but WITHOUT ANY WARRANTY; without even the implied warranty of
-#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#       GNU General Public License for more details.
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
 #
 #
-#       ver 2.0
+#   ver 2.0
 #
 #
 #
@@ -71,12 +71,6 @@ Need : o scipy (and numpy),
 
 TODO : constants move to a module, update the code to use it.
 
-TODO : RADEX / RATRAN / TRANSPHERE wrappers
-        RADEX:
-            - Ability to run grids
-        RATRAN
-            - Initialisation routine
-
 TODO : implement different lineID plot, make it more object oriented
 
 TODO : update the __str__ method of all the classes to print as much
@@ -113,6 +107,11 @@ TODO : The Error classes should take two input, which parameter
 
 ------------------------------------------------------------------------
 History:
+
+DONE : Moved constants and the radiative transfer scripts to separate
+        files.
+
+DONE : fixed some ugly (but working) code in write_latex_table
 
 DONE : Update constants (AU, LY, etc)
        Created a Constant - object, so that they are more useful
@@ -409,8 +408,8 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
     end = CSI+'m'
 
     if f == 'b' and fg =='a':
-        print stylify('\n Warning : This combination of colors/styles does \
-not work\n','b','r','d')
+        print stylify('\n Warning : '
+        'This combination of colors/styles does not work\n','b','r','d')
         raise ParError((f,fg,bg))
     bg += '_bg' # append to the list, the "_bg" ending
     f += "_f" # append "_f" to the formatting list
@@ -584,16 +583,6 @@ def calc_offset(ra,dec,**kwargs):
     else:
         raise(ParError(ra,dec,kwargs))
 
-########################################################################
-# MODELING HELP FUNCTIONS
-def bplanck(nu,T): # Returns the Spectral Radiance (Planck)
-    from scipy import exp, constants
-    try:
-        x = constants.h*nu/(constants.k*T)
-        bpl = (2*constants.h*nu**3/constants.c**2)/(exp(x-1))
-        return bpl
-    except (ZeroDivisionError):
-        return 0
 #
 ########################################################################
 # PLOTTING HELP FUNCTIONS
@@ -1466,34 +1455,33 @@ def write_latex_table(self, filename):
 
     f = open(filename, 'w')
     f.write('% LaTex table of detected lines\n')
-    f.write('% Created from the file {0}\n'.format(
-                                            self.fitsfile.split('/')[-1]))
-    f.write('% Intensities: I is the peak intensity (Gaussian fit)\n% \
-while Int I is the integrated intensity (Gaussian fit).\n')
+    f.write('% Created from the '
+    'file {0}\n'.format(self.fitsfile.split('/')[-1]))
+    f.write('% Intensities: I is the peak intensity (Gaussian fit)\n% '
+    'while Int I is the integrated intensity (Gaussian fit).\n')
     cols =['Molecule', 'Transition', 'Rest F', 'Eu', 'V res', 'I',
            'FWHM', 'Int I', 'F shift', 'V shift', 'RMS']
-    info = '% Columns:\n%  {0:15}  {1:28}   {2:12} {3:6}   {4:6}   {5:8}   \
-{6:15} {7:13} {8:13} {9:10} {10} \n'.format(*cols)
+    info = ('% Columns:\n%  {0:15}  {1:28}   {2:12} {3:6}   {4:6}   '
+    '{5:8}   {6:15} {7:13} {8:13} {9:10} {10} \n'.format(*cols))
     f.write(info)
     unitinfo = [
         '---', '---', 'MHz', 'K', 'km/s', 'mK', 'km/s', 'K km/s', 'MHz',
         'km/s', 'mK']
-    units = (
-        '%  {0:17}  {1:28} {2:12} {3:8} {4:8} {5:10} {6:15} {7:15} {8:13} \
-{9:9} {10} \n').format(*unitinfo)
+    units = ('%  {0:17}  {1:28} {2:12} {3:8} {4:8} {5:10} {6:15} '
+    '{7:15} {8:13} {9:9} {10} \n').format(*unitinfo)
     f.write(units)
     for i in arange(self.Spect.Fit.nfits):
         #Molecule Transition Rest frequency Eu (K) Velocity Resolution RMS
         #Peak intensity Line width Integrated intensity Frequency shift
         #Velocity shift
         data = (molecules[i], transitions[i], float(rest_frequencies[i])*1e3,
-float(eus[i]), float(v_res_kms),float(gaussian_peaks[i])*1e3,
-float(line_widths[i]),float(line_width_error[i]), float(int_intensities[i]),
-float(error_int_intensities[i]),float(freq_shifts[i])*1e3, float(vel_shifts[i]),float(line_pos_error[i]),
-float(rms)*1e3)
-        line = '{0:15} & {1:28} & {2:8.2f} & {3:8.3f} & {4:4.2f} & \
- {5:5.1f} & ${6:4.1f} \\pm{7:4.1f}$ & {8:6.3f} \\pm{9:5.3f} & {10:5.1f}  & \
- {11:5.1f} \\pm{12:3.2f} & {13:2.1f} \\\\ \n'.format(*data)
+        float(eus[i]), float(v_res_kms),float(gaussian_peaks[i])*1e3,
+        float(line_widths[i]),float(line_width_error[i]), float(int_intensities[i]),
+        float(error_int_intensities[i]),float(freq_shifts[i])*1e3, float(vel_shifts[i]),float(line_pos_error[i]),
+        float(rms)*1e3)
+        line = ('{0:15} & {1:28} & {2:8.2f} & {3:8.3f} & {4:4.2f} & '
+        '{5:5.1f} & ${6:4.1f} \\pm{7:4.1f}$ & {8:6.3f} \\pm{9:5.3f} & '
+        '{10:5.1f}  & {11:5.1f} \\pm{12:3.2f} & {13:2.1f} \\\\ \n'.format(*data))
         f.write(line)
 #
 #

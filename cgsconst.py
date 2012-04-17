@@ -1,30 +1,41 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+#   cgsconst.py
+#
+#
+#   Copyright 2012 Magnus Persson <magnusp@nbi.dk>
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#
+#   ver 0.1 alpha
+#
+#
+#
+"""
+CGS Constants for Astronomical Data Analysis
 
+Module for various useful CGS constants.
+CODATA values for most of them, i.e. from scipy.constants but converted
+to CGS-units. With unit and description attributes.
+Inspired by natconst.py by Jes Joergensen, and IDL's natconst.pro by
+C. P. Dullemond.
+"""
 
-#
-#       cgsconst.py
-#
-#
-#       Copyright 2012 Magnus Persson <magnusp@nbi.dk>
-#
-#       This program is free software; you can redistribute it and/or modify
-#       it under the terms of the GNU General Public License as published by
-#       the Free Software Foundation; either version 2 of the License, or
-#       (at your option) any later version.
-#
-#       This program is distributed in the hope that it will be useful,
-#       but WITHOUT ANY WARRANTY; without even the implied warranty of
-#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#       GNU General Public License for more details.
-#
-#
-#       ver 0.1 alpha
-#
-#
-#
-
-
+#-----------------------------------------------------------------------
+#Top of the list TODO:
+"""
+None, just add constants when needed
+"""
 
 ########################################################################
 # CONSTANTS OBJECT
@@ -63,11 +74,11 @@ class Constant(float):
 
 MEARTH = Constant(5.977e27, 'g',     desc = 'Mass of the Earth')
 MMOON  = Constant(7.349e25, 'g',     desc = 'Mass of the Moon')
-AU   = Constant(1.496E13,   'cm',    desc = 'Astronomical Unit')
+AU   = Constant(1.496E13,   'cm / AU',    desc = 'Astronomical Unit')
 LSUN = Constant(3.8525e33,  'erg.s', desc = 'Solar luminosity')
 RSUN = Constant(6.96e10,    'cm',    desc = 'Solar radius')
 MSUN = Constant(1.99e33,    'g',     desc = 'Mass of the Sun')
-PC   = Constant(3.08572e18, 'cm',    desc = 'Parsec')
+PC   = Constant(3.08572e18, 'cm / parsec',    desc = 'Parsec')
 
 # Physics constants in cgs units
 from scipy import constants
