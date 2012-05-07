@@ -170,8 +170,13 @@ def splatsearch(**arg):
     try:
         from ClientForm import ParseResponse
     except (ImportError):
-        print 'You need the module \'ClientForm\' get it at http://wwwsearch.sourceforge.net/old/ClientForm/'
-        print 'If you instead have the newer \'mechanize\' module (http://wwwsearch.sourceforge.net/mechanize/) contact the programmer for implementation...'
+        print 'You do not have the module \'ClientForm\' get it at http://wwwsearch.sourceforge.net/old/ClientForm/'
+        print 'Will try import the newer Mechanize module'
+        try:
+            from mechanize import ParseResponse
+        except (ImportError):
+            print 'You need at least one of the two modules '
+            'Mechanize or ClientForm for this script to work.'
 
     #from BeautifulSoup import BeautifulSoup as bfs
     from scipy import array, where, arange
