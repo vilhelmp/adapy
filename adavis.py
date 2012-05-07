@@ -69,6 +69,11 @@ Need : o scipy (and numpy),
 #Top of the list TODO:
 """
 
+TODO : Cannot plot or deduce levels when some pixels have value 'nan'
+
+TODO : load frequency information from fits file if it is there
+        more dynamic fits-file loading
+
 TODO : constants move to a module, update the code to use it.
 
 TODO : implement different lineID plot, make it more object oriented
@@ -1728,16 +1733,55 @@ class Fits:
             # only support for velo-lsr in 3rd axis
             self.datatype = 'CUBE',3
             # load the third axis
-            velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VELO' in self.hdr[x]][0][-1:])
+            # need frequency!
+            try:
+                self.restfreq = self.hdr['RESTFREQ'] # in Hertz
+            except KeyError:
+                try:
+                    self.restfreq = self.hdr['RESTFRQ'] # in Hertz
+                except KeyError:
+                    print ('No frequency information.')
+            ##### have to add loading of frequency and calculate velocity
+            # UGLY HACK BELOW, BEWARE!
+            try:
+                velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VELO' in self.hdr[x]][0][-1:])
+                vel_info = True
+                self.v_type = velax
+                self.v_crpix = self.hdr['CRPIX'+self.v_type]-1
+                self.v_crval = self.hdr['CRVAL'+self.v_type]
+                self.v_ctype = self.hdr['CTYPE'+self.v_type]
+                self.v_cdelt = self.hdr['CDELT'+self.v_type]
+                self.v_naxis = self.hdr['NAXIS'+self.v_type]
+                self.v_cdeltkms = self.v_cdelt/float(1e3)
+            except IndexError:
+                print('No velocity axis defined')
+                vel_info = False
+            # load frequency and calculate velocity stuff
+            if not vel_info:
+                from scipy import sign
+                freqax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'FREQ' in self.hdr[x]][0][-1:])
+                self.f_type = freqax
+                self.f_crpix = self.hdr['CRPIX'+self.f_type]-1
+                self.f_crval = self.hdr['CRVAL'+self.f_type]
+                self.f_ctype = self.hdr['CTYPE'+self.f_type]
+                self.f_cdelt = self.hdr['CDELT'+self.f_type]
+                self.f_naxis = self.hdr['NAXIS'+self.f_type]
+                #self.f_cdeltkms = self.f_cdelt/float(1e3)
+                self.f_arr = ((arange(0,self.f_naxis)-self.f_crpix)*self.f_cdelt+self.f_crval) # in Hz
+                #
+                # velocity
+                # UGLY hack warning...
+                self.v_crpix = self.f_crpix
+                self.v_crval = calc_vlsr (self.f_crval, self.restfreq)*1e3
+                self.v_ctype = 'VELO'
+                self.v_cdelt = abs(calc_vlsr (self.f_arr[0], self.restfreq)*1e3-calc_vlsr (self.f_arr[1], self.restfreq)*1e3)*sign(self.f_cdelt)*(-1)
+                self.v_naxis = self.f_naxis
+                self.v_cdeltkms = self.v_cdelt/float(1e3)
+                #self.f_arr = ((arange(0,self.f_naxis)-self.f_crpix)*self.f_cdelt+self.f_crval)
+
             #data = loadvelocity(data, velax)
             # loading velocity information
-            self.v_type = velax
-            self.v_crpix = self.hdr['CRPIX'+self.v_type]-1
-            self.v_crval = self.hdr['CRVAL'+self.v_type]
-            self.v_ctype = self.hdr['CTYPE'+self.v_type]
-            self.v_cdelt = self.hdr['CDELT'+self.v_type]
-            self.v_naxis = self.hdr['NAXIS'+self.v_type]
-            self.v_cdeltkms = self.v_cdelt/float(1e3)
+
             # plus one because to start at 0 is wrong, need 1 to v_naxis <- this is WRONG
             # start at 0 because we
             self.v_arr = ((arange(0,self.v_naxis)-self.v_crpix)*self.v_cdelt+self.v_crval)/float(1e3) # so it is i kms
@@ -1751,7 +1795,8 @@ class Fits:
             #arr = arange(start,stop-1,self.v_cdelt)/float(1e3)
             #print self.v_arr-arr
             # calculate the FOV = 58.4*lambda/D*3600 asec
-            self.restfreq = self.hdr['RESTFREQ'] # in Hertz
+
+
             self.fov = 58.4*(3.e8/self.restfreq)/float(self.diameter)*3600.
             print 'Field of view: %.2f asecs, for dish size: %.1f m' % (self.fov, self.diameter)
             #print self.veltype, self.v_crpix, self.v_crval, self.v_cdeltkms, self.v_naxis

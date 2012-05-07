@@ -48,13 +48,14 @@ TODO :
             - Ability to run grids
         RATRAN
             - Initialisation routine
+            - Prepare input files
 
         Transphere
             - Prepare input and run Transphere
             - Optimize the writeTransphereInput
 
 """
-
+import cgsconst as cgs
 ########################################################################
 # MODELING HELP FUNCTIONS
 def bplanck(nu,T): # Returns the Spectral Radiance (Planck)
@@ -67,6 +68,123 @@ def bplanck(nu,T): # Returns the Spectral Radiance (Planck)
         return bpl
     except (ZeroDivisionError):
         return 0
+def readTransphereOutput(self, ext=0):
+    from scipy import array
+    if ext == 0: ext=''
+    file = 'envstruct'+ext+'.dat'
+    with open(file,'r') as f:
+        lines = f.read().split('\n')
+    nr = int(lines[0])
+    dat = array([i.split() for i in lines[2:nr+2]], dtype='float')
+
+    #~ nr = int(f.readline().strip())
+    #~ dat = np.zeros((3,nr),float)
+    #~ for ii in range(0,3):
+        #~ for jj in range(0,nr):
+            #~ dum = f.readline().strip()
+            #~ dat[ii,jj] = dum
+    #~ f.close()
+    class Envstruct:
+        r = dat[:,0]
+        rho = dat[:,1]
+        temp = dat[:,2]
+
+    #~ self.Envstruct = Envstruct
+
+    #~ import numpy as np
+    f = open('convhist.info','r')
+    nn = int(f.readline().strip().split()[0])
+    f.close()
+
+    # Convergence history
+    with open('convhist.dat','r') as f:
+        lines = f.read().split('\n')
+    nr = int(lines[0].strip())
+    if nr == 0: raise Exception('Nothing run, no convergence history.')
+    x1 = nr+1
+
+    #These need to depend on value of nr
+    dat1 = array([i.split() for i in lines[1:x1]], dtype='float')
+    dat2 = array([i.split() for i in lines[x1+1:x1*2]], dtype='float')
+    dat3 = array([i.split() for i in lines[x1*2+1:x1*3]], dtype='float')
+
+    dat = array([dat1,dat2,dat3])
+
+    #~ f = open('convhist.dat','r')
+    #~ nr = int(f.readline().strip())
+    #~ dat = np.zeros((9,nn,nr),float)
+    #~ for jj in range(0,nn):
+        #~ for kk in range(0,nr):
+            #~ dum = f.readline().strip().split()
+            #~ if dum == []: dum=f.readline().strip().split()
+            #~ dat[0:9,jj,kk]=np.array(dum,dtype=float)
+    #~ f.close()
+
+#    if nn gt 1 then idx=[1,2,0] else idx=[1,0]. Note transpose commands not executed...
+    class Convhist:
+        temp=dat[:,:,0]
+        jjme=dat[:,:,1]
+        hhme=dat[:,:,2]
+        jj=  dat[:,:,3]
+        hh=  dat[:,:,4]
+        kapt=dat[:,:,5]
+        kapj=dat[:,:,6]
+        kaph=dat[:,:,7]
+        fj=  dat[:,:,8]
+    #~ self.Convhist = Convhist
+
+    #~ f = open('envstruct.inp')
+    #~ nr = int(f.readline().strip())
+    #~ dat = np.zeros((3,nr),float)
+    #~ for ii in range(0,nr):
+        #~ dum=f.readline().strip().split()
+        #~ if dum == []: dum=f.readline().strip().split()
+        #~ dat[0:3,ii]=np.array(dum,dtype=float)
+    #~ r=dat[0,:]
+    #~ f.close()
+
+    #~ convhist={'r': r, 'temp': temp, 'jjme': jjme, 'hhme': hhme, 'jj': jj, 'hh': hh, 'kapt': kapt, 'kapj': kapj, 'kaph': kaph, 'fj': fj}
+    #~ self.Envstruct = envstruct
+    #~ self.convhist = convhist
+    return Envstruct, Convhist
+def plotEnvstruct(self, mol_abundance=0):
+    if not hasattr(self, 'Envstruct'):
+        raise Exception('you havent read in the transphere output')
+    import matplotlib.pyplot as pl
+    pl.ion()
+    pl.close()
+    fig = pl.figure(1, figsize=(8,6))
+    ax1 = fig.add_subplot(111)
+    ax2 = ax1.twinx()
+    # Density
+    p1 = ax1.loglog(self.Envstruct.r/cgs.AU, self.Envstruct.rho)
+    ax1.set_xlabel('Radius (AU)')
+    #~ ax1.set_xscale('log')
+    ax1.set_ylabel('Density (g/cm-3)')
+    # Temperature
+    p2 = ax2.loglog(self.Envstruct.r/cgs.AU, self.Envstruct.temp,'r')
+    ax2.set_ylabel('Temp (K)')
+    if mol_abundance[0]:
+        def make_patch_spines_invisible(ax):
+            ax.set_frame_on(True)
+            ax.patch.set_visible(False)
+            for sp in ax.spines.itervalues():
+                sp.set_visible(False)
+        ax3 = ax1.twinx()
+        #~ ylims = ax3.get_ylim()
+        ax3.set_ylim(-0.05E-7, 1.85E-7)
+
+        p3 = ax3.semilogx(self.Envstruct.r/cgs.AU, mol_abundance, 'g')
+        ax3.spines["right"].set_position(("axes", 1.2))
+        make_patch_spines_invisible(ax3)
+        ax3.spines["right"].set_visible(True)
+        ax3.set_ylabel('Rel. Abundance')
+        ax1.legend([p1, p2, p3], ['Density', 'Temp', 'Rel. Abundance'])
+        fig.subplots_adjust(right=0.75)
+    else:
+        ax1.legend([p1, p2], ['Density', 'Temp'])
+
+
 
 
 
@@ -236,11 +354,54 @@ class Ratran:
 
         *14/03/2012 - class created
     """
-    def __init__(self, model=None):
+    def __init__(self, **kwargs):
+        """
+
+        Input :
+        r           :
+        rho         :
+        temp        :
+        db          :
+        abund       :
+        vr          :
+        tdust       :
+        dustonly    :
+        file        :
+        dpc         :
+        imsize      :
+        pixel       :
+        trans       :
+        writeonly   :
+        skyonly     :
+        molfile     :
+        ncell       :
+        outputfile  :
+        snr         :
+        fixset      :
+        """
+
+        from scipy import array
+
+        params = array(['r', 0.0, 'rho', 0.0, 'temp', 0.0, 'db', 0.0,
+        'abund', 0.0, 'vr', 0.0, 'tdust', 0.0, 'dustonly', 0,
+        'file', 'transphere.mdl', 'dpc', 0.0, 'imsize', 129,
+        'pixel', 0.5, 'trans', '220.0e9', 'writeonly', 0,
+        'skyonly', 1, 'molfile', '', 'ncell', 50,
+        'outputfile', 'ratranResult', 'snr', 20, 'fixset', 1e-6])
+
+        # write input files
+
+
+
         print 'Not implemented yet'
 
+    def run(self):
+        print 'Not implemented yet'
+        return 0
+
+
     def radial_profile(self, spaced='log10',
-                            nshell=200, rin=200, rout=8000,
+                            nshell=200, rin=200*cgs.AU, rout=8000*cgs.AU,
                             **kwargs):
         """
         Method to define the radial shells
@@ -320,6 +481,118 @@ class Ratran:
         # calculate the density at the mid-points in all the shells
         self.rho_h2  = n0*(self.r_midpt[0]/self.r_midpt)**float(model[1])
 
+#
+def ratranRun(r = 0.0, rho = 0.0, temp = 0.0, db = 0.0, abund = 0.0, vr = 0.0, tdust = 0.0, dustonly = 0, file = 'transphere.mdl', dpc = 0.0, imsize = 129, pixel = 0.5, trans = '220.0e9', writeonly = 0, skyonly = 0, molfile='', ncell = 50, outputfile="ratranResult", snr=20, fixset=1e-6, minpop=1e-4, unit='Jypx', opstates=0):
+    #
+    import cgsconst as cgs
+    from scipy import zeros, array, logspace, log10
+    import scipy.interpolate
+    import sys
+    import os
+    import numpy as np
+    from time import time
+
+    if tdust==0.0: tdust=temp
+    nh = rho * 100.0 / cgs.MUH2 / cgs.MP
+
+    print 'Writing model in {0}'.format(file)
+    rx = logspace(log10(r[0]), log10(r[-1]), num=ncell+1, endpoint=True)
+    rx = np.insert(rx, 0, 0)
+    r1 = rx[0:-1]
+    r2 = rx[1:]
+    #~ r1=np.insert(r[0:-1],0,0)
+    #~ r2=np.array(r)
+    rr = zeros(ncell+1,float)
+    rr[1:] = 10**( (np.log10(r1[1:]) + np.log10(r2[1:])) / 2.0 )
+    rr[0] = rr[1]
+
+
+    nhf = scipy.interpolate.interp1d(log10(r), log10(nh))
+    tkf = scipy.interpolate.interp1d(log10(r), log10(temp))
+    tdf = scipy.interpolate.interp1d(log10(r), log10(tdust))
+    abund_f = scipy.interpolate.interp1d(log10(r), log10(abund))
+
+    nhint = 10**nhf(log10(rr))
+    tkint = 10**tkf(log10(rr))
+    tdint = 10**tdf(log10(rr))
+    abund_int = 10**abund_f(np.log10(rr))
+    ############################
+    nhint_p = nhint*1.8/4.
+    nhint_p[0] = 0.0
+    nhint_o = nhint*2.2/4.
+    nhint_o[0] = 0.0
+    teint = 10**tkf(log10(rr))
+    ############################
+
+
+    nhint[0] = 0.0
+
+    f = open(file,'w')
+    f.write('# Ratran input file based on Transphere results'+'\n')
+    if skyonly == 1: f.write('# ... intended for (SKY) continuum calculations only.'+'\n')
+    #~ f.write('rmax=%9.3E' % (max(r2)/1.0e2)+'\n')
+    f.write('rmax={0:9.3E}\n'.format( max(r2) / 1.0e2 ))
+    f.write('ncell=%i'  % (len(r2))+'\n')
+    f.write('tcmb=2.728\n')
+    f.write('columns=id,ra,rb,nh,nm,ne,tk,td,db,vr\n')
+    f.write('gas:dust=100\n')
+    if skyonly == 1: f.write('kappa=jena,thin,e6\n')
+    f.write('@\n')
+    #~ for ii in range(0,len(r1)):
+        #~ f.write("%4i %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E" % (ii+1, r1[ii]/100.0, r2[ii]/100.0, nhint[ii], nhint[ii]*abund_int[ii], tkint[ii], tdint[ii], db, vr)+'\n')
+    for ii in range(0,len(r1)):
+        f.write("%4i %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E" % (ii+1, r1[ii]/100.0, r2[ii]/100.0, nhint_p[ii], nhint[ii]*abund_int[ii], nhint_o[ii], tkint[ii], tdint[ii], teint[ii], db, vr)+'\n')
+    f.close()
+
+    if skyonly == 0:
+        if molfile == '': sys.exit('Error: for AMC calculations the molecular datafile (molfile) needs to be set.')
+        f = open("amc.inp",'w')
+        f.write("source="+file+'\n')
+        f.write("outfile=populations.pop\n")
+        f.write("molfile="+molfile+'\n')
+        f.write("snr={0}\n".format(snr))
+        f.write("nphot=1000\n")
+        #f.write("kappa=jena,thin,e6\n")
+        f.write("minpop={0}\n".format(minpop))
+        f.write("seed=1971\n")
+        f.write("fixset={0}\n".format(fixset))
+        f.write("go\n")
+        f.write("q\n")
+        f.write(" \n")
+        f.close()
+
+
+    f = open("sky.inp",'w')
+    if skyonly == 0:
+        f.write("source=populations.pop\n")
+    else:
+        f.write("source="+file+"\n")
+    f.write("format=miriad\n")
+    f.write("outfile="+outputfile+"\n")
+    f.write("trans="+trans+"\n")
+    f.write("pix="+str(imsize)+","+str(pixel)+",32,2\n")
+    if skyonly == 0:
+        f.write("chan=50,0.2\n")
+    else:
+        f.write("chan=1,1.0\n")
+    f.write("distance="+str(dpc)+"\n")
+    f.write("units={0}\n".format(unit))
+    f.write("go\n")
+    f.write("q\n")
+    f.close()
+
+
+    if writeonly == 0:
+        if skyonly == 0:
+            #~ print "Starting AMC calculation..."
+            t1 = time()
+            os.system('amc amc.inp')
+            print 'AMC took :  {0:2.2f} hours'.format((time()-t1)/3600.0)
+        #~ print "Starting SKY calculation..."
+        t1 = time()
+        os.system("sky sky.inp")
+        print ' SKY took : {0:2.2f} seconds'.format(time()-t1)
+
 
 class Model:
     def __init__(self, silent=True, **kwargs):
@@ -337,6 +610,7 @@ class Model:
         rref     : Refinement radius (not implemented yet)
         mstar    : Mass of star
         tstar    : Stellar temperature
+        rstar    : Stellar radius
         isrf     : Scaling of ISRF
         tbg      : Spectral shape of ISRF (Blackbody equivalent temperature).
                    With -1 the spectrum is read from the file isrf.inp and
@@ -361,29 +635,41 @@ class Model:
         # imports
         from scipy import log10, log, arange, linspace, logspace,\
         array
-        import cgsconst as cgs
+        #~ import cgsconst as cgs
         #
         self.silent = silent
 
         #
 
         # Checking input parameters
-        params = array(['rin', 20, 'rout', 8000, 'nshell', 200,
-                        'spacing', 'powerlaw1' ,'nref', 0 ,'rref', 0,
-                        'rstar', 3, 'tstar', 5780, 'mstar', 1,
-                        'isrf', 0.0, 'tbg', 2.73, 'dpc', 250,
-                        'r0', 1.0E3, 'plrho', -1.5,
-                        'rho_type', 'powerlaw1', 'n0', 2e6])
+        params = array(['rin', 20, 'AU',
+                        'rout', 8000, 'AU',
+                        'nshell', 200, ' ',
+                        'spacing', 'powerlaw1', ' ',
+                        'nref', 0, ' ',
+                        'rref', 0, ' ',
+                        'rstar', 3, 'AU',
+                        'tstar', 5780, 'K',
+                        'mstar', 1, 'MSUN',
+                        'isrf', 0.0, ' ',
+                        'tbg', 2.73, 'K',
+                        'dpc', 250, 'PC',
+                        'r0', 1.0E3, 'AU',
+                        'plrho', -1.5, ' ',
+                        'rho_type', 'powerlaw1', ' ',
+                        'n0', 2e6, 'cm-3',])
         print ('Model created with the following parameters:')
-        for par,stdval in zip(params[0::2],params[1::2]):
+        for par, stdval, unit in zip(params[0::3],params[1::3], params[2::3]):
             if par in kwargs:
                 if par in ['spacing', 'rho_type']:
                     kwargs[par] = '\"{0}\"'.format(kwargs[par])
-                print '   {0:7} : {1}'.format(par, kwargs[par].strip('\"'))
+                    print '   {0:9} : {1} {2}'.format(par, kwargs[par].strip('\"'), unit)
+                else:
+                    print '   {0:9} : {1} {2}'.format(par, kwargs[par], unit)
                 exec('self.{0} = {1}'.format(par, kwargs[par]))
             else:
                 if stdval != None:
-                    print '   {0:7} : {1:10} (default)'.format(par, stdval)
+                    print '   {0:9} : {1:7} {2:4} \t(default)'.format(par, stdval, unit)
                     if par in ['spacing', 'rho_type']:
                         exec('self.{0} = {1}'.format(par, '\"'+stdval+'\"'))
                     else:
@@ -391,35 +677,11 @@ class Model:
                 else:
                     raise Exception('Wrong parameter input/handling'
                                     'Check input and/or code...')
-
-        """#~ if not self.nref:
-            #~ r = self.rin * (self.rout/self.rin)**(arange(self.nshell)/(self.nshell-1.e0)) # Simple Log grid
-        #~ elif self.nref:
-                #~ #
-                #~ # Log grid with refinement at inner edge
-                #~ #
-                #~ lgr0 = log10(self.rin)
-                #~ lgr1 = log10(self.rout)
-                #~ lgrr = log10(self.rref)
-                #~
-                #~ n1 = self.nref
-                #~ n2 = self.nshell - self.nref
-                #~ n = arange(self.nshell)-n1
-                #~ c = (lgr1-lgrr)/(1.e0*n2)
-                #~ b = c/(lgrr-lgr0)
-                #~
-                #~ r = zeros((self.nshell),float)
-                #~
-                #~ r[0:n1] = (lgrr-lgr0)*e**(b*n[0:n1])
-                #~ r[n1:n1+n2] = (lgrr-lgr0)+c*n[n1:n1+n2]
-                #~ r = r-(r[0]+(r[0]-r[1]))
-                #~ r = r*(lgr1-lgr0)/(max(r))+lgr0
-                #~ r = 10.0**r
-        #~ self.r_jes = r
-
-        #~ from scipy import log10, log, arange, linspace, logspace,\
-        #~ array
-        #from cgsconst import *"""
+        self.rin *= cgs.AU
+        self.rout *= cgs.AU
+        self.r0 *= cgs.AU
+        self.rstar *= cgs.RSUN
+        self.mstar *= cgs.MSUN
 
         if self.spacing.lower() == 'log10':
             # get the exponent of the start- and
@@ -429,7 +691,8 @@ class Model:
             radii = logspace(start, stop, num=self.nshell, endpoint=True)
         elif self.spacing.lower() == 'powerlaw1':
             if not self.nref and not self.rref:
-                radii = self.rin * (self.rout/self.rin)**(arange(self.nshell)/(self.nshell-1.e0))
+                radii = self.rin * (self.rout/self.rin)**(arange(self.nshell)/(self.nshell - 1.0))
+                #r = rin * (rout/rin)**(np.arange(nr)/(nr-1.e0))
         elif self.spacing.lower() == 'linear':
             # linearly spaced grid
             radii = linspace(self.rin, self.rout, num=self.nshell, endpoint=True)
@@ -439,14 +702,13 @@ class Model:
                 #~ p_exp = kwargs['exp']
             #~ else: # if not, set it to 2, i.e. r^2
                 #~ p_exp = 2
-
             radii = self.rin + (self.rout - self.rin)*(linspace(self.rin, self.rout, num=self.nshell, endpoint=True)/(self.rout))**2
             #print('Not implemented yet.')
             #raise ParError(spaced)
         else:
             raise Exception(spaced)
         # convert to cm
-        # now to get the
+        #~ radii *= cgs.AU
         lower = radii[:-1]
         upper = radii[1:]
         self.radii = radii
@@ -459,37 +721,34 @@ class Model:
         #
 
         from scipy import array
-        import cgsconst as cgs
         # Checking input parameters
-        params = array([])
-        print ('Model created with the following parameters:')
-        for par,stdval in zip(params[0::2],params[1::2]):
-            if par in kwargs:
-                if par == 'rho_type':
-                    kwargs['rho_type'] = '\"{0}\"'.format(kwargs['rho_type'])
-                print '   {0:8} : {1}'.format(par, kwargs[par].strip('\"'))
-                exec('self.{0} = {1}'.format(par, kwargs[par]))
-            else:
-                if stdval != None:
-                    print '   {0:8} : {1:10} (default)'.format(par, stdval)
-                    if par == 'rho_type':
-                        exec('self.{0} = {1}'.format(par, '\"'+stdval+'\"'))
-                    else:
-                        exec('self.{0} = {1}'.format(par, stdval))
-                else:
-                    raise Exception('Wrong parameter input/handling'
-                                    'Check input and/or code...')
-
+        #~ params = array([])
+        #~ print ('Model created with the following parameters:')
+        #~ for par,stdval in zip(params[0::2],params[1::2]):
+            #~ if par in kwargs:
+                #~ if par == 'rho_type':
+                    #~ kwargs['rho_type'] = '\"{0}\"'.format(kwargs['rho_type'])
+                #~ print '   {0:8} : {1}'.format(par, kwargs[par].strip('\"'))
+                #~ exec('self.{0} = {1}'.format(par, kwargs[par]))
+            #~ else:
+                #~ if stdval != None:
+                    #~ print '   {0:8} : {1:10} (default)'.format(par, stdval)
+                    #~ if par == 'rho_type':
+                        #~ exec('self.{0} = {1}'.format(par, '\"'+stdval+'\"'))
+                    #~ else:
+                        #~ exec('self.{0} = {1}'.format(par, stdval))
+                #~ else:
+                    #~ raise Exception('Wrong parameter input/handling'
+                                    #~ 'Check input and/or code...')
         # calculate the density at the reference radius
-        # number of H2 * 2.3 * 1.67E-27
+        # number of H2 * 2.3 * 1.67E-24
         self.rho0 = self.n0 * cgs.MUH2 * cgs.MP # in g/cm-3?
         # calculate the density at all radial points
         if self.rho_type == 'powerlaw1':
+            # 1E-2  - gas-to-dust
             self.rho    = 1e-2 * self.rho0 * (self.radii / self.r0)**(self.plrho)
         else:
             raise Exception('rho_type parameter not recognised')
-
-
 
     def __str__(self):
         attributes = ['rin', 'rout', 'nshell',
@@ -498,9 +757,6 @@ class Model:
                         'isrf', 'tbg', 'dpc']
         test = '\n'.join(['{0:7} : {1}'.format(i, getattr(self, i, None)) for i in attributes])
         return test
-
-    #~ def density(self, **kwargs):
-
 
 class Transphere:
     """
@@ -512,7 +768,7 @@ class Transphere:
         from scipy import log10, log, arange, linspace, logspace,\
         array
         #
-        class Opacity: pass
+        #~ class Opacity: pass
         """
         localdust : Dust opacity local?
         silent    : Verbose?
@@ -524,130 +780,51 @@ class Transphere:
         itypemw   : Type of mu weighting
         idump     : Dump convergence history
         """
-
-
         # Checking input parameters
-        params = array(['localdust', 0, 'silent', True,
-                        'nriter', 30, 'convcrit', 1E-5,
-                        'ncst', 10,'ncex', 30,
-                        'ncnr', 1,'itypemw', 1,
-                        'idump', 1])
+        params = array(['localdust', 0,
+                        'silent', True,
+                        'nriter', 30,
+                        'convcrit', 1E-5,
+                        'ncst', 10,
+                        'ncex', 30,
+                        'ncnr', 1,
+                        'itypemw', 1,
+                        'idump', 1,
+                        'opacfile', 0,
+                        'freqfile', 0])
         #~ print ('Model created with the following parameters:')
         for par,stdval in zip(params[0::2],params[1::2]):
             if par in kwargs:
-                #~ if par == 'spacing':
-                    #~ kwargs['spacing'] = '\"{0}\"'.format(kwargs['spacing'])
-                print '   {0:10} : {1}'.format(par, kwargs[par].strip('\"'))
+                if par in ['opacfile', 'freqfile']:
+                    kwargs[par] = '\"{0}\"'.format(kwargs[par])
+                    print '   {0:10} : {1}'.format(par, kwargs[par].strip('\"'))
+                else:
+                    print '   {0:10} : {1}'.format(par, kwargs[par])
                 exec('self.{0} = {1}'.format(par, kwargs[par]))
             else:
                 if stdval != None:
                     print '   {0:10} : {1:10} (default)'.format(par, stdval)
-                    #~ if par == 'spacing':
-                        #~ exec('Model.{0} = {1}'.format(par, '\"'+stdval+'\"'))
-                    #~ else:
-                    exec('self.{0} = {1}'.format(par, stdval))
+                    if par in ['opacfile', 'freqfile']:
+                        exec('self.{0} = {1}'.format(par, '\"'+stdval+'\"'))
+                    else:
+                        exec('self.{0} = {1}'.format(par, stdval))
                 else:
                     raise Exception('Wrong parameter input/handling'
                                     'Check input and/or code...')
         self.Model = ModelObject
 
-        """#~ if not self.Model.nref:
-            #~ r = self.Model.rin * (self.Model.rout/self.Model.rin)**(arange(self.Model.nshell)/(self.Model.nshell-1.e0)) # Simple Log grid
-        #~ elif self.Model.nref:
-                #~ #
-                #~ # Log grid with refinement at inner edge
-                #~ #
-                #~ lgr0 = log10(self.Model.rin)
-                #~ lgr1 = log10(self.Model.rout)
-                #~ lgrr = log10(self.Model.rref)
-                #~
-                #~ n1 = self.Model.nref
-                #~ n2 = self.Model.nshell - self.Model.nref
-                #~ n = arange(self.Model.nshell)-n1
-                #~ c = (lgr1-lgrr)/(1.e0*n2)
-                #~ b = c/(lgrr-lgr0)
-                #~
-                #~ r = zeros((self.Model.nshell),float)
-                #~
-                #~ r[0:n1] = (lgrr-lgr0)*e**(b*n[0:n1])
-                #~ r[n1:n1+n2] = (lgrr-lgr0)+c*n[n1:n1+n2]
-                #~ r = r-(r[0]+(r[0]-r[1]))
-                #~ r = r*(lgr1-lgr0)/(max(r))+lgr0
-                #~ r = 10.0**r
-        #~ self.Model.r_jes = r
-
-        #~ from scipy import log10, log, arange, linspace, logspace,\
-        #~ array
-        #from cgsconst import *"""
-
-        #~ if Model.spacing.lower() == 'log10':
-            #~ # get the exponent of the start- and
-            #~ # stop-radius in input units
-            #~ start = [log10(Model.rin), 0][Model.rin == 0]
-            #~ stop = log10(Model.rout)
-            #~ radii = logspace(start, stop, num=Model.nshell, endpoint=True)
-        #~ elif Model.spacing.lower() == 'powerlaw1':
-            #~ if not Model.nref and not Model.rref:
-                #~ radii = Model.rin * (Model.rout/Model.rin)**(arange(Model.nshell)/(Model.nshell-1.e0))
-        #~ elif Model.spacing.lower() == 'linear':
-            #~ # linearly spaced grid
-            #~ radii = linspace(Model.rin, Model.rout, num=Model.nshell, endpoint=True)
-        #~ elif Model.spacing.lower() == 'powerlaw2':
-            # first check if coefficients to the power-law was given
-            #~ if 'exp' in kwargs:
-                #~ p_exp = kwargs['exp']
-            #~ else: # if not, set it to 2, i.e. r^2
-                #~ p_exp = 2
-
-            #~ radii = Model.rin + (Model.rout - Model.rin)*(linspace(Model.rin, Model.rout, num=Model.nshell, endpoint=True)/(Model.rout))**2
-            #print('Not implemented yet.')
-            #raise ParError(spaced)
-        #~ else:
-            #~ raise Exception(spaced)
-
-        # now to get the
-        #~ lower = radii[:-1]
-        #~ upper = radii[1:]
-        #~ Model.r_midpt = array((lower+upper)/2)
-        #~ Model.r_grid = array([array([i,j]) for i,j in zip(lower,upper)])
-        #~ #
-        #~ self.Model = Model
-
-
-    #~ def density(self, **kwargs):
-        #~ # Checking input parameters
-        #~ params = array([r0, '1.0E3', n0])
-        #~ print ('Model created with the following parameters:')
-        #~ for par,stdval in zip(params[0::2],params[1::2]):
-            #~ if par in kwargs:
-                #~ if par == 'spacing':
-                    #~ kwargs['spacing'] = '\"{0}\"'.format(kwargs['spacing'])
-                #~ print '   {0:7} : {1}'.format(par, kwargs[par].strip('\"'))
-                #~ exec('Model.{0} = {1}'.format(par, kwargs[par]))
-            #~ else:
-                #~ if stdval != None:
-                    #~ print '   {0:7} : {1:10} (default)'.format(par, stdval)
-                    #~ if par == 'spacing':
-                        #~ exec('Model.{0} = {1}'.format(par, '\"'+stdval+'\"'))
-                    #~ else:
-                        #~ exec('Model.{0} = {1}'.format(par, stdval))
-                #~ else:
-                    #~ raise Exception('Wrong parameter input/handling'
-                                    #~ 'Check input and/or code...')
-
-    def fix_opacity_file(self, **kwargs):
+        #~ def fix_opacity_file(self, **kwargs):
         from scipy import array
         from sys import exit as sysexit
         # if a dust opacity file is given
         # that is it is not tabulated correctly
         # as a dustopac.inp file
-        print 'Local dust opacity: ',self.localdust
-        if 'opacfile' in kwargs:
-            if 'freqfile' not in kwargs:
-                sysexit('No frequency file given. Cannot proceed. '
+        if self.opacfile not in [0, '0']:
+            if self.freqfile in [0, '0']:
+                sysexit('No frequency file given (freqfile). Cannot proceed. '
                 'Need two files: one with frequency, and one with opacity'
                 ' at corresponding frequency.')
-            with open(kwargs['opacfile']) as f:
+            with open(self.opacfile) as f:
                 lines = f.read().split('\n')
             # get the "header" info,
             # that is the number of tabulated entries in
@@ -679,7 +856,7 @@ class Transphere:
                 nf = ns
                 ismooth = 0
                 nrtrange = 0
-                with open(kwargs['opacfile']) as f:
+                with open(self.opacfile) as f:
                     line = f.readline().strip()
                     ns, ismooth, nrtrange = line.split()
                     ns, ismooth, nrtrange = int(ns), int(ismooth), int(nrtrange)
@@ -705,7 +882,7 @@ class Transphere:
                                 dum = float(f.readline().split())
                                 csca[kk, iss, ir] = dum
                 ########################################################
-            with open(kwargs['freqfile']) as f:
+            with open(self.freqfile) as f:
                 lines = f.read().split('\n')
             nf = int(lines[0])
             freq = array(lines[2:2+nf], 'float')
@@ -752,14 +929,14 @@ class Transphere:
             f.close
             f = open('dustopac_0.inp','w')
             f.write(nr)
-            f.write(str(opacity['nf'])+' 1\n')
+            f.write(str(nf)+' 1\n')
             f.write(' ')
             redux=1.e0
             for ir in range(0,nr):
                 for inu in range(0,nr):
-                    f.write(opacity['cabs'][inu]*redux)
+                    f.write(cabs[inu]*redux)
                 for inu in range(0,opacity['nf']):
-                    f.write(opacity['csca'][inu]*redux)
+                    f.write(csca[inu]*redux)
                 f.write(' ')
             f.close
         elif not self.localdust:
@@ -787,81 +964,85 @@ class Transphere:
         #~ import astroProcs
         #~ import numpy as np
         from scipy import pi, zeros
-        import cgsconst as cgs
+        #~ import cgsconst as cgs
         # Transphere input file
-        f=open('transphere.inp','w')
-        f.write(str(2)+'\n')
-        f.write(str(self.nriter)+'\n')
-        f.write(str(self.convcrit)+'\n')
-        f.write(str(self.ncst)+'\n')
-        f.write(str(self.ncex)+'\n')
-        f.write(str(self.ncnr)+'\n')
-        f.write(str(self.itypemw)+'\n')
-        f.write(str(self.idump)+'\n')
-        f.close()
+        text = ('{0}\n{1}\n{2}\n{3}\n'
+                '{4}\n{5}\n{6}\n{7}'.format(2,
+                self.nriter,
+                self.convcrit,
+                self.ncst,
+                self.ncex,
+                self.ncnr,
+                self.itypemw,
+                self.idump))
+        with open('transphere.inp','w') as f:
+            f.write(text)
         #
         # Make the stellar information file
         # (mstar and tstar are irrelevant; they are there for historical reasons)
-        #
-        f=open('starinfo.inp','w')
-        f.write(str(1)+'\n')
-        f.write(str(self.Model.rstar)+'\n')
-        f.write(str(self.Model.mstar)+'\n')
-        f.write(str(self.Model.tstar)+'\n')
-        f.close()
+        # isn't "tstar" used for planck calc?
+        #~ f=open('starinfo.inp','w')
+        with open('starinfo.inp','w') as f:
+            f.write('1\n'
+                    '{0}\n'
+                    '{1}\n'
+                    '{2}\n'.format(self.Model.rstar,
+                                self.Model.mstar,
+                                self.Model.tstar))
         #
         # The stellar spectrum
         #
-        f=open('starspectrum.inp','w')
-        f.write(str(len(self.freq))+'\n')
-        sspec=(self.Model.rstar/cgs.PC)**2*pi*bplanck(self.freq,self.Model.tstar)
-        for inu in range(0,len(self.freq)):
-            f.write(str(self.freq[inu])+' '+str(sspec[inu])+'\n')
-        f.close()
+        #~ f=open('starspectrum.inp','w')
+        sspec = (self.Model.rstar / cgs.PC)**2 * pi * bplanck(self.freq, self.Model.tstar)
+        with open('starspectrum.inp', 'w') as f:
+            f.write('{0}\n'.format(len(self.freq)))
+            for inu in range(0,len(self.freq)):
+                f.write('{0:20}\t{1:20}\n'.format(self.freq[inu], sspec[inu]))
         #
         # The exterior spectrum
         #
         if self.Model.tbg == 0.0 or self.Model.isrf == 0:
             bgspec = zeros((len(self.freq)),float)
         elif self.Model.tbg == -1:
-            f = open('isrf.inp','r')
+            f = open('isrf.inp', 'r')
             nf = int(f.readline().strip())
             bgspec = zeros((len(self.freq)),float)
             for ii in range(0,nf):
-                bgspec[ii]=float(f.readline().strip())*self.Model.isrf
+                bgspec[ii] = float(f.readline().strip())*self.Model.isrf
+            f.close()
         else:
-            if self.Model.tbg > 0: bgspec = bplanck(self.freq, self.Model.tbg)*self.Model.isrf
+            if self.Model.tbg > 0: bgspec = bplanck(self.freq, self.Model.tbg) * self.Model.isrf
 
-        f = open('external_meanint.inp','w')
-        f.write(str(len(self.freq))+'\n')
-        for inu in range(0,len(self.freq)):
-            f.write(str(self.freq[inu])+' '+str(bgspec[inu])+'\n')
-        f.close()
+
+        with open('external_meanint.inp', 'w') as f:
+            f.write('{0}\n'.format(len(self.freq)))
+            for inu in range(0, len(self.freq)):
+                f.write('{0:20}\t{1:20}\n'.format(self.freq[inu], bgspec[inu]))
         #
         # Write the envelope structure
         #
-        f = open('envstruct.inp','w')
-        f.write(str(len(self.Model.radii))+'\n')
-        f.write(' '+'\n')
-        for ir in range(0,len(self.Model.radii)):
-            f.write("%13.6E %13.6E %13.6E" % (self.Model.radii[ir], self.Model.rho[ir],0.e0)+'\n') # ,format='(3(E13.6,1X))'
-        f.close()
+        with open('envstruct.inp','w') as f:
+            f.write(str(len(self.Model.radii))+'\n')
+            f.write(' '+'\n')
+            for ir in range(0,len(self.Model.radii)):
+                f.write("%13.6E %13.6E %13.6E" % (self.Model.radii[ir], self.Model.rho[ir],0.e0)+'\n') # ,format='(3(E13.6,1X))'
 
     def runTransphere(self):
         import os
         from time import time
         #
-        # check the input files here!
+        # re-check the input files here?
+        # at least the format?
         #
-        #~ try:
         print ('Running Transphere...')
         t1 = time()
         os.system('transphere')
         t2 = time()
-        print('Done, took : {0:3.3f} seconds'.format((t2-t1)))
-        #~ except Exception
+        print('Done, took : {0:2.1f} seconds'.format((t2-t1)))
+        self.Envstruct, self.Convhist = readTransphereOutput(self)
 
-        # after run read in the results automatically, and store
-        # in object
 
-    ####################################################################
+
+
+
+########################################################################
