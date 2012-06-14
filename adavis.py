@@ -2825,7 +2825,7 @@ class Spectrum:
                         send=1,
                         display=1,
                         linelist=['jpl','cdms'],
-                        e_to=500)
+                        e_to=1000)
             if args['writetofile']:
                 with open(args['writetofile'],'a') as f:
                     f.write('\n# Line no. {0}\n'.format(i+1))
@@ -3742,14 +3742,14 @@ def plot_moment_map(self,
         # just contours
         levs = levs.round(3)
         #~ levs_contour = levs_contour.round(3)
-        cs = ax1.contour(Mom.zero, levs, colors=ccol, extent=self.extent)
+        cs = ax1.contour(Mom.zero, levels=levs, colors=ccol, extent=self.extent)
     elif colormap!=None:
         levs = levs.round(3)
         levs_contour = levs_contour.round(3)
-        cs1 = ax1.contourf(Mom.zero, levs, cmap=colormap, extent=self.extent)
+        cs1 = ax1.contourf(Mom.zero, levels=levs, cmap=colormap, extent=self.extent)
         #cs2 = ax1.contour(img, cs1.levels[::2], colors=ccol, extent=self.extent)
         #return cs1
-        cs2 = ax1.contour(Mom.zero, levs_contour, colors=ccol, extent=self.extent)
+        cs2 = ax1.contour(Mom.zero, levels=levs_contour, colors=ccol, extent=self.extent)
         cax = fig.add_axes([0.35, 0.185, 0.02, 0.68]) # left, bottom, width, height
         cbar = pl.colorbar(cs1, cax=cax, ticks=levs_contour, format=cbar_tick_label_formatter)
         cbar.ax.set_ylabel(self.unitint)

@@ -23,6 +23,10 @@
 
 ---[ Change log ]---
 
+
+[*] 08.05.2012 Now tries to load first ClientForm and 
+    then Mechanise modules, both works fine.
+
 [*] 19.03.2012
     Fixed bug causing search on upper energy level to fail
     Various un-logged changes up until now.
@@ -498,11 +502,15 @@ def splatsearch(**arg):
     if arg.has_key('display') and arg['display']:
         print stylify('** RESULTS **',fg='b')
         print 'Got %s hits!' % stylify(str(hits),fg='r')
-        print stylify('{0:2} {1:13} {2:21}\t{3:10}\t{4:9}\t{5:10}\t{6:3}\t{7:6}',fg='m').format('N', 'Form', \
+        print stylify('{0:2} {1:15} {2:23}\t{3:10}\t{4:9}\t{5:10}\t{6:3}\t{7:6}',fg='m').format('N', 'Form', \
         'Res Qnr','Freq', 'Smu^2', 'EU(K)','C/M', 'List')
         for i in arange(hits):
-            print '{0:2} {1:13} {2:21}\t{3:10}\t{4:9}\t{5:10}\t{6:3}\t{7:6} '.format(N[i], \
-            species[i], res_qns[i], freq[i], Smu2[i], EUK[i], freqtype[i], llist[i])
+            if i%2:
+                print '{0:2} {1:15} {2:26}\t{3:10}\t{4:9}\t{5:10}\t{6:3}\t{7:6} '.format(N[i], \
+                species[i], res_qns[i], freq[i], Smu2[i], EUK[i], freqtype[i], llist[i])
+            else:
+                print stylify('{0:2} {1:15} {2:23}\t{3:10}\t{4:9}\t{5:10}\t{6:3}\t{7:6} '.format(N[i], \
+                species[i], res_qns[i], freq[i], Smu2[i], EUK[i], freqtype[i], llist[i]), bg='a', fg='r')
     if arg.has_key('send'):
         if arg['send']=='dict':
             # TODO : change the output dictionary keys, a bit complicated now
