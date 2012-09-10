@@ -1,12 +1,11 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
-
-
+#
 #
 #   adavis.py
 #
 #
-#   Copyright 2012 Magnus Persson <magnusp@nbi.dk>
+#   Copyright 2012 Magnus aPersson <magnusp@nbi.dk>
 #
 #   This program is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
@@ -67,54 +66,63 @@ Need : o scipy (and numpy),
 """
 #------------------------------------------------------------------------
 #Top of the list TODO:
+
+
+# TODO method calc_offset to Fits object (calc offset from phase center given
+#sexadecimal or sim coord input)
+
+# TODO : extend the "box" plotting keyword so that it accepts arbitrary
+#regions (just like the region keyword) <- perhaps share code is a good
+#idea here(?)
+
+#TODO : Cannot plot or deduce levels when some pixels have value 'nan'
+
+#TODO : load frequency information from fits file if it is there, and create
+#velocity array as well
+#        -> more dynamic fits-file loading
+
+#TODO : constants move to a module, update the code to use it.
+
+#TODO : implement different lineID plot, make it more object oriented
+
+#TODO : update the __str__ method of all the classes to print as much
+#        info as possible
+
+#TODO : Moment 2 maps
+#        -Check others mom2 function (how to get line center?)
+#        -Need MPFIT Gaussian fitting?
+
+#TODO : Clean up code again, remove font handler, or inactivate it
+#      All fonts should be Times New Roman, to big of a hassle to change
+#       to Sans-serif font, for the tick labels mostly.
+#       (works better in later matplotlib?)
+
+#TODO : Check that the set_rc function is used in all functions
+
+#TODO : Clean up moment 0/1(/2) function
+
+#TODO : Change to handle DataObject in all functions.
+#       (Use v_sys, dist, name from the Fits data object)
+#        X Spectra
+#        X Fit
+#        X moment0
+#        X moment1
+#        O moment2
+#        O The rest
+
+#TODO : How to divide it into a runnable program
+#        Perhaps use **kwargs i.e. dictionaries more which can
+#        easily be passed along from e.g. OptParser
+
+# TODO : The Error classes should take two input, which parameter
+#        is raising the error and the reason
+
 """
-
-TODO : Cannot plot or deduce levels when some pixels have value 'nan'
-
-TODO : load frequency information from fits file if it is there
-        more dynamic fits-file loading
-
-TODO : constants move to a module, update the code to use it.
-
-TODO : implement different lineID plot, make it more object oriented
-
-TODO : update the __str__ method of all the classes to print as much
-        info as possible
-
-TODO : Moment 2 maps
-        -Check others mom2 function (how to get line center?)
-        -Need MPFIT Gaussian fitting?
-
-TODO : Clean up code again, remove font handler, or inactivate it
-       All fonts should be Times New Roman, to big of a hassle to change
-       to Sans-serif font, for the tick labels mostly.
-       (works better in later matplotlib?)
-
-TODO : Check that the set_rc function is used in all functions
-
-TODO : Clean up moment 0/1(/2) function
-
-TODO : Change to handle DataObject in all functions.
-       (Use v_sys, dist, name from the Fits data object)
-        X Spectra
-        X Fit
-        X moment0
-        X moment1
-        O moment2
-        O The rest
-
-TODO : How to divide it into a runnable program
-        Perhaps use **kwargs i.e. dictionaries more which can
-        easily be passed along from e.g. OptParser
-
-TODO : The Error classes should take two input, which parameter
-        is raising the error and the reason
-
 ------------------------------------------------------------------------
 History:
 
 DONE : Moved constants and the radiative transfer scripts to separate
-        files.
+        modules (cgsconst[.py] and pyrt[.py]).
 
 DONE : fixed some ugly (but working) code in write_latex_table
 
@@ -135,49 +143,60 @@ DONE : Common function for moment maps?
 """
 #------------------------------------------------------------------------
 # Less pressing matters:
+
+#TODO : P-V diagram - rotatable
+#       what happens with the coordinates?
+#       need to calc an offset, but call them x and y or something
+
+# TODO : RMS and other units, e.g. when using SD data, Kelvin instead of Jy.
+
+# TODO : axes_grid1 backwards compability? (for use in CASA)
+
+# TODO : Tick locators are good for small regions/narrow spectra,
+#        but not for big/wide
+#       Perhaps change it with the 'box' keyword
+#            -> e.g a 10th of the box keyword for major locators
+#       Implemented a parameter locator=[major,minor] as a first step
+
+# TODO : Function to bin in spatial (2D) regime (congrid map),
+#         change ra/dec_delt etc
+
+# TODO : Spectra class, use for fitting, lineid, binning
+
+# TODO : Interactive multiple Gaussian fitting, i.e. click at start
+#        end of each line, calculate moments within it
+
+# TODO : Interactive splatsearch
+
+# TODO : What does the VELREF keyword in the GILDAS fits header mean?
+#       Check GILDAS manual
+
+# TODO : Check Jes functions how they work and try to merge/replace them.
+
+# TODO : Implement it as command line program
+#        -> partially implemented, should work with spectra
+#        Make sure all parameters are reachable through **kwargs
+#        use Dictionary.get('attribute', ValueIfNoKey)
+
+# TODO : Create a partition function class, to access partition functions
+#       for different molecules.
+#         o Example adavis.qrot.sulfurdioxide('18(1,2)-17(1,8)AE', Trot=170)
+#         o Using the transition to identify it, and print shows the
+#           available ones
+#         o Store the Q values for different Tex
+#         o Able to update from Q and Tex values
 """
-TODO : P-V diagram - rotatable
-       what happens with the coordinates?
-       need to calc an offset, but call them x and y or something
+------------------------------------------------------------------------
+History:
 
-TODO : RMS and other units, e.g. when using SD data, Kelvin instead of Jy.
+DONE :  Add ALMA in get_telescope_diameter function
 
-TODO : Tick locators are good for small regions/narrow spectra,
-        but not for big/wide
-       Perhaps change it with the 'box' keyword
-            -> e.g a 10th of the box keyword for major locators
-       Implemented a parameter locator=[major,minor] as a first step
 
-(TODO : Function to bin in spatial (2D) regime (congrid map),
-         change ra/dec_delt etc)
-
-TODO : Spectra class, use for fitting, lineid, binning
-
-TODO : Interactive multiple Gaussian fitting, i.e. click at start
-        end of each line, calculate moments within it
-
-(TODO : Interactive splatsearch)
-
-TODO : What does the VELREF keyword in the GILDAS fits header mean?
-       Check GILDAS manual
-
-TODO : Check Jes functions how they work and try to merge/replace them.
-
-TODO : Implement it as command line program
-        -> partially implemented, should work with spectra
-        Make sure all parameters are reachable through **kwargs
-        use Dictionary.get('attribute', ValueIfNoKey)
-
-TODO : Create a partition function class, to access partition functions
-       for different molecules.
-         o Example adavis.qrot.sulfurdioxide('18(1,2)-17(1,8)AE', Trot=170)
-         o Using the transition to identify it, and print shows the
-           available ones
-         o Store the Q values for different Tex
-         o Able to update from Q and Tex values
 
 """
-
+########################################################################
+# IMPORTS
+from cgsconst import *  # New Constants module, works nice
 
 ########################################################################
 # ASTRONOMY & ASTROPHYSICS definitions for figure sizes
@@ -196,98 +215,8 @@ TWO_COL_FIG_WIDTH = TWO_COL_FIG_WIDTH_MM*INCHES_PER_MM
 SIDE_CAPTION_FIG_WIDTH = SIDE_CAPTION_FIG_WIDTH_MM*INCHES_PER_MM
 FIG_SIZE = [ONE_COL_FIG_WIDTH,ONE_COL_FIG_HEIGHT]
 ########################################################################
-# CONSTANTS
-# from "Physics Handbook for Science and Engineering" 2002
-# and some  from script natconst.py by Jes Joergensen which
-# some in turn are from C. P. Dullemond's IDL scripts
-#
-
-from cgsconst import *  # Testing the new module
-
-#Perhaps put in a separate 'constants' module?
-# DONE, testing...
-#
-#~ class Constant(float):
-    #~ """
-    #~ Constant float type that can have a unit (unit)
-    #~ and a description (desc)
-#~
-    #~ Call : W = Constant(value, 'unit', desc = 'description')
-    #~ where 'unit' and desc, are optional.
-    #~ Then 'W' just returns the value assigned to it, and can
-    #~ be used in calculations as a normal float.
-    #~ e.g. W * 2e3 / 5.
-    #~ """
-#~
-    #~ def __new__(self, value, *args, **kwargs):
-        #~ # return without the *args and **kwargs
-        #~ # to make sure no error is raised in __new__
-        #~ return super(Constant, self).__new__(self, value)
-#~
-    #~ def __init__(self, value, *args, **kwargs):
-        # store the different arguments into the class
-        #~ self.unit = args[0] if args else None
-        #~ self.desc = kwargs.pop('desc', None)
-
-# Astronomy constants in cgs units
-
-#~ MEARTH = Constant(5.977e27, 'g',     desc = 'Mass of the Earth')
-#~ MMOON  = Constant(7.349e25, 'g',     desc = 'Mass of the Moon')
-#~ AU   = Constant(1.496E13,   'cm',    desc = 'Astronomical Unit')
-#~ LSUN = Constant(3.8525e33,  'erg.s', desc = 'Solar luminosity')
-#~ RSUN = Constant(6.96e10,    'cm',    desc = 'Solar radius')
-#~ MSUN = Constant(1.99e33,    'g',     desc = 'Mass of the Sun')
-#~ PC   = Constant(3.08572e18, 'cm',    desc = 'Parsec')
-#~
-#~ # Physics constants in cgs units
-#~ from scipy import constants
-#~ CC = Constant(constants.c * 1e2,  'cm/s',         desc = 'Speed Of Light')
-#~ KK = Constant(constants.k * 1e7,  'erg/K',        desc = 'Bolzmann\'s constant')
-#~ HH = Constant(constants.h * 1e7,  'erg.s',        desc = 'Planck\'s constant')
-#~ GG = Constant(constants.G * 1e3,  'cm^3/(g.s^2)', desc = 'Gravitational constant')
-#~ MP = Constant(constants.m_p * 1e3,      'g?',     desc = 'Mass of proton')
-#~ ME = Constant(constants.m_e * 1e3,      'g?',     desc = 'Mass of electron')
-#~ SS = Constant(constants.Stefan_Bolzmann * 1e3, 'erg/cm^3/K^4', desc = 'Stefan-Boltzmann constant')
-#~ EE  = Constant(constants.,      '?',            desc = 'Unit charge')
-#~ ST  = Constant(constants.,      'cm^2',         desc = 'Thomson cross-section')
-
-# Alternatively (from natconst.py)
-#~ CC  = Constant(2.9979e10,  'cm/s',         desc = 'Speed Of Light')
-#~ KK  = Constant(1.3807e-16,  'erg/K',        desc = 'Bolzmann\'s constant')
-#~ HH  = Constant(6.6262e-27,  'erg.s',        desc = 'Planck\'s constant')
-#~ GG = Constant(6.672e-8,         'cm^3/(g.s^2)', desc = 'Grav. const.')
-#~ MP  = Constant(1.6726e-24,      'g?',           desc = 'Mass of proton')
-#~ ME  = Constant(9.1095e-28,      'g?',           desc = 'Mass of electron')
-#~ SS  = Constant(5.6703e-5,       'erg/cm^3/K^4', desc = 'Stefan-Boltzmann constant')
-#~ EE  = Constant(4.8032e-10,      '?',            desc = 'Unit charge')
-#~ ST  = Constant(6.6524e-25,      'cm^2',         desc = 'Thomson cross-section')
-#~
-#~ AA  = Constant(7.5657e-15,      '?',            desc = '4 ss / CC')
-#~
-#~ #     Gas constants in cgs units
-#~ MUH2 = Constant(2.3000e0,   'amu?', desc='Mean molec weight H2+He+Metals')
-#~ #
-#~ #     Alternative units
-#~ #
-#~ EV   = Constant(1.6022e-12, 'erg',  desc = 'Electronvolt')
-#~ KEV  = Constant(1.6022e-9,  'erg',  desc = 'Kilo electronvolt')
-#~ MICR = Constant(1.e-4,      'cm',   desc = 'Micron')
-#~ KM   = Constant(1.e5,       'cm',   desc = 'Kilometer')
-#~ ANGS = Constant(1.e-8,      'cm',   desc = 'Angstroem')
-#~
-#~ #     Time units
-#~ YEAR = Constant(3.1536e7, 's', desc='Year')
-#~ HOUR = Constant(3.6000e3, 's', desc='Hour')
-#~ DAY  = Constant(8.64e4,   's', desc='Day')
-
-
-
-########################################################################
 # USEFUL STRINGS
 KMS = u"km\u00b7s\u207b\u00b9"
-
-
-
 ########################################################################
 # ERROR HANDLING (EXCEPTIONS)
 #
@@ -459,8 +388,14 @@ def parse_tick_font (font):
 def get_telescope_diameter(telescope):
     from string import upper
     from scipy import where, array
-    name = array(['SMA', 'PDBI', 'JCMT', 'AP-H201-F102', 'IRAM30M'])
-    dia = array([6, 15, 15, 12, 30])
+    name = array(['SMA', 'PDBI', 'JCMT', 'AP-H201-F102', 'APEX', 'IRAM30M', 'ALMA'])
+    dia = array([6,     # SMA
+                 15,    # PdBI
+                 15,    # JCMT
+                 12,    # APEX (Johans data, odd code for telescope?)
+                 12,    # APEX
+                 30,    # IRAM30M
+                 12])   # ALMA
     try:
         diameter = dia[where(upper(telescope)==name)][0]
     except IndexError:
@@ -601,7 +536,7 @@ def draw_fov(ax, data):
     cir = Circle((0,0), transform=ax.transData, fill=False, ec='k',
                  lw=1, ls='dashed', radius=data.fov/2)
     ax.add_patch(cir)
-def draw_sizebar(ax, data, dist=220, au=200):
+def draw_sizebar(ax, data, dist=220, au=200, loc=8):
     """
     distance in pc
     then theta = AU/(distance in pc)
@@ -612,7 +547,7 @@ def draw_sizebar(ax, data, dist=220, au=200):
     asb = AnchoredSizeBar(ax.transData,
                             au/float(dist),
                             str(au)+" AU",
-                            loc=8,
+                            loc=loc,
                             pad=0.1, borderpad=0.5, sep=5,
                             frameon=False)
     ax.add_artist(asb)
@@ -682,30 +617,34 @@ def put_line_indicator(ax, velocity, spect, xpos, text_string, \
     transform = ax.transData)
 def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
         'size':10},
-        quality=[300, 150]):
+        quality=[300, 150], latex=True):
     from matplotlib import rc
     ################################
     # setting global rc properties #
     ################################
-    rc('text', usetex=True)
+    rc('text', usetex=latex)
+    #~ rc('mathtext',**{'fontset':'custom', 'default':'sf'})
+    #~ rc('pdf', fonttype=42)
     rc('savefig', **{'dpi': quality[0]})
     rc('figure',**{'facecolor': '1', 'dpi': quality[1]})
     rc('image', **{'origin': 'lower'})
+    rc('text.latex', preamble=[r'\renewcommand{\familydefault}{\sfdefault}'])
     #to set the global font properties
     rc('font', **font)
     # ticksize
     #rc('xtick',**{'minor.size':3, 'major.size':7})
     #rc('ytick',**{'minor.size':3, 'major.size':7})
     # linewidths
-    rc('axes', linewidth=0.8)
-    rc('patch', linewidth=0.7)
-    rc('lines', linewidth=0.6, markeredgewidth=0.8)
+    rc('axes', linewidth=1.1)
+    rc('patch', linewidth=1)
+    rc('lines', linewidth=1, markeredgewidth=1)
 ########################################################################
 # DATA/COORDINATE PARSING
 def parse_ra (ra,string=False):
     """
 
-    Parses a simple float coordinate and returns hours, minutes and seconds.
+    Parses a simple float coordinate and returns hours, minutes and seconds
+    and vice verse.
     Input
         ra : the right ascention coordinate to be parsed
 
@@ -717,16 +656,26 @@ def parse_ra (ra,string=False):
 
     *2010/12/18 Added documentation
 
+    *2012/07/03 Added calculation in other direction, if input is a string
 
     """
-    a = ra/15
-    hours = int(a)
-    b = (a-hours)*60
-    minutes = int(b)
-    seconds = (b-minutes)*60
-    if string:
-        return '{0:0>2}:{1:2}:{2:0>4.2f}'.format(hours,minutes,seconds)
-    return hours,minutes,seconds
+    from scipy import array
+    if type(ra) != type(''):
+        a = ra/15
+        hours = int(a)
+        b = (a-hours)*60
+        minutes = int(b)
+        seconds = (b-minutes)*60
+        if string:
+            return '{0:0>2}:{1:2}:{2:0>4.2f}'.format(hours,minutes,seconds)
+        return hours,minutes,seconds
+    elif type(ra) == type(''):
+        h, m, s = array(ra.split(':')).astype('float')
+        h += m/60.+s/3600.
+        h *= 15
+        if string:
+            return '{0:5.2f}'.format(h)
+        return h
 def parse_dec (dec, string=False):
     """
 
@@ -742,15 +691,28 @@ def parse_dec (dec, string=False):
 
     *2010/12/18 Added documentation
 
+    *2012/07/03 Added calculation in other direction, if input is a string
 
     """
-    degrees = int(dec)
-    b = abs((dec-degrees)*60)
-    minutes = int(b)
-    seconds = (b-minutes)*60
-    if string:
-        return '{0:0>2}:{1:2}:{2:0>4.2f}'.format(degrees,minutes,seconds)
-    return degrees,minutes,seconds
+    from scipy import array, sign
+    if type(dec) != type(''):
+        degrees = int(dec)
+        b = abs((dec-degrees)*60)
+        minutes = int(b)
+        seconds = (b-minutes)*60
+        if string:
+            return '{0:0>2}:{1:2}:{2:0>4.2f}'.format(degrees,minutes,seconds)
+        return degrees,minutes,seconds
+    elif type(dec) == type(''):
+        d, m, s = array(dec.split(':')).astype('float')
+        # trying to catch all variants of writing a negative sexadecimal
+        if -1 in [sign(i) for i in (d, m, s)] or d == -0:
+            d = -1*abs(d) - abs(m/60.) - abs(s/3600.)
+        else:
+            d += m/60.+s/3600.
+        if string:
+            return '{0:5.2f}'.format(h)
+        return d
 def parse_linelist(linelist, out='brief'):
     """
 
@@ -1617,7 +1579,7 @@ class Fits:
         datatype
             possible values : 'SDSPECT', 'CUBE', 'IMAGE'
         telescope
-            supported values : 'SMA', 'PDBI', 'IRAM30M'
+            supported values : 'SMA', 'PDBI', 'IRAM30M', 'APEX, 'ALMA'
             the name of the telescope
         diameter
             diameter of the telescope
@@ -1704,11 +1666,20 @@ class Fits:
         # simple solution to the common extra empty STOKES axis
         # and sometimes even an extra empty axis for ?
         from numpy import diff, arange
-        while self.d.shape[0] == 1:
-            self.d = self.d[0]
+        #~ while self.d.shape[0] == 1:
+            #~ self.d = self.d[0]
+
+        try:
+            self.restfreq = self.hdr['RESTFREQ'] # in Hertz
+        except KeyError:
+            try:
+                self.restfreq = self.hdr['RESTFRQ'] # in Hertz
+            except KeyError:
+                print ('No frequency information.')
+
 
         if self.hdr['NAXIS']==4 and self.d.shape[0:2] == (1,1):
-            self.datatype = 'IMAGE',2
+            self.datatype = ('IMAGE',2)
             self.d = self.d[0][0]
         #naxis = self.hdr['NAXIS']
         #axshape = self.d.shape
@@ -1718,12 +1689,12 @@ class Fits:
             #if self.hdr['NAXIS']==3 and self.hdr['NAXIS1']>1 and self.hdr['NAXIS2']>1 and self.hdr['NAXIS3']==1:
             # image, not SD spectra or anything,
             # really 2D and greater extent than 1x1
-            self.datatype = 'IMAGE',2
+            self.datatype = ('IMAGE',2)
             pass
         #
         # spectral image cube (extra axis for frequency/velocity)
         elif self.hdr['NAXIS']==3 and self.hdr['NAXIS1']>1 and self.hdr['NAXIS2']>1 and self.hdr['NAXIS3']==1:
-            self.datatype = 'IMAGE',2
+            self.datatype = ('IMAGE',2)
             # extra if the continuum image has the freq and width
             self.freq = self.hdr['CRVAL3']
             self.freqwidth = self.hdr['CDELT3']
@@ -1731,20 +1702,23 @@ class Fits:
         elif self.hdr['NAXIS']>=3 and self.hdr['NAXIS3']>1:
             # spectral cube
             # only support for velo-lsr in 3rd axis
-            self.datatype = 'CUBE',3
+            self.datatype = ('CUBE',3)
             # load the third axis
             # need frequency!
-            try:
-                self.restfreq = self.hdr['RESTFREQ'] # in Hertz
-            except KeyError:
-                try:
-                    self.restfreq = self.hdr['RESTFRQ'] # in Hertz
-                except KeyError:
-                    print ('No frequency information.')
+            while self.d.shape[0] == 1:
+                self.d = self.d[0]
             ##### have to add loading of frequency and calculate velocity
             # UGLY HACK BELOW, BEWARE!
+            # need to be changed to a more flexible code...
             try:
-                velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VELO' in self.hdr[x]][0][-1:])
+                if 'VELO' or 'VELO-LSR' in [self.hdr[i] for i in self.hdr.keys()]:
+                    print('VELO')
+                    velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VELO' in self.hdr[x]][0][-1:])
+                elif 'VRAD' in [self.hdr[i] for i in self.hdr.keys()]:
+                    print('VRAD')
+                    velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VRAD' in self.hdr[x]][0][-1:])
+                else:
+                    print('COULDNT FIND A VELOCITY AXIS')
                 vel_info = True
                 self.v_type = velax
                 self.v_crpix = self.hdr['CRPIX'+self.v_type]-1
@@ -1812,7 +1786,7 @@ class Fits:
             # this was just a test
             # SD pointing spectra
         elif self.hdr['NAXIS']>1 and self.hdr['NAXIS2']==1 and self.hdr['NAXIS3']==1:
-            self.datatype = 'SDSPECT',1
+            self.datatype = ('SDSPECT',1)
             self.v_cdelt = self.hdr['DELTAV']
             self.v_cdeltkms = self.hdr['DELTAV']/float(1e3)
             self.v_crpix = self.hdr['CRPIX1']-1
@@ -1847,7 +1821,7 @@ class Fits:
             # if it is not an image or a spectral cube
             print_error('The dimensions of the data is wrong\n at least the header keywords indicate that.\n The data has '+str(self.hdr['NAXIS'])+' axes. \n\n Perhaps use the removeaxis script?\n')
             sysexit()
-
+        print 'Datatype : {0}'.format(self.datatype[0])
         # perhaps check in the header?
         # velref probably at what velocity that middle of spectra is?
         self.v_sys = float(vsys)
@@ -1900,12 +1874,12 @@ class Fits:
             #~ print ycoords[0],ycoords[-1]
             #~ print bottom,top
         try:
-            # Beam size in asecs
+            # convert Beam size from degrees to asecs
             self.bmaj = self.hdr['BMAJ']*3600
             self.bmin = self.hdr['BMIN']*3600
             self.bpa = self.hdr['BPA']
         except KeyError, ex:
-            msg='Header keywords (bmaj,bmin,bpa,restfreq) incomplete and not loaded.'
+            msg='Header keywords (bmaj,bmin,bpa) incomplete and not loaded.'
             print_warning(msg)
             #~ self.bmaj = None
             #~ self.bmin = None
@@ -1969,8 +1943,8 @@ class Fits:
         return '\n ADAVIS - Fitsfile Object \n'
     def parse_pxlcoord (self, x, y):
         """ Function doc """
-        xoffset = (x-self.ra_crpix)*data.ra_cdelt
-        yoffset = (y-self.dec_crpix)*data.dec_cdelt
+        xoffset = (x-self.ra_crpix)*self.ra_cdelt
+        yoffset = (y-self.dec_crpix)*self.dec_cdelt
         return xoffset, yoffset
     def parse_region(self, region, f=False):
         """
@@ -2083,7 +2057,7 @@ class Fits:
             print "RMS calculated in intervals {0} and {1} ({2}) and region {3}".format([n_1min,n_1max], [n_2min,n_2max],nvals,area)
         rms_data = self.d[n_channels]
         self.rms = sqrt(((rms_data[:, j1:j2, i1:i2])**2).mean())
-        rms_data=[]
+        del rms_data
     def add_line(self, name, frequency=None, channels=None, width=None):
         """
         Add identified line(s) to the class
@@ -2142,6 +2116,7 @@ class Uvfits:
         """
         from pyfits import open as pfopen
         from scipy import sqrt, pi, arctan2
+        from cgsconst import CC
         f = pfopen(uvfitsfile)
 
         if f[0].header['NAXIS1'] != 0:
@@ -2179,12 +2154,19 @@ class Uvfits:
         self.uvdist_nsec= sqrt(self.u_nsec**2 +self.v_nsec**2)
         self.uvdist_klam = sqrt(self.u_klam**2 +self.v_klam**2)
         self.uvdist_m = sqrt(self.u_m**2 +self.v_m**2)
-        # read amplitude and phase
+        # visibility data set (COMPLEX)
         self.visdata = self.hdu.data.data[:,0,0,0,0,:]
+        # load the re, im and weight arrays
         self.re = self.visdata[:,0]
         self.im = self.visdata[:,1]
+        self.weight = self.visdata[:,2]
+        # now calculate the amplitude and phase
         self.amplitude = sqrt(self.re**2 + self.im**2)
         self.phase = arctan2(self.im, self.re) / pi * 180.
+        # following 1.0e6 is just for GILDAS, change if needed
+        print('NB : Error calculated from weights assuming GILDAS '
+        'data(i.e. frequencies in MHz).')
+        self.error = 1/sqrt(self.weight*1.0e6)
     def avgamp(self, avg):
         """
         averages amplitude over 'avg' number of uvdist units
@@ -2294,7 +2276,11 @@ def plot_uvdata(self, x='uvdist', xunit='klam', y='amp', overplot=0, avg=0, **kw
     pl.close(1)
     fig = pl.figure(1, figsize=((ONE_COL_FIG_WIDTH*1.7,ONE_COL_FIG_HEIGHT*1.5)))
     ax = fig.add_subplot(111)
-    ax.errorbar(Uvplt1.x, Uvplt1.y, fmt='.',color='b')
+    if y == 'amp' and avg == 0:
+        err = self.error
+    else:
+        err = zeros(Uvplt1.y.shape)
+    ax.errorbar(Uvplt1.x, Uvplt1.y, err, fmt='.',color='b')
     if overplot:
         ax.plot(Uvplt2.x, Uvplt2.y, '.r', ms=2)
         Plot_data.Uvplt2 = Uvplt2
@@ -2329,7 +2315,7 @@ class Moments:
 
 
     ### not shure if it is allowed to use "FITS" as input here.
-    # perhaps need some other input name
+    # perhaps need some other input name, for clarity
     def __init__ (self, Fits, chvals, nsig):
         """
         moment class initialiser
@@ -2337,8 +2323,9 @@ class Moments:
         input :
 
 
-        TODO : Check if I take enough levels, i.e. that the self.maximum
+        DONE : Check if I take enough levels, i.e. that the self.maximum
                really is the maximum of the WHOLE 2D array
+                -> Yes it is
 
         """
         from scipy import sqrt, alen, flipud, arange, array, ones, nan
@@ -2347,36 +2334,54 @@ class Moments:
         # get the data from the cube
         # copy header for easy acess to stuff
         self.hdr = Fits.hdr
-        self.channels = get_indices(Fits.v_arr,chvals)
+        self.channels = get_indices(Fits.v_arr, chvals)
         imgs = Fits.d[self.channels]
+        ## MOMENT 0
         # calculate the moment 0
-        self.zero = imgs.sum(axis=0)*abs(Fits.v_cdeltkms)
+        self.zero = imgs.sum(axis=0) * abs(Fits.v_cdeltkms)
         #Isum = imgs.sum(axis=0)*abs(Fits.v_cdeltkms) # make a copy for masking <3sigma values in mom1 map̈́
+        ## STATISTICS of MOMENT 0 (sigma, min, max, levels)
         # other statistics
-        self.sigma = sqrt(alen(imgs))*Fits.rms*abs(Fits.v_cdeltkms)
+        self.sigma = sqrt(alen(imgs)) * Fits.rms * abs(Fits.v_cdeltkms)
         self.minimum = self.zero.min()
         self.maximum = self.zero.max()
         # calculate levels, start at 1 sigma, jump 1 sigma
         # one for positive and one for negative
         # concatenate before displaying if want certain start & jump
-        self.levels_neg = -1*arange(self.sigma,abs(self.minimum)+3*self.sigma,self.sigma)
-        self.levels_pos = arange(self.sigma,self.maximum+3*self.sigma,self.sigma)
+        self.levels_neg = -1 * arange(self.sigma, abs(self.minimum) + 2 * self.sigma, self.sigma)
+        self.levels_pos = arange(self.sigma, self.maximum + 2 * self.sigma, self.sigma)
         #levels = arange(nsig*moment0_sigma,moment0_max+moment0_sigma,nsjump*moment0_sigma)
-
-        # moment 1
+        ## MOMENT 1
         # create array that matches imgs array
-        # only the velocities that we want, i.e. Fits.v_arr[img_channels]
-        velocities_matrix = array([ones(imgs.shape[1:])*i for i in Fits.v_arr[self.channels]])
+        # only the velocities that we want, i.e. Fits.v_arr[self.channels]
+        velocities_matrix = array( [ones(imgs.shape[1:]) * i for i in Fits.v_arr[self.channels]] )
         # removed where(), because a boolean array works fine
         # find out where we calculate the moment 1, i.e. 3 sigma level
         Isum = imgs.sum(axis=0)
-        Isum[self.zero<=abs(nsig*self.sigma)] = nan
-        Ivsum = (imgs*velocities_matrix).sum(axis=0)
+        gt_3sigma = (self.zero < (nsig * self.sigma)) * (self.zero > (-1.0 * nsig * self.sigma))
+        Isum[ gt_3sigma ] = nan
+        Ivsum = (imgs * velocities_matrix).sum(axis=0)
         # calculate the denominator, the sum of all images
         # in our velocity interval
 
-        # calculate moment 1
-        self.one = Ivsum/Isum
+        # MOMENT 1
+        #
+        # M1 = V(x,y)
+        # = sum( v_i * I(x,y,v_i)) / sum(I(x,y,v_i))
+        #
+        self.one = Ivsum / Isum
+
+        # MOMENT 2
+        #
+        # M2 = sqrt[ sum( I(x,y,v_i) * (v_i - V(x,y))**2 ) / sum(I(x,y,v_i)) ]
+        #
+        # M2 = sqrt[ sum( I(x,y,v_i) * (v_i - M1)**2 ) / sum(I(x,y,v_i)) ]
+        #
+        top = imgs * (velocities_matrix - self.one)**2
+        division = abs(top.sum(axis=0) / Isum)
+        self.two = sqrt(division)
+
+
 #
 # SPECTRUM DATA CLASS
 #
@@ -2524,7 +2529,7 @@ class Spectrum:
                 self.rms = sqrt(((Fits.d[get_indices(Fits.v_arr,nvals),j1:j2,i1:i2])**2).mean())
         self.rms_mjy = self.rms*1e3
         # the sensitivity
-        # TODO : if the unit is K km/s how come we divide?
+        #TODO : if the unit is K km/s how come we divide?
         self.sensitivity = self.rms/sqrt(abs(self.v_cdeltkms))
         # the channels used
         ind = get_indices(self.v_arr,nvals)
@@ -2579,15 +2584,15 @@ class Spectrum:
             # first copy the fit-dictionary
             fitting = args['linefit'].copy()
         # start print msgs
-        print '='*40
-        print ' '*11,"Line fitting\n"
+        print '=' * 40
+        print ' ' * 11, "Line fitting\n"
         ##### check if error is supplied
         if 'error' not in fitting:
             # if no error is supplied, use the calculated
             # main class RMS
-            if hasattr(self,'rms'):
+            if hasattr(self, 'rms'):
                 fitting['error'] = self.rms
-            elif  not hasattr(self,'rms'):
+            elif  not hasattr(self, 'rms'):
                 errmsg = 'No error supplied.\n\
                 Either supply with {\'error\': VALUE} or cal\
                 calculate with Spect.calc_rms(nvals=[n1,n2,n3,n4])'
@@ -2601,7 +2606,8 @@ class Spectrum:
         sigma = lambda x: x/fwhmfromsig
         ##### fits 1D gaussian(s) to spectral data
         if 'chvals' in args: # if we supplied limits for the fit
-            ch = get_indices(self.v_arr,[args['chvals']])
+            print args['chvals']
+            ch = get_indices(self.v_arr,args['chvals'])
             Fx = self.d[ch]
             X = self.v_arr[ch]
         else: # else use the eveything
@@ -2758,7 +2764,7 @@ class Spectrum:
             Fit.xarr = arange(X[0],X[-1],(diff(X)[0]/4))
             # lastly get the Fit class into the Spectrum class (self)
             self.Fit = Fit
-    def identify_lines(self,**args):
+    def identify_lines(self, **args):
         # later when the kwargs is implemented...
         # checks that we have done a fit first
         #if not kwargs['linefit']:
@@ -2772,10 +2778,10 @@ class Spectrum:
         #print args
         if not args.has_key('writetofile'):
             args['writetofile'] = 0
-        if not hasattr(self,'Fit'):
+        if not hasattr(self, 'Fit'):
             print_warning('Spectrum not fitted, aborting line id')
             raise ParError('linefit - need to fit lines')
-        if hasattr(self,'lines'):
+        if hasattr(self, 'lines'):
             print_warning('Line list exists, overwriting...')
         # now import the splatsearch module and other stuff
         import splatsearch as spl
@@ -2785,9 +2791,9 @@ class Spectrum:
         if 'nfwhm' in args:
             nfwhm = args['nfwhm']
         else:
-            nfwhm =1.5
+            nfwhm = 1.5
         print nfwhm
-        for i in arange(0,len(self.Fit.params),3):
+        for i in arange(0, len(self.Fit.params), 3):
             # correct for v_sys, to get correct frequency for the
             # correct frequency range in the splatalogue search
             # when calculating the "correct" frequency, we subtract v_sys
@@ -2824,8 +2830,8 @@ class Spectrum:
                         freq=frequency_pairs[i],
                         send=1,
                         display=1,
-                        linelist=['jpl','cdms'],
-                        e_to=1000)
+                        linelist=['jpl','cdms'])
+                        #e_to=1000)
             if args['writetofile']:
                 with open(args['writetofile'],'a') as f:
                     f.write('\n# Line no. {0}\n'.format(i+1))
@@ -2992,9 +2998,9 @@ def plot_spectrum (self,
 
     TODO : The RMS calculation, always for both binned and unbinned data
 
-    TODO : Fix the axspace implementation, must be a better way
+    #TODO : Fix the axspace implementation, must be a better way
 
-    TODO : Perhaps be able to supply more for the figure, e.g. figure number
+    #TODO : Perhaps be able to supply more for the figure, e.g. figure number
 
 
 
@@ -3026,25 +3032,25 @@ def plot_spectrum (self,
 
     # set the subplot_adjust parameters, if not given a standard set will
     # be used
-    pl_left, pl_bottom, pl_right,pl_top = plot_adjust
+    pl_left, pl_bottom, pl_right, pl_top = plot_adjust
     # load input parameters
     #~ inputdict = dict(region=region)
     # create the spectrum object
     inputargs = args
-    Spect = Spectrum(self,region=region, **inputargs)
-    if binning>1:
-        if bintype=='resample':
-            Spect.bin_spectrum(binning=binning,bintype=bintype)
+    Spect = Spectrum(self, region=region, **inputargs)
+    if binning > 1:
+        if bintype == 'resample':
+            Spect.bin_spectrum(binning=binning, bintype=bintype)
         else:
             Spect.bin_spectrum(binning=binning)
     # calculate RMS
     #~ print args
     if 'nvals' in args:
-        Spect.calc_rms(self,nvals=args['nvals'])
+        Spect.calc_rms(self, nvals=args['nvals'])
     else:
         pass
     if 'linefit' in args:
-        Spect.fit_lines(linefit=args['linefit'])
+        Spect.fit_lines(**args)
     # fit data?
     #~ if 'linefit' in args:
         #~ Spect.fit
@@ -3576,7 +3582,7 @@ def plot_moment_map(self,
                 nx=6,
                 nsig=3,
                 nsjump=2,
-                source = dict(v_sys=0,dist=250),
+                source = dict(v_sys=0, dist=250),
                 font={'family':'serif', 'serif': ['Times New Roman'],
                 'size':8},
                 fit = dict(params = None, interactive = False),
@@ -3584,14 +3590,14 @@ def plot_moment_map(self,
                 quality=[300, 300],
                 cbar=True,
                 colormap=True,
-                plot_adjust= [0.07, 0.06, 0.82, 0.99],
+                plot_adjust= [0.07, 0.06, 0.82, 0.94],
                 cpeak=[0,0,'k'],
                 ccol='k',
                 sbar=dict(au=200),
                 locators = [2,1],
                 telescope=None,
                 negcontours=True,
-                fsize=(TWO_COL_FIG_WIDTH,ONE_COL_FIG_WIDTH*0.8),
+                fsize=(TWO_COL_FIG_WIDTH,TWO_COL_FIG_WIDTH*0.7),
                 **kwargs):
     # imports
     #import scipy as sp
@@ -3649,59 +3655,82 @@ def plot_moment_map(self,
         i1,i2 = array([-1,1])*box[0]/2.*sign(self.ra_cdelt)
         j1,j2 = array([-1,1])*box[1]/2.*sign(self.dec_cdelt)
     # calculate the moments (0/1 so far)
-    Mom = Moments(self, chvals=chvals, nsig=nsig)
+    Mom = Moments(self, chvals = chvals, nsig = nsig)
     #
-    d1,d2,r1,r2 = self.parse_region([0,0,box[0]])
-    print 'No. sigmas for max in box: ', (Mom.zero[d1:d2,r1:r2].max()/Mom.sigma)
+    d1,d2,r1,r2 = self.parse_region([0, 0, box[0]])
+    print 'No. sigmas for max in box: ', (Mom.zero[d1:d2,r1:r2].max() / Mom.sigma)
 
     x1,x2,y1,y2 = self.parse_region(region)
 
-    # now create the levels for the contours
+    Mom.region_pxl = (x1,x2,y1,y2)
+
+    # calculate the velocity intervals
+    print('remember that the calculation for vmin and vmax uses the region keyword')
+    from string import lower
+    # MOMENT 1 stats
+    arr = array([line for line in Mom.one[y1:y2,x1:x2].flatten() if str(line).lower() != 'nan'])
+    Mom.one_sigma = arr.std()
+    from scipy import median
+    Mom.one_median = median(arr)
+    # MOMENT 2 stats
+    arr = array([line for line in Mom.two[y1:y2,x1:x2].flatten() if str(line).lower() != 'nan'])
+    Mom.two_sigma = arr.std()
+    Mom.two_median = median(arr)
+
+
+    # now create the levels
     if negcontours:
-        #return flipud(arange(nsig,alen(Mom.levels_neg),nsjump)), arange(nsig,alen(Mom.levels_pos),nsjump), Mom
-        #
-        # not correct, at least not the negative levels
-        #
+        # the levels_neg/pos arrays, are [1 sigma, 2 sigma, 3 sigma, 4 sigma] and so on
+        # therefore, when slicing, we need to first take -1, i.e. slice index 0 is 1 sigma
+        # so 3 sigma is slice index 2 -> nsig - 1
         levs = concatenate((
-                Mom.levels_neg[flipud(arange(nsig-1,alen(Mom.levels_neg),nsjump))],
-                Mom.levels_pos[arange(nsig-1,alen(Mom.levels_pos),nsjump)]
+                Mom.levels_neg[flipud(arange(nsig - 1, alen(Mom.levels_neg), nsjump))],
+                Mom.levels_pos[arange(nsig - 1, alen(Mom.levels_pos), nsjump)]
                           ))
         levs_contour = concatenate((
-                Mom.levels_neg[flipud(arange(nsig-1,alen(Mom.levels_neg),2*nsjump))],
-                Mom.levels_pos[arange(nsig-1,alen(Mom.levels_pos),2*nsjump)]
+                Mom.levels_neg[flipud(arange(nsig - 1, alen(Mom.levels_neg), 2 * nsjump))],
+                Mom.levels_pos[arange(nsig - 1, alen(Mom.levels_pos), 2 * nsjump)]
                                   ))
     else:
         #~ levs = arange(nsig*img_sigma,img_max+img_sigma,nsjump*img_sigma)
-        levs = Mom.levels_pos[arange(nsig,alen(Mom.levels_pos),nsjump)]
+        levs = Mom.levels_pos[arange(nsig -1, alen(Mom.levels_pos), nsjump)]
         #~ levs_contour = arange(nsig*img_sigma,img_max+img_sigma,2*nsjump*img_sigma)
-        levs_contour = Mom.levels_pos[arange(nsig,alen(Mom.levels_pos),2*nsjump)]
+        levs_contour = Mom.levels_pos[arange(nsig - 1, alen(Mom.levels_pos), 2 * nsjump)]
     #levs = arange(nsig*img_sigma, img_max, nsjump*img_sigma)
-    #
     # print some info out
-    print '\n','='*40
-    print ' '*8,'INFORMATION : Line data'
-    print '='*40
-    print '\n Summing from channel %3d to %3d' % (Mom.channels.min(), Mom.channels.max())
-    print ' RMS \t\t: %2.3f \tmJy/beam/channel\n Sigma \t\t: %2.3f \tmJy/beam/km/s' % (1e3*self.rms, 1e3*Mom.sigma)
-    print ' Map min/max \t: %2.2f/%2.2f \tmJy/beam/km/s' % (1e3*Mom.minimum, 1e3*Mom.maximum)
-    print ' Start sigma \t: %2.3f (%1.1f) \tmJy/beam/km/s\n Sigma step \t: %2.3f (%1.1f) \tmJy/beam/km/s\n' % (1e3*nsig*Mom.sigma, nsig, 1e3*nsjump*Mom.sigma, nsjump)
+    def print_title(title):
+        print '\n{0}'.format('='*70)
+        print '{0}{1}'.format(' '*30, title)
+        print '{0}'.format('='*70)
+
+    print_title('LINE DATA')
+    mjybeamkms = u'mJy\u00b7beam\u207b\u00b9\u00b7s\u207b\u00b9'
+    mjybeamchannel = u'mJy\u00b7beam\u207b\u00b9\u00b7channel\u207b\u00b9'
+    print '\n Channels \t: {0:3d} to {1:3d}'.format(Mom.channels.min(), Mom.channels.max())
+    print u' RMS \t\t: {0:>10.2f}  {1}'.format(1e3*self.rms, mjybeamchannel)
+    print u' Sigma \t\t: {0:>10.2f}  {1}'.format(1e3*Mom.sigma, mjybeamkms)
+    print u' Map min \t: {0:>10.2f}  {1}'.format(1e3*Mom.minimum, mjybeamkms)
+    print u' Map max \t: {0:>10.2f}  {1}'.format(1e3*Mom.maximum, mjybeamkms)
+    print u' Start sigma \t: {0:>10.2f}  {1}'.format(1e3*nsig*Mom.sigma, mjybeamkms)
+    print u' Sigma step \t: {0:>10.2f}  {1}'.format(1e3*nsjump*Mom.sigma, mjybeamkms)
     #
     # print beam parameters for the data
-    print '='*40
-    print ' '*15,'BEAM(S)'
-    print '='*40
+    print_title('BEAM')
     print 'Line cube:'
-    print u' Minor (FWHM)\t: %2.3f \tasec' % self.bmin
-    print u' Major (FWHM)\t: %2.3f  \tasec' % self.bmaj
-    print ' PA \t\t: %2.3f \tDegrees (0<theta<180)' % self.bpa
-    print u' Gain\t\t: %2.4f \tJy\u00b7K\u207b\u00b9\n' % self.gain
+    print ' Minor (FWHM)\t: {0:>10.2f}   arcseconds'.format(self.bmin)
+    print ' Major (FWHM)\t: {0:>10.2f}   arcseconds'.format(self.bmaj)
+    print u' PA \t\t: {0:>10.2f}   degrees (0\u00b0 < \u0398 < 180\u00b0)'.format(self.bpa)
+    print u' Gain\t\t: {0:>10.2f}   mJy\u00b7K\u207b\u00b9\n'.format(self.gain*1e3)
 
+    self.Mom = Mom
     if send==True:
         print 'sending you moment class and extents'
-        return Mom, (left,right,bottom,top)
+        return Mom, self.extent
 
     ####################################################################
+
     ####                  END CALCULATION BLOCK                     ####
+
     ####################################################################
 
     #
@@ -3709,17 +3738,14 @@ def plot_moment_map(self,
     majorLocator = MultipleLocator(locators[0])
     minorLocator = MultipleLocator(locators[1])
     set_rc()
-
-
-
+    #
     pl.ion()
     pl.close()
     fig = pl.figure(1, figsize=fsize)
     fig.clf()
     #
-    ax1 = fig.add_subplot(121)
+    ax1 = fig.add_subplot(221)
     #
-
     #
     # plot the continuum data
     #~ if cfile != None:
@@ -3727,7 +3753,7 @@ def plot_moment_map(self,
         #~ if cbar:
             #~ cb = pl.colorbar(cont)
             #~ cb.ax.set_ylabel(str(contdata.unit))
-#~
+    #~
         #~ print '-'*40
         #~ print 'Continuum data:'
         #~ print u' Minor (FWHM)\t: %2.3f \tasec' % contdata.bmin
@@ -3750,7 +3776,7 @@ def plot_moment_map(self,
         #cs2 = ax1.contour(img, cs1.levels[::2], colors=ccol, extent=self.extent)
         #return cs1
         cs2 = ax1.contour(Mom.zero, levels=levs_contour, colors=ccol, extent=self.extent)
-        cax = fig.add_axes([0.35, 0.185, 0.02, 0.68]) # left, bottom, width, height
+        cax = fig.add_axes([0.35, 0.54, 0.02, 0.4]) # left, bottom, width, height
         cbar = pl.colorbar(cs1, cax=cax, ticks=levs_contour, format=cbar_tick_label_formatter)
         cbar.ax.set_ylabel(self.unitint)
         #~ cbar = pl.colorbar(cs1, ticks=levs_contour, format=cbar_tick_label_formatter)#label_X.replace('X','%2.2f'))
@@ -3764,7 +3790,276 @@ def plot_moment_map(self,
 
     #ax1.text(0.5,0.5,'test',transform = ax1.transax1es)
     draw_beam(ax1, self)
-    draw_fov(ax1, self)
+    #~ draw_fov(ax1, self)
+
+    # check distance key
+    if sbar.has_key('dist'):
+        dist_mark = sbar['dist']
+    elif self.dist != 0:
+        dist_mark = self.dist
+    else:
+        dist_mark = 200
+    # check the length of the scale bar
+    if sbar.has_key('au'):
+        au_mark = sbar['au']
+    else:
+        au_mark = 200
+    print 'Using distance {0} pc to source. Scale bar length {1} AU'.format(dist_mark, au_mark)
+    draw_sizebar(ax1, self, dist=dist_mark, au=au_mark)
+    # parse the cpeak keyword
+    #
+    ax1.xaxis.set_major_formatter(tick_label_formatter)
+    ax1.yaxis.set_major_formatter(tick_label_formatter)
+
+    ax1.xaxis.set_major_locator(majorLocator)
+    ax1.xaxis.set_minor_locator(minorLocator)
+    ax1.yaxis.set_major_locator(majorLocator)
+    ax1.yaxis.set_minor_locator(minorLocator)
+
+    ax1.set_xlabel('RA Offset ($^{\prime\prime}$)')
+    ax1.set_ylabel('Dec Offset ($^{\prime\prime}$)')
+    if source.has_key('title'):
+        ax1.text(0.05,0.92, source['title'], transform = ax1.transAxes)
+    else:
+        ax1.text(0.05,0.92, self.obj, transform = ax1.transAxes)
+    ax1.set_xlim(i1,i2)
+    ax1.set_ylim(j1,j2)
+    ax1.set_aspect(1)
+
+
+    ax2 = fig.add_subplot(222, sharex=ax1, sharey=ax1)
+
+    m = Mom.one_median
+    w = Mom.one_sigma
+    if type:
+        im = ax2.imshow(Mom.one,cmap=cm.jet,vmin=m-2*w,vmax=m+2*w,extent=(left,right,bottom,top),interpolation='nearest')
+    elif not type:
+        im = ax2.contourf(Mom.one, levels=arange(m-2*w,m+2*w,4*w/20), cmap=cm.jet, extent=(left,right,bottom,top))
+    cs2 = ax2.contour(Mom.zero, levels=levs_contour, colors='k', extent=self.extent)
+    #~ cbar = pl.colorbar(im,format=cbar_tick_label_formatter) #label_X.replace('X','%2.2f'))
+    #~ cbar.ax.set_ylabel(r'km\,s$^{\sf -1}$')
+
+    cax = fig.add_axes([0.837, 0.54, 0.02, 0.4]) # left, bottom, width, height
+    cbar = pl.colorbar(im, format='%.2f', cax=cax)
+    cbar.ax.set_ylabel(r'km\,s$^{\sf -1}$')
+
+
+    ax3 = fig.add_subplot(223, sharex=ax1, sharey=ax1)
+
+    m = Mom.two_median
+    w = Mom.two_sigma
+    if type:
+        im = ax3.imshow(Mom.two, cmap=cm.jet,vmin=m-2*w,vmax=m+2*w,extent=(left,right,bottom,top),interpolation='nearest')
+    elif not type:
+        im = ax3.contourf(Mom.two, levels=arange(m-2*w,m+2*w,4*w/20), cmap=cm.jet, extent=(left,right,bottom,top))
+    cs3 = ax3.contour(Mom.zero, levels=levs_contour, colors='k', extent=self.extent)
+    #~ cbar = pl.colorbar(im,format=cbar_tick_label_formatter) #label_X.replace('X','%2.2f'))
+    #~ cbar.ax.set_ylabel(r'km\,s$^{\sf -1}$')
+
+    cax = fig.add_axes([0.35, 0.06, 0.02, 0.4]) # left, bottom, width, height
+    cbar = pl.colorbar(im, format='%.2f', cax=cax)
+    cbar.ax.set_ylabel(r'km\,s$^{\sf -1}$')
+
+
+
+
+    #draw_beam(ax, self,box=0)
+    #~ draw_fov(ax2, self)
+
+    # check distance key
+    if sbar.has_key('dist'):
+        dist_mark = sbar['dist']
+    elif self.dist != 0:
+        dist_mark = self.dist
+    else:
+        dist_mark = 200
+    # check the length of the scale bar
+    if sbar.has_key('au'):
+        au_mark = sbar['au']
+    else:
+        au_mark = 200
+    print 'Using distance {0} pc to source. Scale bar length {1} AU'.format(dist_mark, au_mark)
+    draw_sizebar(ax1, self, dist=dist_mark, au=au_mark)
+
+
+    if len(cpeak) == 3:
+        mark = cpeak[2]
+        xmark, ymark = cpeak[0:2]
+    elif len(cpeak) >4:
+        xmark = cpeak[0:-1:2]
+        ymark = cpeak[1:-1:2]
+        mark = cpeak[-1]
+    else:
+        mark = '+k'
+    cross1 = ax1.plot(xmark, ymark, mark, ms=6)#, mew=3, alpha=0.9)
+    cross2 = ax2.plot(xmark, ymark, mark, ms=6)#  mew=3, alpha=0.9)
+
+    #
+    #~ ax2.xaxis.set_major_formatter(tick_label_formatter)
+    #~ ax2.yaxis.set_major_formatter(tick_label_formatter)
+
+    #~ ax2.xaxis.set_major_locator(majorLocator)
+    #~ ax2.xaxis.set_minor_locator(minorLocator)
+    #~ ax2.yaxis.set_major_locator(majorLocator)
+    #~ ax2.yaxis.set_minor_locator(minorLocator)
+
+    ax2.set_xlabel('RA Offset ($^{\prime\prime}$)')
+    ax2.set_ylabel('Dec Offset ($^{\prime\prime}$)')
+    if source.has_key('title'):
+        ax2.text(0.05,0.92, source['title'], transform = ax2.transAxes)
+    else:
+        ax2.text(0.05,0.92, self.obj, transform = ax2.transAxes)
+    ax2.set_xlim(i1,i2)
+    ax2.set_ylim(j1,j2)
+    ax2.set_aspect(1)
+
+
+
+
+    pl.subplots_adjust(left=pl_left, bottom=pl_bottom, right=pl_right, top=pl_top,wspace=0.8)
+
+
+# temp function to plot continuum
+def plot_map(self,
+                chvals=None,
+                nvals=None,
+                region=[0,0,0,0],
+                filled=True,
+                rms_area = [0, 0, 10],
+                type=0,
+                box=[0,0],
+                nx=6,
+                nsig=3,
+                nsjump=2,
+                source = dict(v_sys=0,dist=250),
+                font={'family':'serif', 'serif': ['Times New Roman'],
+                'size':8},
+                fit = dict(params = None, interactive = False),
+                send=False,
+                quality=[300, 300],
+                cbar=True,
+                colormap=True,
+                plot_adjust= [0.07, 0.06, 0.82, 0.99],
+                cpeak=[0,0,'k'],
+                ccol='k',
+                sbar=dict(au=200),
+                locators = [2,1],
+                telescope=None,
+                negcontours=True,
+                fsize=(ONE_COL_FIG_WIDTH,ONE_COL_FIG_WIDTH),
+                **kwargs):
+    #imports
+    #import scipy as sp
+    from scipy import array, where, median, std, sign, arange, alen, vstack, \
+    concatenate, sqrt, log10, ones, sqrt, flipud
+    #import pyfits as pf
+    from time import sleep
+    import matplotlib.pyplot as pl
+    #from matplotlib.patches import Circle
+    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+    from matplotlib import cm, rc
+    #
+    ################################
+    # setting the tick label font  #
+    ################################
+    # we are using latex formatting here!
+    # following sets the ticklabel format string
+    data_fmt = '%g'                 # for normal y and x axis
+    cbar_data_fmt = '%2.2f'         # for normal y and x axis
+    label_X = parse_tick_font(font)
+    tick_label_formatter = FormatStrFormatter(label_X.replace('X',data_fmt))
+    cbar_tick_label_formatter = FormatStrFormatter(label_X.replace('X',cbar_data_fmt))
+
+
+    pl_left, pl_bottom, pl_right,pl_top = plot_adjust
+
+    if filled==0:
+        pl_right*=1.2
+        pl_bottom*=2
+    ### for the plotting box
+    ylen, xlen = self.d.shape
+    ycoords = arange(-ylen/2,ylen/2,1)*self.dec_cdelt
+    xcoords = arange(-xlen/2,xlen/2,1)*self.ra_cdelt
+    left,right,bottom,top = self.extent
+    # set plot boundaries
+    if box == [0,0]:
+        i1,i2 = left,right
+        j1,j2 = bottom,top
+    elif box != [0,0]:
+        i1,i2 = array([-1,1])*box[0]/2.*sign(self.ra_cdelt)
+        j1,j2 = array([-1,1])*box[1]/2.*sign(self.dec_cdelt)
+    x1,x2,y1,y2 = self.parse_region(region)
+
+    # print beam parameters for the data
+    print '='*40
+    print ' '*15,'BEAM(S)'
+    print '='*40
+    print 'Line cube:'
+    print u' Minor (FWHM)\t: %2.3f \tasec' % self.bmin
+    print u' Major (FWHM)\t: %2.3f  \tasec' % self.bmaj
+    print ' PA \t\t: %2.3f \tDegrees (0<theta<180)' % self.bpa
+    #~ print u' Gain\t\t: %2.4f \tJy\u00b7K\u207b\u00b9\n' % self.gain
+
+    # tick density
+    majorLocator = MultipleLocator(locators[0])
+    minorLocator = MultipleLocator(locators[1])
+    set_rc()
+
+
+
+    pl.ion()
+    pl.close()
+    fig = pl.figure(1, figsize=fsize)
+    fig.clf()
+    #
+    ax1 = fig.add_subplot(111)
+    #
+
+    #
+    # plot the continuum data
+    #~ if cfile != None:
+        #~ cont = ax.imshow(contdata.d, cmap=cm.gray_r, extent=(left,right,bottom,top))
+        #~ if cbar:
+            #~ cb = pl.colorbar(cont)
+            #~ cb.ax.set_ylabel(str(contdata.unit))
+#~
+        #~ print '-'*40
+        #~ print 'Continuum data:'
+        #~ print u' Minor (FWHM)\t: %2.3f \tasec' % contdata.bmin
+        #~ print u' Major (FWHM)\t: %2.3f  \tasec' % contdata.bmaj
+        #~ print ' PA \t\t: %2.3f Degrees (0<theta<180) \n' % contdata.bpa
+    #
+    #
+    if colormap and filled==True:
+        colormap = cm.bone_r
+        # parse colormap command!
+    if colormap == None or filled==False:
+        # just contours
+        #~ levs = levs.round(3)
+        #~ levs_contour = levs_contour.round(3)
+        cs = ax1.contour(self.d, colors=ccol, extent=self.extent)
+    elif colormap!=None:
+        #~ levs = levs.round(3)
+        #~ levs_contour = levs_contour.round(3)
+        cs1 = ax1.imshow(self.d, extent=self.extent)
+        #cs2 = ax1.contour(img, cs1.levels[::2], colors=ccol, extent=self.extent)
+        #return cs1
+        #~ cs2 = ax1.contour(Mom.zero, levels=levs_contour, colors=ccol, extent=self.extent)
+        #~ cax = fig.add_axes([0.35, 0.185, 0.02, 0.68]) # left, bottom, width, height
+        #~ cbar = pl.colorbar(cs1, cax=cax, ticks=levs_contour, format=cbar_tick_label_formatter)
+        #~ cbar.ax.set_ylabel(self.unitint)
+        cbar = pl.colorbar(cs1) #, ticks=levs_contour, format=cbar_tick_label_formatter)#label_X.replace('X','%2.2f'))
+        #~ cbar.add_lines(cs2)
+        if str(self.unit).lower() == 'jy/beam':
+            cbar.ax.set_ylabel(r'Jy\,beam$^{-1}$')
+        else:
+            cbar.ax.set_ylabel(str(self.unit))
+    else:
+        line = ax1.contour(self.d, colors='r', extent=self.extent)
+
+    #ax1.text(0.5,0.5,'test',transform = ax1.transax1es)
+    draw_beam(ax1, self)
+    #~ draw_fov(ax1, self)
 
     # check distance key
     if sbar.has_key('dist'):
@@ -3810,143 +4105,6 @@ def plot_moment_map(self,
     ax1.set_xlim(i1,i2)
     ax1.set_ylim(j1,j2)
     ax1.set_aspect(1)
-
-
-    ax2 = fig.add_subplot(122)
-
-
-    print('remember that the calculation for vmin and vmax uses the region keyword')
-    from string import lower
-    arr = array([line for line in Mom.one[y1:y2,x1:x2].flatten() if str(line).lower() != 'nan'])
-    w = arr.std()
-    from scipy import median
-    m = median(arr)
-
-
-
-
-    if type:
-        im = ax2.imshow(Mom.one,cmap=cm.jet,vmin=m-2*w,vmax=m+2*w,extent=(left,right,bottom,top),interpolation='nearest')
-    elif not type:
-        im = ax2.contourf(Mom.one, levels=arange(m-2*w,m+2*w,4*w/20), cmap=cm.jet, extent=(left,right,bottom,top))
-    cs2 = ax2.contour(Mom.zero, levels=levs_contour, colors='k', extent=self.extent)
-    #~ cbar = pl.colorbar(im,format=cbar_tick_label_formatter) #label_X.replace('X','%2.2f'))
-    #~ cbar.ax.set_ylabel(r'km\,s$^{\sf -1}$')
-
-    cax = fig.add_axes([0.837, 0.185, 0.02, 0.68]) # left, bottom, width, height
-    cbar = pl.colorbar(im, format='%.2f', cax=cax)
-    cbar.ax.set_ylabel(r'km\,s$^{\sf -1}$')
-
-
-    #draw_beam(ax, self,box=0)
-    draw_fov(ax2, self)
-
-    # check distance key
-    if sbar.has_key('dist'):
-        dist_mark = sbar['dist']
-    elif self.dist != 0:
-        dist_mark = self.dist
-    else:
-        dist_mark = 200
-    # check the length of the scale bar
-    if sbar.has_key('au'):
-        au_mark = sbar['au']
-    else:
-        au_mark = 200
-    print 'Using distance {0} pc to source. Scale bar length {1} AU'.format(dist_mark, au_mark)
-    draw_sizebar(ax1, self, dist=dist_mark, au=au_mark)
-    if len(cpeak) == 3:
-        mark = cpeak[2]
-        xmark, ymark = cpeak[0:2]
-    elif len(cpeak) >4:
-        xmark = cpeak[0:-1:2]
-        ymark = cpeak[1:-1:2]
-        mark = cpeak[-1]
-    else:
-        mark = '+k'
-    cross = ax2.plot(xmark, ymark, mark, ms=13, mew=3, alpha=0.9)
-
-
-    #~ if colormap and filled==True:
-        #~ colormap = cm.jet
-        #~ # parse colormap command!
-    #~ if colormap == None or filled==False:
-        #~ # just contours
-        #~ levs = levs.round(3)
-        #~ #levs_contour = levs_contour.round(3)
-        #~ cs = ax2.contour(Mom.one, levs, colors=ccol, extent=self.extent)
-    #~ elif colormap!=None:
-        #~ levs = levs.round(3)
-        #~ levs_contour = levs_contour.round(3)
-        #~ cs1 = ax2.contourf(Mom.one, levs, cmap=colormap, extent=self.extent)
-        #~ #cs2 = ax2.contour(img, cs1.levels[::2], colors=ccol, extent=self.extent)
-        #~ #return cs1
-        #~ cs2 = ax2.contour(Mom.zero, levs_contour, colors=ccol, extent=self.extent)
-        #~ cbar = pl.colorbar(cs1, ticks=levs_contour, format=cbar_tick_label_formatter)#label_X.replace('X','%2.2f'))
-        #~ cbar.add_lines(cs2)
-        #~ if str(self.unit) == 'Jy/beam':
-            #~ cbar.ax.set_ylabel(r'Jy\,beam$^{-1}$')
-        #~ else:
-            #~ cbar.ax.set_ylabel(str(self.unit))
-    #~ else:
-        #~ line = ax2.contour(Mom.zero, levels=levs, colors='r', extent=self.extent)
-
-    #~ #ax2.text(0.5,0.5,'test',transform = ax2.transax2es)
-    #~ draw_beam(ax2, self)
-    #~ draw_fov(ax2, self)
-
-    #~ # check distance key
-    #~ if sbar.has_key('dist'):
-        #~ dist_mark = sbar['dist']
-    #~ elif self.dist != 0:
-        #~ dist_mark = self.dist
-    #~ else:
-        #~ dist_mark = 200
-    #~ # check the length of the scale bar
-    #~ if sbar.has_key('au'):
-        #~ au_mark = sbar['au']
-    #~ else:
-        #~ au_mark = 200
-    #~ print 'Using distance {0} pc to source. Scale bar length {1} AU'.format(dist_mark, au_mark)
-    #~ draw_sizebar(ax2, self, dist=dist_mark, au=au_mark)
-    #~ # parse the cpeak keyword
-    #~ if len(cpeak) == 3:
-        #~ mark = cpeak[2]
-        #~ xmark, ymark = cpeak[0:2]
-    #~ elif len(cpeak) >4:
-        #~ xmark = cpeak[0:-1:2]
-        #~ ymark = cpeak[1:-1:2]
-        #~ mark = cpeak[-1]
-    #~ else:
-        #~ mark = '+k'
-    #~ cross = ax2.plot(xmark, ymark, mark, ms=6)#, mew=3, alpha=0.9)
-
-    #
-    ax2.xaxis.set_major_formatter(tick_label_formatter)
-    ax2.yaxis.set_major_formatter(tick_label_formatter)
-
-    ax2.xaxis.set_major_locator(majorLocator)
-    ax2.xaxis.set_minor_locator(minorLocator)
-    ax2.yaxis.set_major_locator(majorLocator)
-    ax2.yaxis.set_minor_locator(minorLocator)
-
-    ax2.set_xlabel('RA Offset ($^{\prime\prime}$)')
-    ax2.set_ylabel('Dec Offset ($^{\prime\prime}$)')
-    if source.has_key('title'):
-        ax2.text(0.05,0.92, source['title'], transform = ax2.transAxes)
-    else:
-        ax2.text(0.05,0.92, self.obj, transform = ax2.transAxes)
-    ax2.set_xlim(i1,i2)
-    ax2.set_ylim(j1,j2)
-    ax2.set_aspect(1)
-
-
-
-
-    pl.subplots_adjust(left=pl_left, bottom=pl_bottom, right=pl_right, top=pl_top,wspace=0.8)
-
-
-
 
 
 
@@ -4878,14 +5036,14 @@ def plot_chmap (self,
                 nsjump=2,
                 source={'vsys':0},
                 font={'family':'serif', 'serif': ['Times New Roman', 'Times'],
-                'size':22},
+                'size':8},
                 nsum=False,
                 plot_adjust= [0.12, 0.09, 0.99, 0.99],
                 quality=[300, 150],
                 send=False,
                 color_map='jet',
                 cpeak = [0,0],
-                locators = [1,0.2],
+                locators = [0.5,0.1],
                 levs_global=True,
                 fsize=(3, 4)):
     # imports
@@ -5160,11 +5318,11 @@ def plot_chmap (self,
     rc('axes',linewidth=0.7)
     rc('patch', linewidth=0.5)
     rc('lines', linewidth=0.3, markeredgewidth=0.6)
-    rc('font', family='serif', serif='Times New Roman', size=8)
-    rc('text', usetex=True)
+    #~ rc('font', family='serif', serif='Times New Roman', size=8)
+    #~ rc('text', usetex=True)
     # ticksize
-    rc('xtick',**{'minor.size':2, 'major.size':4, 'major.pad': 3})
-    rc('ytick',**{'minor.size':2, 'major.size':4, 'major.pad': 2})
+    #~ rc('xtick',**{'minor.size':2, 'major.size':4, 'major.pad': 3})
+    rc('ytick',**{'minor.size':2, 'major.size':4, 'major.pad': -20})
 
 
 
@@ -5192,7 +5350,7 @@ def plot_chmap (self,
     #
     elif filled==True:
         grid = AxesGrid(fig, 111, # similar to subplot(111)
-                nrows_ncols = (ny, nx), # creates 2x3 grid of axes
+                nrows_ncols = (ny, nx), # creates nx x ny grid of axes
                 axes_pad=0, # pad between axes in inch.
                 label_mode = "L",
                 share_all=True,
@@ -5215,28 +5373,28 @@ def plot_chmap (self,
         # plot a cross at pointing centre
         plt = grid[i].plot(cpeak[0],cpeak[1],'r+', ms=3, mew=0.7, alpha=0.7)
         # set the locator spacings
-        grid[i].xaxis.set_major_locator(majorLocator)
-        grid[i].xaxis.set_minor_locator(minorLocator)
-        grid[i].yaxis.set_major_locator(majorLocator)
-        grid[i].yaxis.set_minor_locator(minorLocator)
+        #~ grid[i].xaxis.set_major_locator(majorLocator)
+        #~ grid[i].xaxis.set_minor_locator(minorLocator)
+        #~ grid[i].yaxis.set_major_locator(majorLocator)
+        #~ grid[i].yaxis.set_minor_locator(minorLocator)
 
-        draw_fov(grid[i].axes, linedata)
+        #~ draw_fov(grid[i].axes, linedata)
         if i in [0,1,2]:
             print_vel(grid[i].axes, i,fc='#FFAAAA')
         elif i in [12,13,14]:
             print_vel(grid[i].axes, i,fc='0.8')
         else:
             print_vel(grid[i].axes, i)
-    fig.text(0.95,0.14,r'SO$_2$', rotation=90)
-    fig.text(0.95,0.86,r'H$_2^{18}$O', rotation=90)
+    #~ fig.text(0.95,0.14,r'SO$_2$', rotation=90)
+    #~ fig.text(0.95,0.86,r'H$_2^{18}$O', rotation=90)
 
-    grid[2].plot([21,-2], [-1.8,-1.3],'-', color='#FFAAAA', lw=3, alpha=0.7 ,clip_on=False)
+    #~ grid[2].plot([21,-2], [-1.8,-1.3],'-', color='#FFAAAA', lw=3, alpha=0.7 ,clip_on=False)
     #~ grid[2].plot([21,-2], [-1.8-1.7,-1.3-1.7],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    grid[2].plot([11,-2], [-3.2,-2.9],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    grid[5].plot([21,-2], [-3.6,-3.2],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    grid[8].plot([21,-2], [-3.76,-2.53],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    grid[11].plot([21,-2], [-2.16,-0.93],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    grid[14].plot([21,-2], [-0.93,0.0],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    #~ grid[2].plot([11,-2], [-3.2,-2.9],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    #~ grid[5].plot([21,-2], [-3.6,-3.2],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    #~ grid[8].plot([21,-2], [-3.76,-2.53],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    #~ grid[11].plot([21,-2], [-2.16,-0.93],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    #~ grid[14].plot([21,-2], [-0.93,0.0],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
     #~ grid[12].axhline(y=-2.64, xmin=0.1, xmax=1.4 ,clip_on=False )
 
     draw_beam(grid[0].axes, linedata, box=1)

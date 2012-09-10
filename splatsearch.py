@@ -24,7 +24,7 @@
 ---[ Change log ]---
 
 
-[*] 08.05.2012 Now tries to load first ClientForm and 
+[*] 08.05.2012 Now tries to load first ClientForm and
     then Mechanise modules, both works fine.
 
 [*] 19.03.2012
@@ -73,6 +73,8 @@ TODO : Implement new stylify help function
 """
 ###########################################
 # MAIN FUNCTION
+
+
 def splatsearch(**arg):
     """
     This script queries Splatalogue.net from the command line
@@ -174,14 +176,12 @@ def splatsearch(**arg):
     try:
         from ClientForm import ParseResponse
     except (ImportError):
-        print 'You do not have the module \'ClientForm\' get it at http://wwwsearch.sourceforge.net/old/ClientForm/'
-        print 'Will try import the newer Mechanize module'
         try:
             from mechanize import ParseResponse
         except (ImportError):
             print 'You need at least one of the two modules '
             'Mechanize or ClientForm for this script to work.'
-
+            print '\'ClientForm\' http://wwwsearch.sourceforge.net/old/ClientForm/'
     #from BeautifulSoup import BeautifulSoup as bfs
     from scipy import array, where, arange
     #from string import lower, upper
