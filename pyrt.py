@@ -48,7 +48,7 @@ TODO :
         RATRAN
             - Initialisation routine
             - Prepare input files
-
+            - Make it work against directory
         Transphere
             - Prepare input and run Transphere
             - Optimize the writeTransphereInput

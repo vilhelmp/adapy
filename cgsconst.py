@@ -74,7 +74,8 @@ class Constant(float):
 
 MEARTH = Constant(5.977e27, 'g',     desc = 'Mass of the Earth')
 MMOON  = Constant(7.349e25, 'g',     desc = 'Mass of the Moon')
-AU   = Constant(1.496E13,   'cm / AU',    desc = 'Astronomical Unit')
+#AU   = Constant(1.496E13,   'cm / AU',    desc = 'Astronomical Unit') # old
+AU   = Constant(1.495978707E13, 'cm / AU',    desc = 'Astronomical Unit') # new from IAU meeting int 2012
 LSUN = Constant(3.8525e33,  'erg.s', desc = 'Solar luminosity')
 RSUN = Constant(6.96e10,    'cm',    desc = 'Solar radius')
 MSUN = Constant(1.99e33,    'g',     desc = 'Mass of the Sun')

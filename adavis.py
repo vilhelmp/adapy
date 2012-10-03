@@ -635,9 +635,21 @@ def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
     #rc('xtick',**{'minor.size':3, 'major.size':7})
     #rc('ytick',**{'minor.size':3, 'major.size':7})
     # linewidths
-    rc('axes', linewidth=1.1)
-    rc('patch', linewidth=1)
-    rc('lines', linewidth=1, markeredgewidth=1)
+    rc('axes', linewidth=0.65)
+    rc('patch', linewidth=0.65)
+    rc('lines', linewidth=0.65, markeredgewidth=0.65)
+def steppify(arr, isX=False, interval=0):
+    """
+    Converts an array to double-length for step plotting
+    """
+    from scipy import array
+    if isX and interval==0:
+        interval = abs(arr[1]-arr[0]) / 2.0
+        newarr = array(zip(arr - interval, arr + interval)).ravel()
+        return newarr
+    else:
+        newarr = array([arr,arr]).transpose().flatten()
+        return newarr
 ########################################################################
 # DATA/COORDINATE PARSING
 def parse_ra (ra,string=False):
@@ -2170,8 +2182,11 @@ class Uvfits:
     def avgamp(self, avg):
         """
         averages amplitude over 'avg' number of uvdist units
+        perhaps just 'average', and average everything..?
         """
         return (0,0)
+    def __str__():
+        return 'Not implemented yet.'
 
 def plot_uvplane(self, units='klam'):
     import matplotlib.pyplot as pl
