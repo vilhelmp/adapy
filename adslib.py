@@ -27,7 +27,20 @@
 ADSlib - Python Module to interact with NASA ADS
 
 http://adswww.harvard.edu/
-
+OR mirrors
+http://cdsads.u-strasbg.fr/
+http://ukads.nottingham.ac.uk/
+http://esoads.eso.org/
+http://ads.ari.uni-heidelberg.de/
+http://ads.inasan.ru/
+http://ads.mao.kiev.ua/
+http://ads.astro.puc.cl/
+http://ads.nao.ac.jp/
+http://ads.bao.ac.cn/
+http://ads.iucaa.ernet.in/
+http://ads.arsip.lipi.go.id/
+http://saaoads.chpc.ac.za/
+http://ads.on.br/
 
 ----[ Change log ]----
 
@@ -38,6 +51,23 @@ http://adswww.harvard.edu/
 
 
 """
+
+
+mirrors = (
+'http://cdsads.u-strasbg.fr/'
+'http://ukads.nottingham.ac.uk/'
+'http://esoads.eso.org/'
+'http://ads.ari.uni-heidelberg.de/'
+'http://ads.inasan.ru/'
+'http://ads.mao.kiev.ua/'
+'http://ads.astro.puc.cl/'
+'http://ads.nao.ac.jp/'
+'http://ads.bao.ac.cn/'
+'http://ads.iucaa.ernet.in/'
+'http://ads.arsip.lipi.go.id/'
+'http://saaoads.chpc.ac.za/'
+'http://ads.on.br/')
+
 
 ### test code to get it up and running
 
@@ -81,8 +111,11 @@ import scipy
 try:
     response = URL.urlopen("http://adswww.harvard.edu/index.html")
 except URL.URLError:
-    import sys
-    sys.stderr.write('ERROR :  You have to be connected to the internet to access the splatalogue.net database.')
+    try:
+        response = URL.urlopen("http://cdsads.u-strasbg.fr/index.html")
+    except (URL.URLError):
+        import sys
+        sys.stderr.write('ERROR :  You have to be connected to the internet to access the splatalogue.net database.')
     return None
 forms = FormParser.ParseResponse(response, backwards_compat=False)
 response.close()
@@ -126,70 +159,170 @@ entries = [rows[i:i+3] for i in scipy.arange(3,57,2)]
 
 
 # dictionary for each paper?
-class Papers:
-    def __init__(self, entries, entry_type='bfs'):
-        """
-        Hack to get all the fields, they do not have any naming of 
-        the td tags, or any good way to access DB
+#~ class Hits:
+    #~ def __init__(self, entries, entry_type='bfs'):
+        #~ """
+        #~ Hack to get all the fields, they do not have any naming of 
+        #~ the td tags, or any good way to access DB
+        #~ 
+        #~ internal object
+        #~ 
+        #~ entry_type  : what type the 'entry' input is in, default is
+                      #~ 'bfs', which is a list of two Beautiful Soup 
+                      #~ entries. 
+                      #~ available: 'bfs' or 'z39.50'
+        #~ """
+        #~ if entry_type=='bfs':
+            #~ for i in len(entries)):
+                #~ td_tags0 = entries[i].findAll('td')
+                #~ 
+                #~ self.bibcode = str(td_tags0[1].findAll('input')[0]['value'])
+                #~ self.url_abstract_page = str(td_tags0[1].findAll('a')[0]['href'])
+                #~ self.ads_score = float(td_tags0[3].contents[0])
+                #~ self.date = str(td_tags0[4].contents[0])
+
+
+
+### FIELDS
+# bibcode
+# title
+# authors
+# score
+# pubdate
+# possilbe (quick)links : 
+#           A Abstract 
+#           C Citations
+#           D On-line Data
+#           E Electronic Article
+#           F Printable Article
+#           G Gif Images
+#           H HEP/Spires Information
+#           I Author Comments
+#           L Library Entries
+#           M Multimedia
+#           N NED Objects
+#           O Associated Articles
+#           P PDS datasets
+#           R References
+#           S SIMBAD Objects
+#           T TOC
+#           U Also read
+#           X arXiv e-print
+#           Z Abstract Custom
+
+
+# Class that can be sorted...
+
+class Results:
+    def __init__(self, author, 
+                        authors, 
+                        title, 
+                        score, 
+                        bibcode,
+                        pubdate,
+                        links):
+        self.author = author
+        self.authorlist = authors
+        self.title = title
+        self.score = score
+        self.bibcode = bibcode
+        self.pubdate = pubdate  # parse?
+        self.links = links      # dictionary of all the links
+        self.
         
-        internal object
-        
-        entry_type  : what type the 'entry' input is in, default is
-                      'bfs', which is a list of two Beautiful Soup 
-                      entries. 
-                      available: 'bfs' or 'z39.50'
-        """
-        if entry_type=='bfs':
-            for i in len(entries)):
-                td_tags0 = entries[i].findAll('td')
-                
-                self.bibcode = str(td_tags0[1].findAll('input')[0]['value'])
-                self.url_abstract_page = str(td_tags0[1].findAll('a')[0]['href'])
-                self.ads_score = float(td_tags0[3].contents[0])
-                self.date = str(td_tags0[4].contents[0])
-            
+    def __repr__(self):
+        return repr([self.authors, self.title, self.score, self.links, self.bibcode])
+    def _returnlist_(self):
+        return [self.authors, self.title, self.score, self.links, self.bibcode]
+
+
+
+
+### example use
+# input the results
+res = [
+    Results('Persson1', 'Water1', 100, 'various links', '2012bddaldkjf...00'), Results('Olof', 'Ammonia', 80, 'other links', '2011nbnflkdajf..00')
+    ]
+
+res.append(Results('Jorgensen','I16293', 100,'linking', '2020320322...'))
+
+# for advanced sorting 
+# needs Python 2.6 at least
+from operator import itemgetter, attrgetter
+
+# now to sort it, just use one of the keys
+# score, high to low
+sorted(res, key=attrgetter('score'), reverse=True)
+
+# authors alphabetical order first and then by score
+# i.e. sort by score if same first author
+sorted(res, key=attrgetter('score','authors'), reverse=True)
+
+# now to get all the entries one by one in the sorted order and print
+
+print ('Author : {0[0].authors}\n' 
+        'Title : {0[0].title}\n' 
+        'Score : {0[0].score}\n' 
+        'Links : {0[0].links}'.format(li)
+        )
+
+#OR
+
+print ('Author : {0[0]}\n'
+        'Title : {0[1]}\n' 
+        'Score : {0[2]}\n' 
+        'Links : {0[3]}'.format(li[0]._returnlist_())
+        )
+
+
+
+
+
+
+
+
 
 # Paper object... Noooo dictionary is better?
-class Paper:
-    def __init__(self, entry, entry_type='bfs'):
-        """
-        Hack to get all the fields, they do not have any naming of 
-        the td tags, or any good way to access DB
-        
-        internal object
-        
-        entry_type  : what type the 'entry' input is in, default is
-                      'bfs', which is a list of two Beautiful Soup 
-                      entries. 
-                      available: 'bfs' or 'z39.50'
-        """
-        if entry_type=='bfs':
-            # first part of the result
-            td_tags0 = entry[0].findAll('td')
-            
-            self.bibcode = str(td_tags0[1].findAll('input')[0]['value'])
-            self.url_abstract_page = str(td_tags0[1].findAll('a')[0]['href'])
-            self.ads_score = float(td_tags0[3].contents[0])
-            self.date = str(td_tags0[4].contents[0])
-            
-            for link in td_tags0[5].findAll('a'):
-                    par = str(link['href'].split('=')[-1].lower()
-                    val = 
-                    self.__dict__[par] = )
-            
-            # these short links does not all allways exist
-            self.url_html_article = 
-            self.url_pdf_article = 
-            self.url_arxiv_article = 
-            self.url_references_in = 
-            self.url_simbad_objects = 
-            self.url_also_read =
-            
-            # second part of the result entry
-            self.title = str(entry[1].findAll('td')[3].contents[0])
-            # still in unicode
-            # TODO need to convert to normal UTF, not unicode
-            self.authors = entry[1].findAll('td')[1].contents[0]
+#~ class Paper:
+    #~ def __init__(self, entry, entry_type='bfs'):
+        #~ """
+        #~ Hack to get all the fields, they do not have any naming of 
+        #~ the td tags, or any good way to access DB
+        #~ 
+        #~ internal object
+        #~ 
+        #~ entry_type  : what type the 'entry' input is in, default is
+                      #~ 'bfs', which is a list of two Beautiful Soup 
+                      #~ entries. 
+                      #~ available: 'bfs' or 'z39.50'
+        #~ """
+        #~ if entry_type=='bfs':
+            #~ # first part of the result
+            #~ td_tags0 = entry[0].findAll('td')
+            #~ 
+            #~ self.bibcode = str(td_tags0[1].findAll('input')[0]['value'])
+            #~ self.url_abstract_page = str(td_tags0[1].findAll('a')[0]['href'])
+            #~ self.ads_score = float(td_tags0[3].contents[0])
+            #~ self.date = str(td_tags0[4].contents[0])
+            #~ 
+            #~ for link in td_tags0[5].findAll('a'):
+                    #~ par = str(link['href'].split('=')[-1].lower()
+                    #~ val = 
+                    #~ self.__dict__[par] = )
+            #~ 
+            #~ # these short links does not all allways exist
+            #~ self.url_html_article = 
+            #~ self.url_pdf_article = 
+            #~ self.url_arxiv_article = 
+            #~ self.url_references_in = 
+            #~ self.url_simbad_objects = 
+            #~ self.url_also_read =
+            #~ 
+            #~ # second part of the result entry
+            #~ self.title = str(entry[1].findAll('td')[3].contents[0])
+            #~ # still in unicode
+            #~ # TODO need to convert to normal UTF, not unicode
+            #~ self.authors = entry[1].findAll('td')[1].contents[0]
 
 
 
@@ -200,6 +333,70 @@ class Paper:
 #~ resultform = HTMLParser.ParseResponse(result, backwards_compat=False)
 #~ result.close()
 #~ resultform = resultform[0]
+
+
+#~ Z39.50 or via URLlib/mecahnise etc
+
+#~ The ADS server supports the following services:
+#~ 
+#~ Initialization
+#~ Search
+#~ Present
+#~ 
+#~ Production Server
+#~ Domain name: z3950.adsabs.harvard.edu (131.142.185.23)
+#~ Port: 210
+
+
+#~ Protocol Version
+#~ Z39.50-1992 (Version 2)
+#~ Options Supported
+#~ Search
+#~ Present
+#~ Preferred Message Size
+#~ There is no restriction on message size. However, the ADS will only return a maximum of 500 records at a time.
+#~ Maximum Record Size
+#~ n/a
+#~ ID Authentication
+#~ User-id and password are not required by ADS Servers at this time.
+
+#~ 
+#~ Result Set Name
+#~ No named result sets are supported.
+#~ Database Names (case sensitive)
+#~ (ADS Server supports searching one database at a time)
+#~ Element Set Names
+#~ ADS will return either brief, full, or tagged records. Database specific Element Set Names are not supported.
+#~ Query
+#~ Type-1 only is supported.
+#~ Attribute Set ID
+#~ Bib-1 only is supported.
+#~ Operators Supported:
+#~ AND
+#~ OR
+#~ AND-NOT
+
+#~ """
+#~ Simple script to search a Z39.50 target using Python
+#~ and PyZ3950. 
+#~ """
+#~ 
+#~ from PyZ3950 import zoom
+#~ 
+#~ 
+#~ ISBNs = ['9781905017799', '9780596513986']
+#~ 
+#~ conn = zoom.Connection ('z3950.loc.gov', 7090)
+#~ conn.databaseName = 'VOYAGER'
+#~ conn.preferredRecordSyntax = 'USMARC'
+#~ 
+#~ for isbn in ISBNs:
+    #~ query = zoom.Query ('PQF', '@attr 1=7 %s' % str(isbn))
+    #~ res = conn.search (query)
+    #~ for r in res:
+        #~ print str(r)
+#~ 
+#~ conn.close ()
 
 
 ###########################################
@@ -433,9 +630,6 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
     #~ params['send'] = False
     #~ # search!
     #~ splatsearch(**params)
-
-
-
 
 
 
