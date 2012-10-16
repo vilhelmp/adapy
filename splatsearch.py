@@ -1,22 +1,41 @@
 #! /usr/bin/env python
+# -*- coding: utf-8 -*-
 #
-#       Simple script to search Splatalogue from cli
+#  splatsearch.py
 #
-#       Copyright 2011 Magnus Persson <magnusp@nbi.dk>
+#  Simple script to search Splatalogue from cli
 #
-#       This program is free software; you can redistribute it and/or modify
-#       it under the terms of the GNU General Public License as published by
-#       the Free Software Foundation; either version 2 of the License, or
-#       (at your option) any later version.
+#  Copyright 2012 Magnus Persson <http://vilhelm.nu>
 #
-#       This program is distributed in the hope that it will be useful,
-#       but WITHOUT ANY WARRANTY; without even the implied warranty of
-#       MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#       GNU General Public License for more details.
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#  
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
+#  
+#  version 1.0b
 #
-#       ver. 1.0beta
-#
-#       Magnus Vilhelm Persson 19.05.2011.
+
+"""
+Script with functions to perform different actions on interferometric/SD
+radio fits cubes/arrays.
+
+Need :  o scipy (and numpy)
+        o matplotlib
+        o mechanize module (standard in Python >2.6/2.7?)
+        o urllib2 module (standard Python module)
+        o beautiful soup/xml (xml standard in Python >2.6/2.7?)
+
+"""
 
 """
 

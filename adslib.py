@@ -1,10 +1,12 @@
-#!/usr/bin/env python
+#! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
 #  adslib.py
-#  
-#  Copyright 2012 Magnus Persson <magnusp@nbi.dk>
-#  
+#
+#  Short description of program/module
+#
+#  Copyright 2012 Magnus Persson <http://vilhelm.nu>
+#
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation; either version 2 of the License, or
@@ -20,8 +22,19 @@
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #  MA 02110-1301, USA.
 #  
-#  
+#  version 0.0.1a
 
+"""
+Script with functions to perform different actions on interferometric/SD
+radio fits cubes/arrays.
+
+Need :  o scipy (and numpy)
+        o matplotlib
+        o mechanize module (standard in Python >2.6/2.7?)
+        o urllib2 module (standard Python module)
+        o beautiful soup/xml (xml standard in Python >2.6/2.7?)
+
+"""
 
 """
 ADSlib - Python Module to interact with NASA ADS
@@ -42,6 +55,12 @@ http://ads.arsip.lipi.go.id/
 http://saaoads.chpc.ac.za/
 http://ads.on.br/
 
+
+
+
+"""
+
+"""
 ----[ Change log ]----
 
 
@@ -49,25 +68,45 @@ http://ads.on.br/
 
 
 
+"""
+
+"""
+NOTES:
+# advanced search query
+abstract_service.html
+
+# quick search
+index.html
 
 """
 
 
-mirrors = (
-'http://cdsads.u-strasbg.fr/'
-'http://ukads.nottingham.ac.uk/'
-'http://esoads.eso.org/'
-'http://ads.ari.uni-heidelberg.de/'
-'http://ads.inasan.ru/'
-'http://ads.mao.kiev.ua/'
-'http://ads.astro.puc.cl/'
-'http://ads.nao.ac.jp/'
-'http://ads.bao.ac.cn/'
-'http://ads.iucaa.ernet.in/'
-'http://ads.arsip.lipi.go.id/'
-'http://saaoads.chpc.ac.za/'
-'http://ads.on.br/')
+mirrors = [
+        'http://adswww.harvard.edu/',
+        'http://cdsads.u-strasbg.fr/',
+        'http://ukads.nottingham.ac.uk/',
+        'http://esoads.eso.org/',
+        'http://ads.ari.uni-heidelberg.de/'
+        'http://ads.inasan.ru/',
+        'http://ads.nao.ac.jp/',
+        'http://ads.iucaa.ernet.in/',
+        'http://ads.arsip.lipi.go.id/',
+        'http://saaoads.chpc.ac.za/',
+        'http://ads.on.br/'
+        ]
 
+search_type=0
+# advanced search query
+advanced_q = 'abstract_service.html'
+# quick search
+simple_q = 'index.html'
+
+types_q = [simple_q, advanced_q]
+
+#~ if search_type='adv':
+    #~ type_q = advanced_q
+#~ else:
+    #~ type_q = simple_q
 
 ### test code to get it up and running
 
@@ -79,6 +118,10 @@ mirrors = (
 # TODO : advanced search
 # TODO : browse
 
+
+import locale
+# this reads the environment and inits the right locale
+locale.setlocale(locale.LC_ALL, "")
 
 
 try:
@@ -92,7 +135,7 @@ except (ImportError):
             import urllib2 as URL
         except (ImportError):
             print 'You need the module \'urllib2\''
-    except (Import Error)
+    except (ImportError):
         print 'You need at least one of the two modules '
         'Mechanize or ClientForm for this script to work.'
         print '\'ClientForm\' http://wwwsearch.sourceforge.net/old/ClientForm/'
@@ -107,16 +150,38 @@ import scipy
 
 #from string import lower, upper
 
-# get the form from the splatalogue search page
-try:
-    response = URL.urlopen("http://adswww.harvard.edu/index.html")
-except URL.URLError:
+############################################
+######## GET THE FORM
+
+
+# search URL
+# http://adsabs.harvard.edu/cgi-bin/nph-basic_connect?qsearch=The+Search+String
+
+# to parse the search string from "The Search String" to "The+Search+String"
+# urllib.quote(url, safe=":/")
+
+got_reply = False
+working_mirror = 0
+while not got_reply:
     try:
-        response = URL.urlopen("http://cdsads.u-strasbg.fr/index.html")
-    except (URL.URLError):
+        # try to get the form
+        response = URL.urlopen(mirrors[working_mirror] + types_q[search_type])
+    except URL.URLError:
+        # if we can't get it, try another mirror
+        if not i < len(mirrors):
+            break
+        else:
+            working_mirror += 1
+        pass
+    else:
+        got_reply = True
+
+if not got_reply and working_mirror >= len(mirrors):
         import sys
-        sys.stderr.write('ERROR :  You have to be connected to the internet to access the splatalogue.net database.')
-    return None
+        sys.stderr.write('ERROR :  You have to be connected to the internet to access the NASA ADS database and it has to be online (on all mirrors).')
+else:
+    print ('got reply from : {0}'.format(mirrors[working_mirror]))
+
 forms = FormParser.ParseResponse(response, backwards_compat=False)
 response.close()
 form = forms[0]
@@ -129,14 +194,19 @@ if arg.has_key('dbg_snd_form'): # for test purposes
 # edit search
 
 # e.g.:
+
+######## SIMPLE QUERY 
+
 form['qsearch'] = '^Persson 2012'
 
-
+############################################
+######## SUBMIT FORM
 clicked_form = form.click()
 
 result = URL.urlopen(clicked_form)
 
-##### trial 2
+############################################
+######## PARSE RESULTS
 page = result.readlines()
 result.close()
 
@@ -144,6 +214,8 @@ result.close()
 t = bfs(' '.join(page))
 tables = t.findAll('table')
 
+
+#TODO : Catch no results
 
 r = tables[1].findAll('td')[0]
 y = r.findAll('strong')[0].contents[0]
@@ -155,31 +227,146 @@ resulttable = tables[2]
 # get the rows of the table
 rows = resulttable.findAll('tr')
 # get each result entry per list item
-entries = [rows[i:i+3] for i in scipy.arange(3,57,2)]
+entries = [rows[i:i+3][1:] for i in scipy.arange(2,57,3)][:-1]
 
 
-# dictionary for each paper?
-#~ class Hits:
-    #~ def __init__(self, entries, entry_type='bfs'):
-        #~ """
-        #~ Hack to get all the fields, they do not have any naming of 
-        #~ the td tags, or any good way to access DB
-        #~ 
-        #~ internal object
-        #~ 
-        #~ entry_type  : what type the 'entry' input is in, default is
-                      #~ 'bfs', which is a list of two Beautiful Soup 
-                      #~ entries. 
-                      #~ available: 'bfs' or 'z39.50'
-        #~ """
-        #~ if entry_type=='bfs':
-            #~ for i in len(entries)):
-                #~ td_tags0 = entries[i].findAll('td')
-                #~ 
-                #~ self.bibcode = str(td_tags0[1].findAll('input')[0]['value'])
-                #~ self.url_abstract_page = str(td_tags0[1].findAll('a')[0]['href'])
-                #~ self.ads_score = float(td_tags0[3].contents[0])
-                #~ self.date = str(td_tags0[4].contents[0])
+
+##### For one entry
+#~ 
+#~ td_tags0 = entry[0].findAll('td')
+#~ bibcode = td_tags0[1].findAll('input')[0]['value'].replace(u'\xa0', u' ').encode()
+#~ url_abstract_page = td_tags0[1].findAll('a')[0]['href'].replace(u'\xa0', u' ').encode()
+#~ ads_score = float(td_tags0[3].contents[0].encode())
+#~ pubdate = td_tags0[4].contents[0].string.replace(u'\xa0', u' ').encode()
+#~ pubday = pubdate[:2]
+#~ pubyear = pubdate[3:]
+#~ 
+#~ links = dict()
+#~ for link in td_tags0[5].findAll('a'):
+    #~ links[link.string.encode()] = link['href'].replace(u'\xa0', u' ').encode()
+#~ 
+#~ td_tags1 = entry[1].findAll('td')
+#~ 
+#~ # second part of the result entry
+#~ title = td_tags1[3].contents[0].string.replace(u'\xa0', u' ').encode()
+#~ # still in unicode
+#~ # TODO need to convert to normal UTF, not unicode
+#~ authors = td_tags1[1].string.replace(u'\xa0', u' ').encode().split(';')
+#~ authors = [i.split(',') for i in authors]
+#~ author = authors[0]
+
+
+############################################
+######## DEFINE RESULT OBJECT
+
+class _Result:
+    """
+    Internal object to represent the results
+    """
+    def __init__(self, entry):
+    #~ def __init__(self, author, 
+                        #~ authors, 
+                        #~ title, 
+                        #~ score, 
+                        #~ bibcode,
+                        #~ pubdate,
+                        #~ links):
+        #~ self.author = author
+        #~ self.authorlist = authors
+        #~ self.title = title
+        #~ self.score = score
+        #~ self.bibcode = bibcode
+        #~ self.pubdate = pubdate  # parse?
+        #~ self.links = links      # dictionary of all the links
+        #
+        td_tags0 = entry[0].findAll('td')
+        self.bibcode = td_tags0[1].findAll('input')[0]['value'].encode('UTF-8')
+        self.url_abstract_page = td_tags0[1].findAll('a')[0]['href'].encode('UTF-8')
+        self.ads_score = float(td_tags0[3].contents[0].encode('UTF-8'))
+        self.pubdate = td_tags0[4].contents[0].string.encode('UTF-8')
+        self.pubday = self.pubdate[:2]
+        self.pubyear = self.pubdate[3:]
+        #
+        self.links = dict()
+        for link in td_tags0[5].findAll('a'):
+            self.links[link.string.encode()] = link['href'].encode('UTF-8')
+        #
+        td_tags1 = entry[1].findAll('td')
+        
+        # second part of the result entry
+        self.title = td_tags1[3].contents[0].string.encode('UTF-8')
+        # still in unicode
+        # TODO need to convert to normal UTF, not unicode
+        authors = td_tags1[1].contents[0].encode('UTF-8').split(';')
+        if authors[-1] == ' ':
+            # so, if the last entry in the authorlist is empty, means
+            # it split a ';', which in turn means there are more 
+            # authors, need to add that part...
+            authors[-1] = td_tags1[1].contents[1].contents[0].encode('UTF-8') + ', COAuth'
+        #
+        self.authors = [i.split(',') for i in authors]
+        self.author = ', '.join(self.authors[0])
+        #
+        #~ self.
+    def __repr__(self):
+        return repr([self.author, self.authors, self.title, self.url_abstract_page, self.ads_score, self.links, self.bibcode, self.pubdate])
+    def _returnlist_(self):
+        return [self.author, self.authors, self.title, self.url_abstract_page, self.ads_score, self.links, self.bibcode, self.pubdate]
+
+
+
+###### the problem with this is that web is in UNICODE, 
+# ie. Jørgensen, æ and åäö and ßü etc are represented by funny numbers and '\'
+
+
+############################################
+######## GET RESULTLIST
+
+resultlist = [_Result(i) for i in entries]
+
+############################################
+######## RETURN SORTABLE OBJECT LIST
+
+############################################
+######## HOW TO SORT RESULTS
+# needs Python 2.6 at least
+from operator import itemgetter, attrgetter
+
+# now to sort it, just use one of the keys
+# score, high to low
+sorted(resultlist, key=attrgetter('author'), reverse=True)
+
+# cmp=locale.strcoll new and untested addition
+
+# authors alphabetical order first and then by score
+# i.e. sort by score if same first author
+sorted(resultlist, key=attrgetter('ads_score','authors'), reverse=True)
+
+
+
+############################################
+######## THE END
+
+
+### quick test to see if i works...
+w = 0
+for i in entries:
+    print w
+    _Results(i)
+    w += 1
+
+
+
+
+
+### example use
+# input the results
+res = [
+    _Results('Persson1', 'Water1', 100, 'various links', '2012bddaldkjf...00'), _Results('Olof', 'Ammonia', 80, 'other links', '2011nbnflkdajf..00')
+    ]
+
+
+
 
 
 
@@ -191,9 +378,9 @@ entries = [rows[i:i+3] for i in scipy.arange(3,57,2)]
 # pubdate
 # possilbe (quick)links : 
 #           A Abstract 
-#           C Citations
+#           C CITATIONS
 #           D On-line Data
-#           E Electronic Article
+#           E EJOURNAL
 #           F Printable Article
 #           G Gif Images
 #           H HEP/Spires Information
@@ -203,7 +390,7 @@ entries = [rows[i:i+3] for i in scipy.arange(3,57,2)]
 #           N NED Objects
 #           O Associated Articles
 #           P PDS datasets
-#           R References
+#           R REFERENCES
 #           S SIMBAD Objects
 #           T TOC
 #           U Also read
@@ -211,9 +398,12 @@ entries = [rows[i:i+3] for i in scipy.arange(3,57,2)]
 #           Z Abstract Custom
 
 
-# Class that can be sorted...
+# Class that can be sorted when in a list.
 
-class Results:
+class _Results:
+    """
+    Internal object to represent the results
+    """
     def __init__(self, author, 
                         authors, 
                         title, 
@@ -228,8 +418,7 @@ class Results:
         self.bibcode = bibcode
         self.pubdate = pubdate  # parse?
         self.links = links      # dictionary of all the links
-        self.
-        
+        #~ self.
     def __repr__(self):
         return repr([self.authors, self.title, self.score, self.links, self.bibcode])
     def _returnlist_(self):
@@ -241,10 +430,10 @@ class Results:
 ### example use
 # input the results
 res = [
-    Results('Persson1', 'Water1', 100, 'various links', '2012bddaldkjf...00'), Results('Olof', 'Ammonia', 80, 'other links', '2011nbnflkdajf..00')
+    _Results('Persson1', 'Water1', 100, 'various links', '2012bddaldkjf...00'), _Results('Olof', 'Ammonia', 80, 'other links', '2011nbnflkdajf..00')
     ]
 
-res.append(Results('Jorgensen','I16293', 100,'linking', '2020320322...'))
+res.append(_Results('Jorgensen','I16293', 100,'linking', '2020320322...'))
 
 # for advanced sorting 
 # needs Python 2.6 at least
@@ -252,11 +441,13 @@ from operator import itemgetter, attrgetter
 
 # now to sort it, just use one of the keys
 # score, high to low
-sorted(res, key=attrgetter('score'), reverse=True)
+sorted(res, key=attrgetter('score'), cmp=locale.strcoll, reverse=True)
+
+# cmp=locale.strcoll new and untested addition
 
 # authors alphabetical order first and then by score
 # i.e. sort by score if same first author
-sorted(res, key=attrgetter('score','authors'), reverse=True)
+sorted(res, key=attrgetter('score','authors'), cmp=locale.strcoll, reverse=True)
 
 # now to get all the entries one by one in the sorted order and print
 
