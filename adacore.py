@@ -1348,16 +1348,19 @@ class Fits:
             ##### have to add loading of frequency and calculate velocity
             # UGLY HACK BELOW, BEWARE!
             # need to be changed to a more flexible code...
-            try:
-                if 'VELO' or 'VELO-LSR' in [self.hdr[i] for i in self.hdr.keys()]:
-                    print('VELO')
-                    velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VELO' in self.hdr[x]][0][-1:])
-                elif 'VRAD' in [self.hdr[i] for i in self.hdr.keys()]:
-                    print('VRAD')
-                    velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VRAD' in self.hdr[x]][0][-1:])
-                else:
-                    print('COULDNT FIND A VELOCITY AXIS')
+            hdr_values = [self.hdr[i] for i in self.hdr.keys()]
+            if ('VELO' or 'VELO-LSR') in hdr_values:
+                print('VELO')
+                velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VELO' in self.hdr[x]][0][-1:])
                 vel_info = True
+            elif 'VRAD' in hdr_values:
+                print('VRAD')
+                velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VRAD' in self.hdr[x]][0][-1:])
+                vel_info = True
+            else:
+                print('No velocity axis defined')
+                vel_info = False
+            if vel_info:
                 self.v_type = velax
                 self.v_crpix = self.hdr['CRPIX'+self.v_type]-1
                 self.v_crval = self.hdr['CRVAL'+self.v_type]
@@ -1365,22 +1368,22 @@ class Fits:
                 self.v_cdelt = self.hdr['CDELT'+self.v_type]
                 self.v_naxis = self.hdr['NAXIS'+self.v_type]
                 self.v_cdeltkms = self.v_cdelt/float(1e3)
-            except IndexError:
-                print('No velocity axis defined')
-                vel_info = False
             # load frequency and calculate velocity stuff
             if not vel_info:
                 from scipy import sign
-                freqax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'FREQ' in self.hdr[x]][0][-1:])
-                self.f_type = freqax
-                self.f_crpix = self.hdr['CRPIX'+self.f_type]-1
-                self.f_crval = self.hdr['CRVAL'+self.f_type]
-                self.f_ctype = self.hdr['CTYPE'+self.f_type]
-                self.f_cdelt = self.hdr['CDELT'+self.f_type]
-                self.f_naxis = self.hdr['NAXIS'+self.f_type]
-                #self.f_cdeltkms = self.f_cdelt/float(1e3)
-                self.f_arr = ((arange(0,self.f_naxis)-self.f_crpix)*self.f_cdelt+self.f_crval) # in Hz
-                #
+                if 'FREQ' in hdr_values:
+                    freqax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'FREQ' in self.hdr[x]][0][-1:])
+                    self.f_type = freqax
+                    self.f_crpix = self.hdr['CRPIX'+self.f_type]-1
+                    self.f_crval = self.hdr['CRVAL'+self.f_type]
+                    self.f_ctype = self.hdr['CTYPE'+self.f_type]
+                    self.f_cdelt = self.hdr['CDELT'+self.f_type]
+                    self.f_naxis = self.hdr['NAXIS'+self.f_type]
+                    #self.f_cdeltkms = self.f_cdelt/float(1e3)
+                    self.f_arr = ((arange(0,self.f_naxis)-self.f_crpix)*self.f_cdelt+self.f_crval) # in Hz
+                else:
+                    print('No velocity or frequency axis defined')
+                    raise FitsError('Could not load FITS file')
                 # velocity
                 # UGLY hack warning...
                 self.v_crpix = self.f_crpix
@@ -1793,7 +1796,12 @@ class Uvfits:
         self.uvdist_klam = sqrt(self.u_klam**2 +self.v_klam**2)
         self.uvdist_m = sqrt(self.u_m**2 +self.v_m**2)
         # visibility data set (COMPLEX)
-        self.visdata = self.hdu.data.data[:,0,0,0,0,:]
+        visi_index = len(self.hdu.data.parnames)
+        if self.hdu.header['NAXIS']  == 7:
+            self.visdata = self.hdu.data.par(visi_index)[:,0,0,0,0,0,:]
+        #~ self.visdata = self.hdu.data.data[:,0,0,0,0,0,:]
+        elif self.hdu.header['NAXIS']  == 6:
+            self.visdata = self.hdu.data.par(visi_index)[:,0,0,0,0,:]
         # load the re, im and weight arrays
         self.re = self.visdata[:,0]
         self.im = self.visdata[:,1]
@@ -1813,7 +1821,6 @@ class Uvfits:
         return (0,0)
     def __str__():
         return 'Not implemented yet.'
-
 
 # MOMENTS DATA CLASS
 # to adacore.py
@@ -1904,7 +1911,6 @@ class Moments:
         top = imgs * (velocities_matrix - self.one)**2
         division = abs(top.sum(axis=0) / Isum)
         self.two = sqrt(division)
-
 
 #
 # SPECTRUM DATA CLASS
