@@ -121,6 +121,8 @@ Need :  o scipy (and numpy)
 #----[ BLUEPRINTS ]----
 #Top of the list TODO:
 
+# TODO : move over to import MODULE
+#        Then use it as MODULE.function(input)
 
 # TODO method calc_offset to Fits object (calc offset from phase center given
 #sexadecimal or sim coord input)
@@ -221,6 +223,10 @@ Need :  o scipy (and numpy)
 from cgsconst import *  # New Constants module, works nice
 from adacore import *
 
+# move over to this type of import, so you know where they come from
+# when using it
+import cgsconst ; reload(cgsconst)
+import adacore ; reload(adacore)
 
 ########################################################################
 # to adavis.py
@@ -474,7 +480,7 @@ def put_line_indicator(ax, velocity, spect, xpos, text_string, \
     transform = ax.transData)
 def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
         'size':10},
-        quality=[300, 150], latex=True):
+        quality=[300, 150], latex=True, **kwargs):
     from matplotlib import rc
     ################################
     # setting global rc properties #
@@ -492,9 +498,9 @@ def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
     #rc('xtick',**{'minor.size':3, 'major.size':7})
     #rc('ytick',**{'minor.size':3, 'major.size':7})
     # linewidths
-    rc('axes', linewidth=0.65)
-    rc('patch', linewidth=0.65)
-    rc('lines', linewidth=0.65, markeredgewidth=0.65)
+    rc('axes', linewidth=0.45)
+    rc('patch', linewidth=0.45)
+    rc('lines', linewidth=0.45, markeredgewidth=0.45)
 def steppify(arr, isX=False, interval=0):
     """
     Converts an array to double-length for step plotting

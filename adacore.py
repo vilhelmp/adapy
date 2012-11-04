@@ -25,7 +25,7 @@
 #  version 
 
 
-
+from cgsconst import *
 
 #----[ DESCRIPTION ]----
 """
@@ -57,6 +57,11 @@ Need : o scipy (and numpy)
 """
 Top of the list TODO:
 
+TODO : Clean up functions
+
+TODO : LineID plot
+
+TODO : Able to change restfrequency, or at least the V=0 point
 
 TODO : get rid of all text output in this module, move it to adavis, or 
         just the individual __str__ methods
@@ -1349,7 +1354,11 @@ class Fits:
             # UGLY HACK BELOW, BEWARE!
             # need to be changed to a more flexible code...
             hdr_values = [self.hdr[i] for i in self.hdr.keys()]
-            if ('VELO' or 'VELO-LSR') in hdr_values:
+            if 'VELO' in hdr_values:
+                print('VELO')
+                velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VELO' in self.hdr[x]][0][-1:])
+                vel_info = True
+            elif 'VELO-LSR' in hdr_values:
                 print('VELO')
                 velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VELO' in self.hdr[x]][0][-1:])
                 vel_info = True
@@ -1415,8 +1424,8 @@ class Fits:
             self.fov = 58.4*(3.e8/self.restfreq)/float(self.diameter)*3600.
             print 'Field of view: %.2f asecs, for dish size: %.1f m' % (self.fov, self.diameter)
             #print self.veltype, self.v_crpix, self.v_crval, self.v_cdeltkms, self.v_naxis
-            print 'Velocity range \t: %d km/s' % self.v_rangekms
-            print 'Velocity step \t: %2.4f km/s' % self.v_cdeltkms
+            print 'Velocity range \t: {0:.2f} km/s'.format(self.v_rangekms)
+            print 'Velocity step \t: {0:2.4f} km/s'.format(self.v_cdeltkms)
             #
             # now if we want to have the spectral array as well to use
             if self.hdr.has_key('RESTFREQ'):
@@ -1885,12 +1894,12 @@ class Moments:
         ## MOMENT 1
         # create array that matches imgs array
         # only the velocities that we want, i.e. Fits.v_arr[self.channels]
-        velocities_matrix = array( [ones(imgs.shape[1:]) * i for i in Fits.v_arr[self.channels]] )
+        velocities_matrix = array([ones(imgs.shape[1:]) * i for i in Fits.v_arr[self.channels]] )
         # removed where(), because a boolean array works fine
         # find out where we calculate the moment 1, i.e. 3 sigma level
         Isum = imgs.sum(axis=0)
-        gt_3sigma = (self.zero < (nsig * self.sigma)) * (self.zero > (-1.0 * nsig * self.sigma))
-        Isum[ gt_3sigma ] = nan
+        lt_3sigma = (self.zero < (nsig * self.sigma)) * (self.zero > (-1.0 * nsig * self.sigma))
+        Isum[ lt_3sigma ] = nan
         Ivsum = (imgs * velocities_matrix).sum(axis=0)
         # calculate the denominator, the sum of all images
         # in our velocity interval

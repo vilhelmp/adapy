@@ -3,7 +3,7 @@
 #
 #  adslib.py
 #
-#  Short description of program/module
+#  Module to search the ads
 #
 #  Copyright 2012 Magnus Persson <http://vilhelm.nu>
 #
@@ -25,8 +25,7 @@
 #  version 0.0.1a
 
 """
-Script with functions to perform different actions on interferometric/SD
-radio fits cubes/arrays.
+Script to search the NASA ADS directory
 
 Need :  o scipy (and numpy)
         o matplotlib
@@ -63,6 +62,7 @@ http://ads.on.br/
 """
 ----[ Change log ]----
 
+29 Oct 2012 - now only uses mechanize module
 
 02 Oct 2012 - file created!
 
@@ -95,173 +95,186 @@ mirrors = [
         'http://ads.on.br/'
         ]
 
-search_type=0
-# advanced search query
 advanced_q = 'abstract_service.html'
-# quick search
-simple_q = 'index.html'
 
-types_q = [simple_q, advanced_q]
-
-#~ if search_type='adv':
-    #~ type_q = advanced_q
-#~ else:
-    #~ type_q = simple_q
-
-### test code to get it up and running
-
-# main access
-# TODO : either access via Z39.50 or via URLlib/mecahnise etc
-
-# wishlist
-# TODO : simple search
-# TODO : advanced search
-# TODO : browse
-
-
-import locale
-# this reads the environment and inits the right locale
-locale.setlocale(locale.LC_ALL, "")
-
-
-try:
-    # the mechanize module exports urllib2 as well...
-    import mechanize as FormParser
-    import mechanize as URL
-except (ImportError):
+def search(query, advanced=0, **kwargs):
+    """
+    query       :  Normal string to ADS
+                   or dictionary for advanced search
+    search_type :  0 - Simple
+                   1 - Advanced
+    
+    """
+    
+    # advanced search query
+    
+    # quick search
+    #~ simple_q = 'index.html'
+    
+    #~ types_q = [simple_q, advanced_q]
+    
+    #~ if search_type='adv':
+        #~ type_q = advanced_q
+    #~ else:
+        #~ type_q = simple_q
+    
+    ### test code to get it up and running
+    
+    # main access
+    # TODO : either access via Z39.50 or via URLlib/mecahnise etc
+    
+    # wishlist
+    # TODO : simple search
+    # TODO : advanced search
+    # TODO : browse
+    
+    
+    import locale
+    # this reads the environment and inits the right locale
+    locale.setlocale(locale.LC_ALL, "")
+    
+    
     try:
-        import ClientForm as FormParser
-        try:
-            import urllib2 as URL
-        except (ImportError):
-            print 'You need the module \'urllib2\''
+        # the mechanize module exports urllib2 as well...
+        import mechanize
+        import urllib
     except (ImportError):
-        print 'You need at least one of the two modules '
-        'Mechanize or ClientForm for this script to work.'
-        print '\'ClientForm\' http://wwwsearch.sourceforge.net/old/ClientForm/'
-
-try:
-    from BeautifulSoup import BeautifulSoup as bfs
-except (ImportError):
-    print 'You need the BeautifulSoup module...'
-
-
-import scipy
-
-#from string import lower, upper
-
-############################################
-######## GET THE FORM
-
-
-# search URL
-# http://adsabs.harvard.edu/cgi-bin/nph-basic_connect?qsearch=The+Search+String
-
-# to parse the search string from "The Search String" to "The+Search+String"
-# urllib.quote(url, safe=":/")
-
-got_reply = False
-working_mirror = 0
-while not got_reply:
+        print 'You need the \"mechanize\" and urllib module'
+        ' for this script to work.'
+    
     try:
-        # try to get the form
-        response = URL.urlopen(mirrors[working_mirror] + types_q[search_type])
-    except URL.URLError:
-        # if we can't get it, try another mirror
-        if not i < len(mirrors):
-            break
-        else:
-            working_mirror += 1
+        from BeautifulSoup import BeautifulSoup as bfs
+    except (ImportError):
+        print 'You need the BeautifulSoup module...'
+    
+    
+    import scipy
+    import sys
+    
+    #from string import lower, upper
+    # search URL
+    # http://adsabs.harvard.edu/cgi-bin/nph-basic_connect?qsearch=The+Search+String
+    
+    # to parse the search string from "The Search String" to "The+Search+String"
+    # urllib.quote(url, safe=":/")
+    
+    ############################################
+    ######## GET THE FORM
+    
+    #~  Ping to know which server to use.
+    working_mirror = 0
+    
+    #~ while not got_reply:
+       #~ try:
+           #~ # try to get the form
+           #~ response = mechanize.urlopen(mirrors[working_mirror] + types_q[search_type])
+       #~ except mechanize.URLError:
+           #~ # if we can't get it, try another mirror
+           #~ if not i < len(mirrors):
+               #~ break
+           #~ else:
+               #~ working_mirror += 1
+           #~ pass
+       #~ else:
+           #~ got_reply = True
+    #~ 
+    #~ if not got_reply and working_mirror >= len(mirrors):
+           #~ # TODO log output
+           #~ sys.stderr.write('ERROR :  You have to be connected to the internet to access the NASA ADS database and it has to be online (on all mirrors).')
+    #~ else:
+            #~ # TODO log output
+        #~ print ('got reply from : {0}'.format(mirrors[working_mirror]))
+    
+    
+    
+    
+    #~  Then check if going for the advanced interface.
+    if advanced:
+        # ADVANCED QUERY 
+        response = mechanize.urlopen(mirrors[working_mirror] + advanced_q)
+        forms = mechanize.ParseResponse(response, backwards_compat=False)
+        response.close()
+        form = forms[0]
+        #~ if arg.has_key('dbg_snd_form'): # for test purposes
+        #~ return form
+        #~ form['qsearch'] = '^Persson 2012'
+        
+        ######## SUBMIT FORM
+        #~ clicked_form = form.click()
+        
+        #~ result = mechanize.urlopen(clicked_form)
+        
         pass
-    else:
-        got_reply = True
+        
+    elif not advanced:
+        # SIMPLE QUERY 
+        baseurl = (mirrors[working_mirror] + 
+        'cgi-bin/nph-basic_connect?qsearch=')
+        
+        result = mechanize.urlopen( urllib.quote(baseurl + query, safe = ":/=?^") )
+        # test below
+        data = urllib.urlencode({'qsearch' : '^Persson'})
+        baseurl = (mirrors[working_mirror] + 
+        'cgi-bin/nph-basic_connect?')
+        f = urllib.urlopen(baseurl, data)
+    ############################################
+    ######## PARSE RESULTS
+    
+    page = result.readlines()
+    result.close()
+    
+    # start parsing the results
+    t = bfs(' '.join(page))
+    tables = t.findAll('table')
+        
+    r = tables[1].findAll('td')[0]
+    y = r.findAll('strong')[0].contents[0]
+    nres = int(y)
+    if nres<1:
+        return 0
+    
+    # get table with results
+    resulttable = tables[2]
+    # get the rows of the table
+    rows = resulttable.findAll('tr')
+    # get each result entry per list item
+    entries = [rows[i:i+3][1:] for i in scipy.arange(2,57,3)][:-1]
 
-if not got_reply and working_mirror >= len(mirrors):
-        import sys
-        sys.stderr.write('ERROR :  You have to be connected to the internet to access the NASA ADS database and it has to be online (on all mirrors).')
-else:
-    print ('got reply from : {0}'.format(mirrors[working_mirror]))
+    ############################################
+    ######## GET RESULTLIST
 
-forms = FormParser.ParseResponse(response, backwards_compat=False)
-response.close()
-form = forms[0]
-
-if arg.has_key('dbg_snd_form'): # for test purposes
-    return form
-
-
-###########################################
-# edit search
-
-# e.g.:
-
-######## SIMPLE QUERY 
-
-form['qsearch'] = '^Persson 2012'
-
-############################################
-######## SUBMIT FORM
-clicked_form = form.click()
-
-result = URL.urlopen(clicked_form)
-
-############################################
-######## PARSE RESULTS
-page = result.readlines()
-result.close()
-
-# start parsing the results
-t = bfs(' '.join(page))
-tables = t.findAll('table')
-
-
-#TODO : Catch no results
-
-r = tables[1].findAll('td')[0]
-y = r.findAll('strong')[0].contents[0]
-nres = int(y)
-print 'Hits : ', nres
-
-# get table with results
-resulttable = tables[2]
-# get the rows of the table
-rows = resulttable.findAll('tr')
-# get each result entry per list item
-entries = [rows[i:i+3][1:] for i in scipy.arange(2,57,3)][:-1]
-
-
-
-##### For one entry
-#~ 
-#~ td_tags0 = entry[0].findAll('td')
-#~ bibcode = td_tags0[1].findAll('input')[0]['value'].replace(u'\xa0', u' ').encode()
-#~ url_abstract_page = td_tags0[1].findAll('a')[0]['href'].replace(u'\xa0', u' ').encode()
-#~ ads_score = float(td_tags0[3].contents[0].encode())
-#~ pubdate = td_tags0[4].contents[0].string.replace(u'\xa0', u' ').encode()
-#~ pubday = pubdate[:2]
-#~ pubyear = pubdate[3:]
-#~ 
-#~ links = dict()
-#~ for link in td_tags0[5].findAll('a'):
-    #~ links[link.string.encode()] = link['href'].replace(u'\xa0', u' ').encode()
-#~ 
-#~ td_tags1 = entry[1].findAll('td')
-#~ 
-#~ # second part of the result entry
-#~ title = td_tags1[3].contents[0].string.replace(u'\xa0', u' ').encode()
-#~ # still in unicode
-#~ # TODO need to convert to normal UTF, not unicode
-#~ authors = td_tags1[1].string.replace(u'\xa0', u' ').encode().split(';')
-#~ authors = [i.split(',') for i in authors]
-#~ author = authors[0]
+    ###### the problem with this is that web is in UNICODE, 
+    # ie. Jørgensen, æ and åäö and ßü etc are represented by funny numbers and '\'
+        
+    #resultlist = [_Result(i) for i in entries]
+    return _Resultlist(entries)
 
 
 ############################################
-######## DEFINE RESULT OBJECT
+######## DEFINE RESULT(S) OBJECT
+
+
+class _Resultlist:
+    """
+    Internal object to represent the result list
+    """
+    def __init__(self, entries):
+        self.resultlist = [_Result(i) for i in entries]
+    def sort(self,sortkey = 'author', reverse_bool = False):
+        from operator import itemgetter, attrgetter
+        #~ sorted(resultlist, key=attrgetter('author'), reverse=True)
+        return sorted(self.resultlist, key=attrgetter(sortkey), reverse = reverse_bool)
+    def __str__(self):
+        printlist = []
+        for i in self.resultlist[:-1]:
+            printlist.append('Author : {0.author}\n' 
+            'Title : {0.title}\n' 
+            'Score : {0.ads_score}\n'.format(i))
+        return '\n'.join(printlist)
 
 class _Result:
     """
-    Internal object to represent the results
+    Internal object to represent each result
     """
     def __init__(self, entry):
     #~ def __init__(self, author, 
@@ -283,6 +296,7 @@ class _Result:
         self.bibcode = td_tags0[1].findAll('input')[0]['value'].encode('UTF-8')
         self.url_abstract_page = td_tags0[1].findAll('a')[0]['href'].encode('UTF-8')
         self.ads_score = float(td_tags0[3].contents[0].encode('UTF-8'))
+        self.rank = 100 - self.ads_score
         self.pubdate = td_tags0[4].contents[0].string.encode('UTF-8')
         self.pubday = self.pubdate[:2]
         self.pubyear = self.pubdate[3:]
@@ -314,15 +328,32 @@ class _Result:
         return [self.author, self.authors, self.title, self.url_abstract_page, self.ads_score, self.links, self.bibcode, self.pubdate]
 
 
+##### For one entry
+#~ 
+#~ td_tags0 = entry[0].findAll('td')
+#~ bibcode = td_tags0[1].findAll('input')[0]['value'].replace(u'\xa0', u' ').encode()
+#~ url_abstract_page = td_tags0[1].findAll('a')[0]['href'].replace(u'\xa0', u' ').encode()
+#~ ads_score = float(td_tags0[3].contents[0].encode())
+#~ pubdate = td_tags0[4].contents[0].string.replace(u'\xa0', u' ').encode()
+#~ pubday = pubdate[:2]
+#~ pubyear = pubdate[3:]
+#~ 
+#~ links = dict()
+#~ for link in td_tags0[5].findAll('a'):
+    #~ links[link.string.encode()] = link['href'].replace(u'\xa0', u' ').encode()
+#~ 
+#~ td_tags1 = entry[1].findAll('td')
+#~ 
+#~ # second part of the result entry
+#~ title = td_tags1[3].contents[0].string.replace(u'\xa0', u' ').encode()
+#~ # still in unicode
+#~ # TODO need to convert to normal UTF, not unicode
+#~ authors = td_tags1[1].string.replace(u'\xa0', u' ').encode().split(';')
+#~ authors = [i.split(',') for i in authors]
+#~ author = authors[0]
 
-###### the problem with this is that web is in UNICODE, 
-# ie. Jørgensen, æ and åäö and ßü etc are represented by funny numbers and '\'
 
 
-############################################
-######## GET RESULTLIST
-
-resultlist = [_Result(i) for i in entries]
 
 ############################################
 ######## RETURN SORTABLE OBJECT LIST
@@ -330,30 +361,34 @@ resultlist = [_Result(i) for i in entries]
 ############################################
 ######## HOW TO SORT RESULTS
 # needs Python 2.6 at least
-from operator import itemgetter, attrgetter
+#~ from operator import itemgetter, attrgetter
+#~ 
+#~ # now to sort it, just use one of the keys
+#~ # score, high to low
+#~ sorted(resultlist, key=attrgetter('author'), reverse=True)
+#~ 
+#~ # cmp=locale.strcoll new and untested addition
+#~ 
+#~ # authors alphabetical order first and then by score
+#~ # i.e. sort by score if same first author
+#~ sorted(resultlist, key=attrgetter('ads_score','authors'), reverse=True)
 
-# now to sort it, just use one of the keys
-# score, high to low
-sorted(resultlist, key=attrgetter('author'), reverse=True)
 
-# cmp=locale.strcoll new and untested addition
 
-# authors alphabetical order first and then by score
-# i.e. sort by score if same first author
-sorted(resultlist, key=attrgetter('ads_score','authors'), reverse=True)
+
 
 
 
 ############################################
 ######## THE END
-
+############################################
 
 ### quick test to see if i works...
-w = 0
-for i in entries:
-    print w
-    _Results(i)
-    w += 1
+#~ w = 0
+#~ for i in entries:
+    #~ print w
+    #~ _Results(i)
+    #~ w += 1
 
 
 
@@ -361,9 +396,9 @@ for i in entries:
 
 ### example use
 # input the results
-res = [
-    _Results('Persson1', 'Water1', 100, 'various links', '2012bddaldkjf...00'), _Results('Olof', 'Ammonia', 80, 'other links', '2011nbnflkdajf..00')
-    ]
+#~ res = [
+    #~ _Results('Persson1', 'Water1', 100, 'various links', '2012bddaldkjf...00'), _Results('Olof', 'Ammonia', 80, 'other links', '2011nbnflkdajf..00')
+    #~ ]
 
 
 
@@ -400,70 +435,70 @@ res = [
 
 # Class that can be sorted when in a list.
 
-class _Results:
-    """
-    Internal object to represent the results
-    """
-    def __init__(self, author, 
-                        authors, 
-                        title, 
-                        score, 
-                        bibcode,
-                        pubdate,
-                        links):
-        self.author = author
-        self.authorlist = authors
-        self.title = title
-        self.score = score
-        self.bibcode = bibcode
-        self.pubdate = pubdate  # parse?
-        self.links = links      # dictionary of all the links
+#~ class _Results:
+    #~ """
+    #~ Internal object to represent the results
+    #~ """
+    #~ def __init__(self, author, 
+                        #~ authors, 
+                        #~ title, 
+                        #~ score, 
+                        #~ bibcode,
+                        #~ pubdate,
+                        #~ links):
+        #~ self.author = author
+        #~ self.authorlist = authors
+        #~ self.title = title
+        #~ self.score = score
+        #~ self.bibcode = bibcode
+        #~ self.pubdate = pubdate  # parse?
+        #~ self.links = links      # dictionary of all the links
         #~ self.
-    def __repr__(self):
-        return repr([self.authors, self.title, self.score, self.links, self.bibcode])
-    def _returnlist_(self):
-        return [self.authors, self.title, self.score, self.links, self.bibcode]
+    #~ def __repr__(self):
+        #~ return repr([self.authors, self.title, self.score, self.links, self.bibcode])
+    #~ def _returnlist_(self):
+        #~ return [self.authors, self.title, self.score, self.links, self.bibcode]
 
 
 
 
 ### example use
 # input the results
-res = [
-    _Results('Persson1', 'Water1', 100, 'various links', '2012bddaldkjf...00'), _Results('Olof', 'Ammonia', 80, 'other links', '2011nbnflkdajf..00')
-    ]
-
-res.append(_Results('Jorgensen','I16293', 100,'linking', '2020320322...'))
+#~ res = [
+    #~ _Results('Persson1', 'Water1', 100, 'various links', '2012bddaldkjf...00'), _Results('Olof', 'Ammonia', 80, 'other links', '2011nbnflkdajf..00')
+    #~ ]
+#~ 
+#~ res.append(_Results('Jorgensen','I16293', 100,'linking', '2020320322...'))
 
 # for advanced sorting 
 # needs Python 2.6 at least
-from operator import itemgetter, attrgetter
+#~ from operator import itemgetter, attrgetter
 
 # now to sort it, just use one of the keys
 # score, high to low
-sorted(res, key=attrgetter('score'), cmp=locale.strcoll, reverse=True)
+#~ sorted(res, key=attrgetter('score'), cmp=locale.strcoll, reverse=True)
 
 # cmp=locale.strcoll new and untested addition
 
 # authors alphabetical order first and then by score
 # i.e. sort by score if same first author
-sorted(res, key=attrgetter('score','authors'), cmp=locale.strcoll, reverse=True)
+#~ sorted(res, key=attrgetter('score','authors'), cmp=locale.strcoll, reverse=True)
 
 # now to get all the entries one by one in the sorted order and print
 
-print ('Author : {0[0].authors}\n' 
-        'Title : {0[0].title}\n' 
-        'Score : {0[0].score}\n' 
-        'Links : {0[0].links}'.format(li)
-        )
-
-#OR
-
-print ('Author : {0[0]}\n'
-        'Title : {0[1]}\n' 
-        'Score : {0[2]}\n' 
-        'Links : {0[3]}'.format(li[0]._returnlist_())
-        )
+#~ print ('Author : {0[0].authors}\n' 
+        #~ 'Title : {0[0].title}\n' 
+        #~ 'Score : {0[0].score}\n' 
+        #~ 'Links : {0[0].links}'.format(li)
+        #~ )
+#~ 
+#~ #OR
+#~ 
+#~ print ('Author : {0[0]}\n'
+        #~ 'Title : {0[1]}\n' 
+        #~ 'Score : {0[2]}\n' 
+        #~ 'Links : {0[3]}'.format(li[0]._returnlist_())
+        #~ )
 
 
 

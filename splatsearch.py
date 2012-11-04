@@ -59,37 +59,41 @@ Need :  o scipy (and numpy)
 
 
 
-"""
-What to do
 
-TODO : Page output if it is long, i.e. input a pause and clear screen
+#What to do
 
-TODO : Control display-output more, now a broad window is needed to
-        display everything
+#TODO : Separate data handling and UI
 
-TODO : Solve the parsing, the removal of tags... (huh?)
+#TODO : Solve the parsing, the removal of tags... (huh?)
 
-TODO : Should be able to search on specific molecules
-        - but how? molecular weight, and or just text?
-        - available in cmd version?
+#TODO : Should be able to search on specific molecules
+#        - but how? molecular weight, and or just text?
+#        - available in cmd version?
 
-TODO : get the export-to-file directly from splatalogue?
-        - initial testing indicates > does not work
+#IDEA : get the export-to-file directly from splatalogue?
+#        - initial testing indicates > does not work
 
-TODO : add so that one can enter the wavelength/wavenumber in m, cm, m-1, cm-1
-        just translate to frequency after input
+#TODO : add so that one can enter the wavelength/wavenumber in m, cm / m-1, cm-1
+#       just translate to frequency after input 
+#       v = wl / c
+#       wn = 1/wl -> v = 1 / (wn * c)
 
-TODO : figure out prettier printing of linelists... colors, web-adresses?
-        so when linelists choosen, print e.g.
-        "Line lists choosen:
-        JPL         http://jpl.nasa.gov/molecules/etc
-        CDMS        http://cologne.de/CDMS/whatever"
+#TODO : figure out prettier printing of linelists... colors, web-adresses?
+#        so when linelists choosen, print e.g.
+#        "Line lists choosen:
+#        JPL         http://jpl.nasa.gov/molecules/etc
+#        CDMS        http://cologne.de/CDMS/whatever"
 
-TODO : Change dictionary key-names in return-dictionary
+#TODO : Page output if it is long, i.e. input a pause and clear screen
 
-TODO : Implement new stylify help function
+#TODO : Control display-output more, now a broad window is needed to
+#        display everything
 
-"""
+#TODO : Change dictionary key-names in return-dictionary
+
+#TODO : Implement new stylify help function
+
+
 ###########################################
 # MAIN FUNCTION
 
