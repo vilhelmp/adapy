@@ -1,0 +1,20 @@
+README
+In addition to the docstrings in your code and the resulting HTML documentation, you should create a README.txt file in the top level of your directory structure. Put it under version control. Your README.txt should contain the following:
+
+Name, version, and release date of the package
+Brief description of the package
+Any dependencies or required versions of Python
+How to install the package (ideally just easy_install packagename)
+How to run the program(s), if your package contains scripts
+Package author and contact information
+Copyright and licensing terms
+Pointer to full documentation
+Some people like to break a few of these out into separate files (INSTALL, AUTHORS, ANNOUNCE...), but personally I prefer to keep it simple.
+
+If you already have this information in your docstrings or somewhere else, by all means, don’t repeat yourself: either use Sphinx, which can also produce plain (reStructured) text, or whip up a script to pull out the information and write your README.txt for you. You can extract the docstring from any module, class, or function with, e.g., mymodule.__doc__. Here’s how to make Sphinx output plain (reStructured) text to the text/ directory:
+
+$ sphinx-build -b text . text/
+Documentation Resources
+PEP 257, Docstring Conventions: http://www.python.org/dev/peps/pep-0257/
+reStructuredText markup: http://docutils.sourceforge.net/rst.html
+Sphinx, Python Documentation Generator: http://sphinx.pocoo.org/
