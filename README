@@ -1,3 +1,15 @@
+This is adapy, my collection of scripts to handle radio astronomical data.
+
+Needs 
+- Pyfits
+- Scipy (Numpy)
+- Matplotlib
+
+Only tested on my machine, running Ubuntu Linux and with my data (APEX, SMA, ALMA, PdBI, IRAM-30M). 
+If it doesn't work it is not my fault. This is just plain GPL code, use it or don't use it on your own risk.
+
+----------------------------------------------------------------------
+## WHAT TO PUT IN THE README FILE
 README
 In addition to the docstrings in your code and the resulting HTML documentation, you should create a README.txt file in the top level of your directory structure. Put it under version control. Your README.txt should contain the following:
 
