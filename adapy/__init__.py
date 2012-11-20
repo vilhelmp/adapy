@@ -1,2 +1,0 @@
-import adacore
-import tools
