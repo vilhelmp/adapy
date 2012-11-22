@@ -220,13 +220,14 @@ Need :  o scipy (and numpy)
 
 ########################################################################
 # IMPORTS
-from cgsconst import *  # New Constants module, works nice
-from adacore import *
+import adapy.libs.cgsconst as cgs
+#~ from cgsconst import *  # New Constants module, works nice
+#~ from adacore import *
 
 # move over to this type of import, so you know where they come from
 # when using it
-import cgsconst ; reload(cgsconst)
-import adacore ; reload(adacore)
+#~ import cgsconst ; reload(cgsconst)
+#~ import adacore ; reload(adacore)
 
 ########################################################################
 # to adavis.py

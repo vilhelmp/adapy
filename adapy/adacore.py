@@ -25,7 +25,7 @@
 #  version 
 
 
-from cgsconst import *
+#~ from cgsconst import *
 
 #----[ DESCRIPTION ]----
 """
