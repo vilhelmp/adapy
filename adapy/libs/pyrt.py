@@ -176,7 +176,7 @@ def createGrid(r_in,r_out, nshell, space = 'powerlaw1', end = True):
         start = [log10(r_in), 0][r_in == 0]
         stop = log10(r_out)
         radii = logspace(start, stop, num=nshell, endpoint=end)
-    elif space == 'powerlaw1':
+    elif space == "powerlaw1":
         from scipy import arange
         radii = r_in * (r_out/r_in)**(arange(nshell)/(nshell - 1.0))
     elif space == 'linear':
@@ -194,7 +194,7 @@ def createGrid(r_in,r_out, nshell, space = 'powerlaw1', end = True):
         #pr_int('Not implemented yet.')
         #raise ParError(spaced)
     else:
-        raise Exception(spaced)
+        raise Exception(space)
     return radii
 def plotSpectrum(freq, intensity, dpc = 0, jy = 0, pstyle = '', xlog = 1, ylog = 1):
     import cgsconst as cgs
@@ -1212,8 +1212,8 @@ class Transphere:
             radii = concatenate([inner_grid[:-1], outer_grid]).ravel()
             return inner_grid, outer_grid, radii
         else:
-            radii = createGrid(self.rin, self.rout, self.nshell,
-                        space=self.spacing, end=True)
+			#~ print self.spacing
+			radii = createGrid(self.rin, self.rout, self.nshell,space=self.spacing, end=True)
         # convert to cm
         #~ radii *= cgs.AU
         lower = radii[:-1]
