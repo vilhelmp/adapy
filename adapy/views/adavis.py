@@ -119,7 +119,12 @@ Need :  o scipy (and numpy)
 
 
 #----[ BLUEPRINTS ]----
-#Top of the list TODO:
+#Top of the list 
+
+# TODO : naming scheme: 
+#                       function names - whatit_does()
+#                       constant - CONSTANT
+#                       class name - ClassName
 
 # TODO : move over to import MODULE
 #        Then use it as MODULE.function(input)
@@ -220,35 +225,33 @@ Need :  o scipy (and numpy)
 
 ########################################################################
 # IMPORTS
-import adapy.libs.cgsconst as cgs
-#~ from cgsconst import *  # New Constants module, works nice
-#~ from adacore import *
 
-# move over to this type of import, so you know where they come from
-# when using it
-#~ import cgsconst ; reload(cgsconst)
-#~ import adacore ; reload(adacore)
+#~ from ..libs import cgsconst as _cgs  # if I only need it locally
+                                        # import with preceeding "_"
+
 
 ########################################################################
-# to adavis.py
 # ASTRONOMY & ASTROPHYSICS definitions for figure sizes
 # 255.76535 pt column width equals 88 mm (from aa.doc.pdf section 3.4)
 # one inch in mm = 25.4 mm/inch
 #one_col_fig_width_pt = 249.448819
-ONE_COL_FIG_WIDTH_MM = 88
-TWO_COL_FIG_WIDTH_MM = 180
-SIDE_CAPTION_FIG_WIDTH_MM = 120
-INCHES_PER_PT = 1.0/72.27                               # convert pt to inches
-INCHES_PER_MM = 1/25.4                                  # convert mm to inches
-GOLDEN_MEAN = (5**0.5-1.0)/2.0                          # aesthetic ratio
-ONE_COL_FIG_WIDTH = ONE_COL_FIG_WIDTH_MM*INCHES_PER_MM  # width in inches
-ONE_COL_FIG_HEIGHT = ONE_COL_FIG_WIDTH*GOLDEN_MEAN      # height in inches
-TWO_COL_FIG_WIDTH = TWO_COL_FIG_WIDTH_MM*INCHES_PER_MM
-SIDE_CAPTION_FIG_WIDTH = SIDE_CAPTION_FIG_WIDTH_MM*INCHES_PER_MM
-FIG_SIZE = [ONE_COL_FIG_WIDTH,ONE_COL_FIG_HEIGHT]
+#~ class FigSizes():
+    #~ def __init__(self):
+        #~ ONE_COL_FIG_WIDTH_MM = 88
+        #~ TWO_COL_FIG_WIDTH_MM = 180
+        #~ SIDE_CAPTION_FIG_WIDTH_MM = 120
+        #~ INCHES_PER_PT = 1.0/72.27                               # convert pt to inches
+        #~ INCHES_PER_MM = 1/25.4                                  # convert mm to inches
+        #~ GOLDEN_MEAN = (5**0.5-1.0)/2.0                          # aesthetic ratio
+        #~ ONE_COL_FIG_WIDTH = ONE_COL_FIG_WIDTH_MM*INCHES_PER_MM  # width in inches
+        #~ ONE_COL_FIG_HEIGHT = ONE_COL_FIG_WIDTH*GOLDEN_MEAN      # height in inches
+        #~ TWO_COL_FIG_WIDTH = TWO_COL_FIG_WIDTH_MM*INCHES_PER_MM
+        #~ SIDE_CAPTION_FIG_WIDTH = SIDE_CAPTION_FIG_WIDTH_MM*INCHES_PER_MM
+        #~ FIG_SIZE = [ONE_COL_FIG_WIDTH,ONE_COL_FIG_HEIGHT]
+from ._figsizes import AandA as _AandA # only to local namespace
 ########################################################################
 # USEFUL STRINGS
-KMS = u"km\u00b7s\u207b\u00b9"
+_KMS = u"km\u00b7s\u207b\u00b9"
 
 ########################################################################
 # GENERAL FUNCTIONS
@@ -699,7 +702,7 @@ def plot_uvplane(self, units='klam'):
                 self.v_m,
                 self.v_nsec][unit_which]
 
-    fig = pl.figure(1, figsize=((ONE_COL_FIG_WIDTH,ONE_COL_FIG_HEIGHT*1.5)))
+    fig = pl.figure(1, figsize=((_AandA.ONE_COL_FIG_WIDTH,_AandA.ONE_COL_FIG_HEIGHT*1.5)))
     ax = fig.add_subplot(111)
     ax.plot(x, y, '.b', ms=0.8)
     ax.set_aspect(1)
@@ -786,7 +789,7 @@ def plot_uvdata(self, x='uvdist', xunit='klam', y='amp', overplot=0, avg=0, **kw
     class Plot_data: pass
     Plot_data.Uvplt1 = Uvplt1
     pl.close(1)
-    fig = pl.figure(1, figsize=((ONE_COL_FIG_WIDTH*1.7,ONE_COL_FIG_HEIGHT*1.5)))
+    fig = pl.figure(1, figsize=((_AandA.ONE_COL_FIG_WIDTH*1.7,_AandA.ONE_COL_FIG_HEIGHT*1.5)))
     ax = fig.add_subplot(111)
     if y == 'amp' and avg == 0:
         err = self.error
@@ -820,7 +823,7 @@ def plot_spectrum (self,
     axspace = [1., 1., 1., 1.],
     ylimits=None,
     telescope=None,
-    fsize=(FIG_SIZE),
+    fsize=(_AandA.FIG_SIZE),
     binning=1,
     bintype='mean',
     **args):
@@ -950,6 +953,7 @@ def plot_spectrum (self,
     #from matplotlib.patches import Circle
     from matplotlib.ticker import MultipleLocator, FormatStrFormatter
     from matplotlib import cm, rc, rc_params
+    import adapy
     print 'done'
     ####
     #### PARSE INPUT
@@ -969,7 +973,7 @@ def plot_spectrum (self,
     #~ inputdict = dict(region=region)
     # create the spectrum object
     inputargs = args
-    Spect = Spectrum(self, region=region, **inputargs)
+    Spect = adapy.Spectrum(self, region=region, **inputargs)
     if binning > 1:
         if bintype == 'resample':
             Spect.bin_spectrum(binning=binning, bintype=bintype)
@@ -1528,7 +1532,7 @@ def plot_moment_map(self,
                 locators = [2,1],
                 telescope=None,
                 negcontours=True,
-                fsize=(TWO_COL_FIG_WIDTH,TWO_COL_FIG_WIDTH*0.7),
+                fsize=(_AandA.TWO_COL_FIG_WIDTH, _AandA.TWO_COL_FIG_WIDTH*0.7),
                 **kwargs):
     # imports
     #import scipy as sp
@@ -1878,7 +1882,7 @@ def plot_map(self,
                 locators = [2,1],
                 telescope=None,
                 negcontours=True,
-                fsize=(ONE_COL_FIG_WIDTH,ONE_COL_FIG_WIDTH),
+                fsize=(_AandA.ONE_COL_FIG_WIDTH, _AandA.ONE_COL_FIG_WIDTH),
                 **kwargs):
     #imports
     #import scipy as sp
@@ -3520,7 +3524,7 @@ def plot_moment0 (self,
                 locators = [2,1],
                 telescope=None,
                 negcontours=True,
-                fsize=(ONE_COL_FIG_WIDTH,ONE_COL_FIG_WIDTH*0.8),
+                fsize=(_AandA.ONE_COL_FIG_WIDTH, _AandA.ONE_COL_FIG_WIDTH*0.8),
                 rms_area=[0,0,10]):
     """
 

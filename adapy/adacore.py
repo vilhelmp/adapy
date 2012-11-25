@@ -43,6 +43,13 @@ Need : o scipy (and numpy)
 #----[ CHANGE LOG ]----
 """
 
+* 2012 Nov 22 
+    Changed the structure of the whole project, to reflect 
+    the different parts of the module.
+    e.g., UI programs goes in "views" folder, while data-I/O and 
+    under-the-hood analysis goes in "libs" folder or in main program
+    adacore.py depending on how fundamental the function is.
+
 * 2012 Oct 16
     Moved data handling and manipulation to adacore.py
     move UI to separate module adavis.py
@@ -79,7 +86,6 @@ TODO : load frequency information from fits file if it is there, and create
 velocity array as well
         -> more dynamic fits-file loading
 
-TODO : constants move to a module, update the code to use it.
 
 TODO : implement different lineID plot, make it more object oriented
 
@@ -124,7 +130,7 @@ TODO : P-V diagram - rotatable
 
  TODO : RMS and other units, e.g. when using SD data, Kelvin instead of Jy.
 
- TODO : axes_grid1 backwards compability? (for use in CASA)
+ TODO : axes_grid1 backwards compability? (for use in CASA?)
 
  TODO : Tick locators are good for small regions/narrow spectra,
         but not for big/wide
@@ -1354,21 +1360,19 @@ class Fits:
             # UGLY HACK BELOW, BEWARE!
             # need to be changed to a more flexible code...
             hdr_values = [self.hdr[i] for i in self.hdr.keys()]
-            if 'VELO' in hdr_values:
-                print('VELO')
-                velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VELO' in self.hdr[x]][0][-1:])
+            # need to match VELO, VELO-LSR, VELOCITY and VRAD
+            _velname = [i for i in self.hdr.values() if ("VELO" in str(i) or "VRAD" in str(i))]
+            if _velname != []:
+                _velname = _velname[0]
+                velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and _velname in self.hdr[x]][0][-1:])
                 vel_info = True
-            elif 'VELO-LSR' in hdr_values:
-                print('VELO')
-                velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VELO' in self.hdr[x]][0][-1:])
-                vel_info = True
-            elif 'VRAD' in hdr_values:
-                print('VRAD')
-                velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'VRAD' in self.hdr[x]][0][-1:])
-                vel_info = True
+            elif _velname == []:
+                print('No velocity axis defined')
+                vel_info = False
             else:
                 print('No velocity axis defined')
                 vel_info = False
+
             if vel_info:
                 self.v_type = velax
                 self.v_crpix = self.hdr['CRPIX'+self.v_type]-1
