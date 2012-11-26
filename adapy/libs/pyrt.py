@@ -45,6 +45,11 @@ cgsconst.py - relevant cgs constants
 #----[ CHANGE LOG ]----
 """
 
+* 2012 Nov 26 
+    "Transphere.run_transphere" only prints the progress, and not the
+    whole convergence stuff, it stores that in a parameter called
+    "Transphere.transphere_output"
+
 * 2012 Nov 25 
     Now works against a directory if it is given, and read the results 
     from it.
@@ -85,7 +90,7 @@ def make_dirs(path):
 
 
 
-class cd:
+class ChangeDirectory:
     def __init__(self, newPath):
         self.newPath = newPath
 
@@ -1555,21 +1560,60 @@ class Transphere:
     def run_transphere(self):
         #~ import os
         import subprocess
-        from time import time
+        from time import time, sleep
+        import sys
+        
         #
         # re-check the input files here?
         # at least the format?
         #
-        print ('Running Transphere...')
-        #~_os.system(os.path.join(self.directory, 'transphere'))
-        #~ dir0 = _os.getcwd()
-        #~ dir1 = _os.path.join(_os.getcwd(), self.directory)
-        #~ _os.chdir(dir1)
-        with cd(self.directory):
+        print ('Running Transphere')
+        # temporarily change directory, if it has been initiated
+        # the directory should exist
+        with ChangeDirectory(self.directory): 
             t1 = time()
-            subprocess.call('transphere')
-            print('Done, took : {0:2.1f} seconds'.format((time()-t1)))
-        #~ _os.chdir(dir0)
+            proc = subprocess.Popen(['transphere'], 
+                                    stdout = subprocess.PIPE, 
+                                    stderr=subprocess.STDOUT)
+            sys.stdout.write('Iteration no : ')
+            sys.stdout.flush() # flush output so we can write again
+            trans_out = []
+            while True:
+                # first : if process is done, break the loop
+                if proc.poll() != None: 
+                    break
+                nextline = proc.stdout.readline()
+                trans_out.append(nextline)
+                
+                if "Iteration" in nextline:
+                    # grab the iteration number
+                    iter_no = int(nextline[10:])
+                    sys.stdout.write('{0:3} \b\b\b\b'.format(iter_no)) # print out a point
+                    sys.stdout.flush()
+                #~ if "Error" in nextline:
+                    # if it is the error of the first iteration
+                    # we grab the error of it
+                    #~ if iter_no == 1:
+                        #~ start_error = float(nextline[13:])
+                        #~ first = 0 # now we are not at the first any longer
+                    # if it is not the first error, calculate per cent done
+                    #~ else:
+                        #~ current_error = float(nextline[13:])
+                        #~ diff1 = start_error - self.convcrit
+                        #~ diff2 = start_error - current_error
+                        #~ p_done = (diff2 / diff1 * 100)
+                        #~ sys.stdout.write(' {0} : {1}\r'.format(iter_no, p_done)) # print out a point
+                        #~ sys.stdout.flush()    # flush output so we can write again
+                #~ sleep(0.5)            # wait for 0.5 second
+                
+                #~ sys.stdout.write('Downloading File FooFile.txt [%d%%]\r'%i)
+                #~ ys.stdout.flush()
+
+            print('\nDone in {0:2.1f} seconds'.format((time()-t1)))
+        # now get the output as a string, so we can check stuff if
+        # we want to
+        self.transphere_output = ''.join(trans_out)
+        # read in the output-files, for checks, plots etc
         self.Envstruct, self.Convhist = read_transphereoutput(self)
 
 ########################################################################
