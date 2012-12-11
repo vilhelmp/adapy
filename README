@@ -1,25 +1,42 @@
-This is adapy, my collection of scripts to handle radio astronomical data.
+ADAPY v 1.0b
 
-Needs 
+A collection of scripts to handle radio astronomical data and other various related tasks.
+
+Needs:
 - Pyfits
 - Scipy (Numpy)
 - Matplotlib
 
+Optional:
+- MPFIT (for least-square fitting)
+
+Recommended:
+- Python 2.7
+
+Install: 
+	git get/download it to a folder, 
+	modify the systems PYTHONPATH var-
+	iable to include the "adapy" dir-
+	ectory (not where the folder "bin" 
+	resides). 
+
+	For cli access to "splatsearch" and 
+	"ads-search" add "bin" directory to 
+	systems PATH variable.
+
+Author: Magnus Persson (magnusp@vilhelm.nu)
+
 Only tested on my machine, running Ubuntu Linux and with my data (APEX, SMA, ALMA, PdBI, IRAM-30M). 
-If it doesn't work it is not my fault. This is just plain GPL code, use it or don't use it on your own risk.
+
+Copyright and Licensing: GNU-GPL
 
 ----------------------------------------------------------------------
 ## WHAT TO PUT IN THE README FILE
 README
 In addition to the docstrings in your code and the resulting HTML documentation, you should create a README.txt file in the top level of your directory structure. Put it under version control. Your README.txt should contain the following:
 
-Name, version, and release date of the package
-Brief description of the package
-Any dependencies or required versions of Python
-How to install the package (ideally just easy_install packagename)
 How to run the program(s), if your package contains scripts
-Package author and contact information
-Copyright and licensing terms
+
 Pointer to full documentation
 Some people like to break a few of these out into separate files (INSTALL, AUTHORS, ANNOUNCE...), but personally I prefer to keep it simple.
 

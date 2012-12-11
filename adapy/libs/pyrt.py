@@ -56,9 +56,20 @@ cgsconst.py - relevant cgs constants
 
 """
 #------------------------------------------------------------------------
-#Top of the list TODO:
+# TODO:
 """
 TODO :
+        Radex 
+            - Fix links to libraries
+            - test run with :
+                ra_inp = dict(
+                f=203.4, 
+                tkin=124, 
+                h2dens=array([1e-1,1,10])*1e8, 
+                oflux=7, 
+                lwidth=6, 
+                molf='p-h218o.dat')
+            - make it run in parallell when arrays are input
         Transphere
             - Prepare input and run Transphere
             - Optimize the writeTransphereInput
@@ -155,10 +166,10 @@ def read_transphereoutput(self, ext = 0):
         rho_dust = dat_envstruct[:,1]
         temp = dat_envstruct[:,2]
 
-    class Spectrum:
-        frequency = dat_spectrum[:,0]
-        intensity = dat_spectrum[:,1]
-    Envstruct.Spectrum = Spectrum
+    #~ class Spectrum:
+    Envstruct.frequency = dat_spectrum[:,0]
+    Envstruct.intensity = dat_spectrum[:,1]
+    #~ Envstruct.Spectrum = Spectrum
     #~ self.Envstruct = Envstruct
 
     #~ import numpy as np
@@ -384,8 +395,30 @@ def plot_ratraninput(model_file = "transphere.mdl"):
     #~ plots['ax{0}'.format(N-1)].set_xlabel('ra (AU)')
     fig.subplots_adjust(left=0.07, right= 0.97, bottom=0.07, top=0.96, wspace=0.26, hspace=0.05)
     return plots, fig
-        
-#
+ 
+ 
+def create_molecular_abundance(temperature, 
+                                abund_type = 'jump', 
+                                Tjump = 100, 
+                                Xs = [1E-4, 1E-9]):
+    # calculates the molecular abundance from a predefined type and 
+    # options
+    # 'jump' abundance creates a jump from Xout to Xin 
+    # where (temperature > Tjump)
+    #
+    from scipy import where, ones
+    
+    [Xin, Xout] = Xs
+    # jump abundance
+    if 'jump' in abund_type:
+        i = where(temperature > Tjump)[0]
+        mol_abundance = ones(len(temperature)) * Xout
+        mol_abundance[i] = Xin
+    # add more abundance types later on
+    else:
+        raise Exception('No abundance type given.')
+    # send back the calculated abundance
+    return mol_abundance
 # temporary function
 # needs to be more modular
 def plot_envstruct(self, mol_abundance=0):
@@ -594,7 +627,7 @@ def run_ratran(r = 0.0, rho_dust = 0.0, temp = 0.0, db = 0.0, abund = 0.0, vr = 
     f.write('rmax={0:-5.3e}\n'.format( max(r2) / 1.0e2 ))
     f.write('ncell=%i'  % (len(r2))+'\n')
     f.write('tcmb=2.728\n')
-    #~ f.write('columns=id,ra,rb,nh,nm,ne,tk,td,db,vr\n')
+    #~ f.write('columns=id,ra,rb,nh,nm,tk,td,db,vr\n')
     f.write('columns=id,ra,rb,nh,nm,tk,td,db,vr\n')
     f.write('gas:dust={0}\n'.format(gas2dust))
     if skyonly == 1:
@@ -662,7 +695,18 @@ def run_ratran(r = 0.0, rho_dust = 0.0, temp = 0.0, db = 0.0, abund = 0.0, vr = 
         print ' SKY took : {0:2.2f} seconds'.format(time()-t1)
         os.system('alert \"SKY has finished running.\"')
 
+def load_ratran():
+    # load input object and possible output from run
+    return None
 
+
+def save_transphere(Obj, filename = 'transphere.model'):
+    # save the input object
+    
+    return 0
+def load_transphere(directory = 'transphere_1', filename = 'transphere.model'):
+    # load input object and possible output from run
+    return 0
 ######################################################################
 ## # RADIATIVE TRANSFER / MODELING
 
@@ -672,15 +716,15 @@ class Radex:
     Input (* = mandatory input)
     *f      : Frequency - frequency of line (in GHz)
     df      : Uncertainty of line position (defaults to 20 MHz)
-    *tkin   : Kinetic temperature  - one or array (Kelvin)
-    *h2dens: H2 density - in cm-3 - one or array (Kelvin)
+    *tkin   : Kinetic temperature  - one value or array (Kelvin)
+    *h2dens : H2 density one value or array (cm-3)
     tbg     : Background temperature - defaults to 2.73 K
     *oflux  : Observed flux in K km/s, to compare
     *lwidth : Line width (FWHM)
     *molf   : Molecular data file (LAMBDA format)
     ftol    : How close can the flux be for it to be the same? (0.1)
     maxiter : Maximum number of iterations (100)
-    eps     : Below what is zero or negative line intensity (1E-20)
+    eps     : Below what is zero or negat ive line intensity (1E-20)
     cdens   : First guess molecular line density (1e12)
     debug   : Output debug messages? (Boolean)
     silent  : Output any msgs at all? (Boolean)
@@ -693,8 +737,7 @@ class Radex:
 
         """
         from scipy import array, arange
-        import os
-        import adavis
+        #~ from ..adacore import ParError as _ParError
         #~ from multiprocessing import Pool
         # check input parameters and store in class
         # and raise ParError if wrong/missing
@@ -732,7 +775,7 @@ class Radex:
                         print('Using default value '
                         'of {0} for {1}'.format(stdval, par))
                 else:
-                    raise adavis.ParError(par)
+                    raise Exception(par)
     def __str__(self):
         out_string = (40*'='+'\n'+
                         'Frequency  : {0} GHz\n'.format(self.f)+
@@ -831,7 +874,6 @@ class Ratran:
         *14/03/2012 - class created
     """
     def __init__(self, **kwargs):
-        #~ r = 0.0, rho_dust = 0.0, temp = 0.0, db = 0.0, abund = 0.0, vr = 0.0, tdust = 0.0, dustonly = 0, mdl_file = 'transphere.mdl', dpc = 0.0, imsize = 129, pixel = 0.5, trans = '220.0e9', writeonly = 0, skyonly = 0, molfile='', ncell = 50, outputfile="ratranResult", snr=20, fixset=1e-6, minpop=1e-4, unit='Jypx', opstates=0, gas2dust=100, nphot=1000, temp_limit=10.0, rho_limit=1E-4, pxl_radius = 32, los = 2):
         """
         r = 0.0, 
         rho_dust = 0.0, 
@@ -841,7 +883,7 @@ class Ratran:
         vr = 0.0, 
         tdust = 0.0, 
         dustonly = 0, 
-        mdl_file = 'transphere.mdl', 
+        modelfile = 'transphere.mdl', 
         dpc = 0.0, 
         imsize = 129, 
         pixel = 0.5, 
@@ -863,182 +905,366 @@ class Ratran:
         pxl_radius = 32, 
         los = 2
         
-        """
-    
-    def __init__(self, **kwargs):
-        """
-
+        
         Only supports one collision partner. If both para- and ortho-H2
         is tabulated in \'molfile\', please check the validity and if
         the gas-to-dust ratio has to be changed.
 
-
         Input :
-        r           :
-        rho         :
-        temp        :
-        db          :
-        abund       :
-        vr          :
-        tdust       :
-        dustonly    :
-        file        :
-        dpc         :
-        imsize      :
-        pixel       :
-        trans       :
-        writeonly   :
-        skyonly     :
-        molfile     :
-        ncell       :
-        outputfile  :
-        snr         :
-        fixset      :
-
-
 
         """
 
         from scipy import array
-
-        params = array(['r', 0.0, 'rho', 0.0, 'temp', 0.0, 'db', 0.0,
-        'abund', 0.0, 'vr', 0.0, 'tdust', 0.0, 'dustonly', 0,
-        'model_file', 'transphere.mdl', 'dpc', 0.0, 'imsize', 129,
-        'pixel', 0.5, 'trans', '1,3', 'writeonly', 0,
-        'skyonly', 1, 'molfile', '', 'ncell', 50,
-        'outputfile', 'ratranResult', 'snr', 20, 'fixset', 1e-6,
-        'gas2dust', 100])
-        # input "model_file" was called "file" in Jes' routine
-
-        """
-        r = trans.Envstruct.r,
-                rho = trans.Envstruct.rho,
-                molfile='ph2-18o-h2.dat',
-                db=1,
-                abund = mol_abundance,
-                temp = trans.Envstruct.temp,
-                trans = '7',
-                dpc = model1_inp['dpc'],
-                imsize = imsize,
-                pixel = pixelsize,
-                skyonly = 0,
-                snr = 10,                   # def 20
-                fixset = 1e-3,              # def. 1E-6
-                ncell = 20,                 # def 50
-                writeonly = 1,
-                gas2dust = 75
-        """
         # imports
         import cgsconst as _cgs
-        from scipy import zeros, array, logspace, log10
+        from scipy import zeros, array, logspace, log10, where, pi
         import scipy.interpolate
         import sys
         import os
         import numpy as np
         from time import time
 
-        # check input parameters against defaults
+        # Checking input parameters
+        params = [
+        'r',                            0,          'cm',    'array',
+        'rhodust',                      0,      'g/cm-3',    'array',    # dust density
+        'molfile',      'ph2-18o-ph2.dat',            '',      'str',
+        'modelfile',     'transphere.mdl',            '',      'str',
+        'outputfile',      'ratranresult',            '',      'str',
+        'db',                         0.0,            '',    'float',
+        'abundtype',               'jump',            '',      'str',
+        'tjump',                    100.0,           'K',    'float',
+        'xs',                [1E-4, 1E-9],            '',     'list',
+        'vr',                         0.0,            '',    'array',
+        'tdust',                      0.0,           'K',    'array',
+        'dustonly',                 False,           '',      'bool',
+        'skyonly',                  False,            '',     'bool',
+        'writeonly',                False,            '',     'bool',
+        'temp',                         0,           'K',    'array',
+        'templim',                   10.0,           'K',    'float',
+        'nh2lim',                    1E-4,      'g/cm-3',    'float',
+        'trans',                        7,            '',      'int',
+        'dpc',                        0.0,          'pc',    'float',
+        'imsize',                     129,      'pixels',      'int',
+        'pixel',                      0.5,    'asec/pxl',    'float',
+        'pxlradius',                   32,            '',      'int',
+        'los',                          2,            '',      'int',
+        'unit',                    'Jypx',            '',      'str',
+        'trans',                        7,            '',      'int',
+        'snr',                       10.0,       'ratio',    'float',
+        'fixset',                    1E-6,            '',    'float',
+        'minpop',                    1E-4,            '',    'float',
+        'nphot',                     1000,            '',      'int',
+        'opstates',                 False,            '',     'bool',
+        'ncell',                       20,            '',      'int',
+        'gas2dust',                 100.0,       'ratio',    'float',
+        'directory',       'ratr_model_1',    'dir name',      'str']   
+        # if loadfile is input, drop everythin and just load the file 
+        # and, if it exists, the output
 
 
-
-
-
-        if tdust==0.0: tdust=temp
-        nh = rho * 100.0 / _cgs.MUH2 / _cgs.MP
-
-        print 'Writing model in {0}'.format(file)
-        rx = logspace(log10(r[0]), log10(r[-1]), num=ncell+1, endpoint=True)
+        print ('Model created with the following parameters:')
+        
+        class InputParameters: pass
+        param_zip = zip(params[0::4],params[1::4], params[2::4], params[3::4])
+        for par, stdval, unit, typ in param_zip:
+            if par in kwargs: # if input was given, save it
+                value = kwargs[par]
+                printvalue = kwargs[par]
+                if par in ['r', 'rho_dust', 'temp']:
+                    printvalue = printvalue[0]
+                # print the value that was input for that given parameter
+                print '   {0:9} : {1} {2}'.format(par, str(printvalue).strip('\"'), unit)
+                
+            elif par not in kwargs: # if not input was given, use default
+                if stdval != None:
+                    # print the default value for the parameter
+                    print '   {0:9} : {1:15} {2:8} \t(default)'.format(par, stdval, unit)
+                    value = stdval
+                else:
+                    raise Exception('Wrong parameter input/handling'
+                                    'Check input and/or code...')
+            # Check what type it should be and store it 
+            #string
+            if typ == 'str':
+                #~ kwargs[par] = '{0}'.format(kwargs[par])
+                InputParameters.__dict__[par] = str(value)
+            #integer (not sure about 'itypemw' perhaps boolean)
+            elif typ == 'int':
+                InputParameters.__dict__[par] = int(value)
+            #float
+            elif typ == 'float':
+                InputParameters.__dict__[par] = float(value)
+            #bool
+            elif typ == 'bool':
+                InputParameters.__dict__[par] = bool(value)
+            # array
+            elif typ == 'array':
+                InputParameters.__dict__[par] = array(value)
+            elif typ == 'list':
+                InputParameters.__dict__[par] = list(value)
+            # lastly try to fudge it, see if it works
+            elif typ == 'mixed':
+                try:
+                    InputParameters.__dict__[par] = int(value)
+                except ValueError:
+                    InputParameters.__dict__[par] = str(value)
+            else:
+                InputParameters.__dict__[par] = value
+        
+        self.InputParameters = InputParameters
+        
+        self.r = self.InputParameters.r
+        self.rhodust = self.InputParameters.rhodust
+        self.temp = self.InputParameters.temp
+        self.tdust = self.InputParameters.tdust        
+        self.directory = self.InputParameters.directory
+        self.temp = self.InputParameters.temp
+        self.db = self.InputParameters.db
+        self.vr = self.InputParameters.vr
+        
+        self.abund =  create_molecular_abundance(self.temp, 
+                                abund_type = self.InputParameters.abundtype, 
+                                Tjump = self.InputParameters.tjump, 
+                                Xs = self.InputParameters.xs)
+        
+        # come up with a nicer solution than this...
+        if len(self.r)<5:
+            raise Exception('neeed array as r, rho_dust, abund and temp')
+        if len(self.rhodust)<5:
+            raise Exception('neeed array as r, rho_dust, abund and temp')
+        if len(self.temp)<5:
+            raise Exception('neeed array as r, rho_dust, abund and temp')
+        #
+        # CHECK if directory exists
+        input_dir_path = os.path.join(os.getcwd(), self.directory)
+        # if the directory exists
+        if not make_dirs(input_dir_path): # will raise error if things go south (i.e., permissions not correct [I think...])
+            print('Directory exists, continuing.')
+        # rewrite this part when changing to object oriented
+        # now it is very hack-ish and non pythonic
+            
+        # Find the envelope cut off for T and n
+        #
+        # see if T goes below 10K (def) somewhere in the model
+        try:
+           ind_T = where(self.temp < self.InputParameters.templim)[0].min()
+        #~ ind = where(r<(1.2E4*cgs.AU))[0].max()
+        except (ValueError):
+            ind_T = False
+        # see if n goes below 1E-4 (def) somewhere in the model
+        try:
+            # TODO : why time gas2dust here? <- changed to times 100
+            # rhodust is g/cm3
+            # from dust density to number density
+            #    g/cm-3 * 100 / g
+            # ! rho is dust density !
+            self.nh2 = self.rhodust * 100  / _cgs.MUH2 / _cgs.MP
+            ind_n = where((self.nh2) < self.InputParameters.nh2lim)[0].min()
+        except (ValueError):
+            ind_n = False
+        # T or n strongest constraints on radius
+        # Neither T nor n constrain the radius
+        # thus just use the last element
+        if ind_n == False and ind_T == False:
+            r_constraint = None
+            ind = len(r)-1
+        # Both constraint, which comes first
+        elif ind_n != False and ind_T != False:
+            # ind_n comes first
+            ind = min((ind_n, int_T))
+            # what if both have the same...
+            # it will pick T, ok
+            r_constraint = ['n', 'T'][ind_n < ind_T]
+        elif ind_n != False:
+            ind = ind_n
+            r_constraint = 'n'
+        elif ind_T != False:
+            ind = ind_T
+            r_constraint = 'T'
+        
+        self.r_10k = self.r[ind]
+        #~ print ind
+        self.rhodust_10k = self.rhodust[ind]
+        self.nh2_10k = self.rhodust_10k * 100 / _cgs.MUH2 / _cgs.MP
+        self.temp_10k = self.temp[ind]
+        #~ self.Y = self.InputParameters.r.max() / self.InputParameters.r.min()
+        self.Y = self.r_10k / self.r.min()
+    
+        ind_r1000 = where(self.r > 1000 * _cgs.AU)[0].min()
+        self.rhodust_r1000 = self.rhodust[ind_r1000]
+        # TODO : why * 100 here?
+        # from dust density to number density
+        #    g/cm-3 * 100 / g
+        # ! rho is dust density !
+        self.nh2_r1000 = self.rhodust_r1000 * 100 / _cgs.MUH2 / _cgs.MP
+        self.temp_r1000 = self.temp[ind_r1000]
+    
+        ###### cut off where T<10 K
+        # first we have to remove all cells where T<10 K
+        # RATRAN does not work well with them
+        # after this you use the self.parameter.
+        # TODO : perhaps not the best tactics..?
+        self.r = self.r[:ind]
+        self.rhodust = self.rhodust[:ind]
+        self.temp = self.temp[:ind]
+        self.abund = self.abund[:ind]
+        #~ print self.tdust
+        if self.tdust == 0.0:
+            self.tdust = self.temp
+        # from dust density to number density
+        #    g/cm-3 * 100 / g
+        # ! rho is dust density !
+        self.nh = self.rhodust * 100.0 / _cgs.MUH2 / _cgs.MP
+    
+        ################################################################
+        ################################################################
+        #~ print 'Writing model in {0}'.format(modelfile)
+        #
+        # for the refinement, easiest way is to redefine rx!
+        #
+        rx = logspace(log10(self.r[0]), log10(self.r[-1]), num = self.InputParameters.ncell + 1, endpoint = True)
         rx = np.insert(rx, 0, 0)
-        r1 = rx[0:-1]
-        r2 = rx[1:]
+        self.r1 = rx[0:-1]
+        self.r2 = rx[1:]
         #~ r1=np.insert(r[0:-1],0,0)
         #~ r2=np.array(r)
-        rr = zeros(ncell+1,float)
-        rr[1:] = 10**( (np.log10(r1[1:]) + np.log10(r2[1:])) / 2.0 )
-        rr[0] = rr[1]
+    
+        self.rr = zeros(self.InputParameters.ncell + 1, float)
+        self.rr[1:] = 10**( (np.log10(self.r1[1:]) + np.log10(self.r2[1:])) / 2.0 )
+        self.rr[0] = self.rr[1]
+        # Interpolate the values to 'ncell' cells
+        self.nhf = scipy.interpolate.interp1d(log10(self.r), log10(self.nh))
+        self.tkf = scipy.interpolate.interp1d(log10(self.r), log10(self.temp))
+        self.tdf = scipy.interpolate.interp1d(log10(self.r), log10(self.tdust))
+        self.abund_f = scipy.interpolate.interp1d(log10(self.r), log10(self.abund))
+        #
+        # Convert logarithms to floats
+        self.nhint = 10**self.nhf(log10(self.rr))
+        self.tkint = 10**self.tkf(log10(self.rr))
+        self.tdint = 10**self.tdf(log10(self.rr))
+        self.abund_int = 10**self.abund_f(np.log10(self.rr))
+        ############################
+        #~ nhint_p = nhint*2/4.
+        #~ nhint_p[0] = 0.0
+        #~ nhint_o = nhint*2/4.
+        #~ nhint_o[0] = 0.0
+        #~ teint = 10**tkf(log10(rr))
+        ############################
+        self.nhint[0] = 0.0
+    
+        # mass of it all
+        #~ vol=[]
+        #~ mass=[]
+        # V = 4*pi*r**3/3
+        # r in cm (?)
+        V = 4 * pi * (self.r2**3 - self.r1**3) / 3         # cm3
+        self.M = V * self.nhint * _cgs.MUH2 * _cgs.MP # cm3 * g/cm3 ?
+        self.M /= _cgs.MSUN
+        
+        # to get the column density, integrate over radius r1 to r_10k
+        #r_10k * 2 nh2_10k
+    
+        print ('M_10K   : {0:<7.2f} Msun\n'
+                'R_10K   : {1:<7.0f} AU\n'
+                'nH2_10K : {2:<7.1e} cm-3\n'
+                'Y       : {3:<7.0f}\n'
+                'T       : {4:<7.1f} K\n'.format(self.M.sum(),
+                                            self.r_10k/_cgs.AU,
+                                            self.nh2_10k,
+                                            self.Y,
+                                            self.temp_10k))
+        print 'Constraining the envelope : ', r_constraint
+        print ('nH2_r1000   : {0:<7.1e} cm-3\n'
+                'T_r1000     : {1:7.1f} K\n'.format(self.nh2_r1000,
+                                             self.temp_r1000))
+
+        # input "model_file" was called "file" in Jes' routine
+
+    def write_input(self):
+        with open(_os.path.join(self.directory, self.InputParameters.modelfile),'w') as f: 
+            f.write('# Ratran input file based on Transphere results'+'\n')
+            if self.InputParameters.skyonly: 
+                f.write('# ... intended for (SKY) continuum calculations only.'+'\n')
+            f.write('rmax={0:.5E}\n'.format( self.r2[-1] / 100 ))
+            f.write('ncell=%i'  % (len(self.r2))+'\n')
+            f.write('tcmb=2.728\n')
+            f.write('columns=id,ra,rb,nh,nm,tk,td,db,vr\n')
+            f.write('gas:dust={0}\n'.format(self.InputParameters.gas2dust))
+            if self.InputParameters.skyonly: 
+                f.write('kappa=jena,thin,e6\n')
+            f.write('@\n')
+            for ii in range(0, len(self.r1)):
+                f.write("%4i %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E" % (ii+1, self.r1[ii]/100.0, self.r2[ii]/100.0, self.nhint[ii], self.nhint[ii]*self.abund_int[ii], self.tkint[ii], self.tdint[ii], self.db, self.vr)+'\n')
+            
+        if not self.InputParameters.skyonly:
+            if self.InputParameters.molfile == '':
+                sys.exit('Error: for AMC calculations the molecular datafile (molfile) needs to be set.')
+            with open(_os.path.join(self.directory, "amc.inp"),'w') as f:
+                f.write("source={0}\n".format(self.InputParameters.modelfile))
+                f.write("outfile=populations.pop\n")
+                f.write("molfile={0}\n".format(self.InputParameters.molfile))
+                f.write("snr={0}\n".format(self.InputParameters.snr))
+                f.write("nphot={0}\n".format(self.InputParameters.nphot))
+                f.write("kappa=jena,thin,e6\n")
+                f.write("minpop={0:3.2E}\n".format(self.InputParameters.minpop))
+                f.write("seed=1971\n")
+                f.write("fixset={0:3.2E}\n".format(self.InputParameters.fixset))
+                f.write("go\n")
+                f.write("q\n")
+                f.write("\n")
 
 
-        nhf = scipy.interpolate.interp1d(log10(r), log10(nh))
-        tkf = scipy.interpolate.interp1d(log10(r), log10(temp))
-        tdf = scipy.interpolate.interp1d(log10(r), log10(tdust))
-        abund_f = scipy.interpolate.interp1d(log10(r), log10(abund))
-
-        nhint = 10**nhf(log10(rr))
-        tkint = 10**tkf(log10(rr))
-        tdint = 10**tdf(log10(rr))
-        abund_int = 10**abund_f(np.log10(rr))
-
-
-        nhint[0] = 0.0
-
-        f = open(model_file,'w')
-        f.write('# Ratran input file based on Transphere results'+'\n')
-        if skyonly == 1: f.write('# ... intended for (SKY) continuum calculations only.'+'\n')
-        f.write('rmax={0:9.3E}\n'.format( max(r2) / 1.0e2 ))
-        f.write('ncell=%i'  % (len(r2))+'\n')
-        f.write('tcmb=2.728\n')
-        f.write('columns=id,ra,rb,nh,nm,ne,tk,td,db,vr\n')
-        f.write('gas:dust={0}\n'.format(gas2dust))
-        if skyonly == 1: f.write('kappa=jena,thin,e6\n')
-        f.write('@\n')
-        for ii in range(0,len(r1)):
-            f.write("%4i %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E" % (ii+1, r1[ii]/100.0, r2[ii]/100.0, nhint[ii], nhint[ii]*abund_int[ii], tkint[ii], tdint[ii], db, vr)+'\n')
-        f.close()
-
-        if skyonly == 0:
-            if molfile == '': sys.exit('Error: for AMC calculations the molecular datafile (molfile) needs to be set.')
-            f = open("amc.inp",'w')
-            f.write("source="+file+'\n')
-            f.write("outfile=populations.pop\n")
-            f.write("molfile="+molfile+'\n')
-            f.write("snr={0}\n".format(snr))
-            f.write("nphot=1000\n")
-            f.write("kappa=jena,thin,e6\n")
-            f.write("minpop={0}\n".format(minpop))
-            f.write("seed=1971\n")
-            f.write("fixset={0}\n".format(fixset))
+        with open(_os.path.join(self.directory, "sky.inp"),'w') as f:
+            if not self.InputParameters.skyonly:
+                f.write("source=populations.pop\n")
+            else:
+                f.write("source="+self.InputParameters.modelfile+"\n")
+            f.write("format=miriad\n")
+            f.write("outfile="+self.InputParameters.outputfile+"\n")
+            f.write("trans={0}\n".format(self.InputParameters.trans))
+            f.write("pix="+str(self.InputParameters.imsize)+","+str(self.InputParameters.pixel)+",32,2\n")
+            if not self.InputParameters.skyonly:
+                f.write("chan=50,0.2\n")
+            else:
+                f.write("chan=1,1.0\n")
+            f.write("distance="+str(self.InputParameters.dpc)+"\n")
+            f.write("units={0}\n".format(self.InputParameters.unit))
             f.write("go\n")
             f.write("q\n")
-            f.write(" \n")
-            f.close()
-
-
-        f = open("sky.inp",'w')
-        if skyonly == 0:
-            f.write("source=populations.pop\n")
-        else:
-            f.write("source="+file+"\n")
-        f.write("format=miriad\n")
-        f.write("outfile="+outputfile+"\n")
-        f.write("trans="+trans+"\n")
-        f.write("pix="+str(imsize)+","+str(pixel)+",32,2\n")
-        if skyonly == 0:
-            f.write("chan=50,0.2\n")
-        else:
-            f.write("chan=1,1.0\n")
-        f.write("distance="+str(dpc)+"\n")
-        f.write("units={0}\n".format(unit))
-        f.write("go\n")
-        f.write("q\n")
-        f.close()
-
+            f.write("\n")
     def __str__(self):
         return 'Info. about the model'
 
+    def save(self, filename='ratran_input.pick'):
+        import pickle
+        with open(os.path.join(), 'w') as f:
+            pickle.dump(vars(self.InputParameters), f)
 
     def run(self):
-        print 'Not implemented yet'
-
-        if writeonly == 0:
-            if skyonly == 0:
+        # import modules, subprocess replaces os
+        import subprocess
+        from time import time, sleep
+        import sys
+        # 
+        if not self.InputParameters.writeonly:
+            if not self.InputParameters.skyonly:
                 #~ print "Starting AMC calculation..."
+                with ChangeDirectory(self.directory):
+                    t1 = time()
+                    proc = subprocess.call(['amc', 'amc.inp'])
+                print('\nAMC took {0:2.1f} seconds'.format((time()-t1)))
+            with ChangeDirectory(self.directory):
                 t1 = time()
-                os.system('amc amc.inp')
-                print 'AMC took :  {0:2.2f} hours'.format((time()-t1)/3600.0)
-            #~ print "Starting SKY calculation..."
-            t1 = time()
-            os.system("sky sky.inp")
-            print ' SKY took : {0:2.2f} seconds'.format(time()-t1)
+                proc = subprocess.call(['sky', 'sky.inp'])
+                print('\nSKY took {0:2.1f} seconds'.format((time()-t1)))
+                    
+          
+        #~ # now get the output as a string, so we can check stuff if
+        #~ # we want to
+        #~ self.transphere_output = ''.join(trans_out)
+        #~ # read in the output-files, for checks, plots etc
+        #~ self.Envstruct, self.Convhist = read_transphereoutput(self)
 
 class Transphere:
     """
@@ -1058,7 +1284,7 @@ class Transphere:
     rin      = 200. * nc.AU      # Inner radius of shell
     rout     = 1.2e4 * nc.AU     # Outer radius of shell
     r0       = 1e3 * nc.AU       # Reference radius
-    rho0     = 3.46e-18          # Density at reference radius
+    rho0     = 3.46e-18          # Density at reference radius ()
     plrho    = -1.5              # Powerlaw for rho
     
     ### Parameters related to control of code
@@ -1080,6 +1306,8 @@ class Transphere:
     localdust= 0                 # Dust opacity local?
     
     
+    output: 
+    
     
     """
     def __init__(self, **kwargs):
@@ -1088,9 +1316,6 @@ class Transphere:
         array
         import os
         
-        #~ from scipy import log10, log, arange, linspace, logspace,\
-        #~ array
-        #~ import cgsconst as cgs
         #
         #~ self.silent = silent
         #
@@ -1108,8 +1333,6 @@ class Transphere:
         itypemw   : Type of mu weighting
         idump     : Dump convergence history
         """
-        
-        
         # Checking input parameters
         params = array(['rin', 20, 'AU', 'float',
                         'rout', 8000, 'AU', 'float',
@@ -1139,27 +1362,14 @@ class Transphere:
                         'idump', True, ' ', 'bool',
                         'opacfile', 0, ' ', 'str',
                         'freqfile', 0, ' ', 'str',
-                        'directory', '' , '', 'str',
-                        'load_dir',  '',  '','str'])
+                        'directory', '' , '', 'str'])
         print ('Model created with the following parameters:')
-        
-        
-        
-        #~ stringlist = ['spacing', 'rho_type', 'opacfile', 'freqfile']
-        #~ integerlist = ['nshell', 'nref', 'nriter', 'ncst', 'ncex', 'ncnr', 'itypemw']
-        #~ floatlist = ['rin', 'rout', 'rstar', 'mstar', 'tstar',  'r0', 'rho0', 'plrho', 'gas2dust']
-        #~ boollist = ['silent', 'localdust', 'idump']
-        
+              
 ########################################################################
         # need to check that the input is correct.
         # strings should be strings, and floats floats
-        #~ string_input = ['silent', 'spacing', 'rho_type', 'opacfile', 'freqfile']
-        #~ check = [par for par in string_input if par in kwargs]
-        #~ for i in check:
-            #~ kwargs[i] = str(kwargs[i])
-        #~ if par in kwargs:
-########################################################################  
-        for par, stdval, unit, typ in zip(params[0::4],params[1::4], params[2::4], params[3::4]):
+        param_zip = zip(params[0::4],params[1::4], params[2::4], params[3::4])
+        for par, stdval, unit, typ in param_zip:
             if par in kwargs: # if input was given, save it
                 # print the value that was input for that given parameter
                 print '   {0:9} : {1} {2}'.format(par, str(kwargs[par]).strip('\"'), unit)
@@ -1198,54 +1408,22 @@ class Transphere:
                 self.__dict__[par] = value
 
 
-        # CHECK if directory exists
+        # CHECK if directory exists 
+        # create dir if it doesn't exist
+        # will raise error if things go south 
+        # (i.e., permissions not correct [I think...])
         input_dir_path = os.path.join(os.getcwd(), self.directory)
-        # if the directory exists
-        if not make_dirs(input_dir_path): # will raise error if things go south (i.e., permissions not correct [I think...])
+        if not make_dirs(input_dir_path): 
             print('Directory exists, continuing.')
-
-        #~ for i in [self.directory]:
-            #~ os.path.join()
-        #~ if self.load_dir != '':
-            #~ print('Loading directory {0}'.format(self.load_dir))
-            #~ self.directory = self.load_dir
-            
-        # save as another class?
-        # Pars?
+        #
+        # separate input and output? different objects
         # Convert distances to CGS units
         self.rin   *= _cgs.AU
         self.rout  *= _cgs.AU
         self.r0    *= _cgs.AU
         self.rstar *= _cgs.RSUN
         self.mstar *= _cgs.MSUN
-
-
-        """
-        #~ if self.spacing.lower() == 'log10':
-            #~ # get the exponent of the start- and
-            #~ # stop-radius in input units
-            #~ start = [log10(self.rin), 0][self.rin == 0]
-            #~ stop = log10(self.rout)
-            #~ radii = logspace(start, stop, num=self.nshell, endpoint=True)
-        #~ elif self.spacing.lower() == 'powerlaw1':
-            #~ if not self.nref and not self.rref:
-                #~ radii = self.rin * (self.rout/self.rin)**(arange(self.nshell)/(self.nshell - 1.0))
-                #~ #r = rin * (rout/rin)**(np.arange(nr)/(nr-1.e0))
-        #~ elif self.spacing.lower() == 'linear':
-            #~ # linearly spaced grid
-            #~ radii = linspace(self.rin, self.rout, num=self.nshell, endpoint=True)
-        #~ elif self.spacing.lower() == 'powerlaw2':
-            #~ # first check if coefficients to the power-law was given
-            #~ #if 'exp' in kwargs:
-                #~ #p_exp = kwargs['exp']
-            #~ #else: # if not, set it to 2, i.e. r^2
-                #~ #p_exp = 2
-            #~ radii = self.rin + (self.rout - self.rin)*(linspace(self.rin, self.rout, num=self.nshell, endpoint=True)/(self.rout))**2
-            #~ #print('Not implemented yet.')
-            #~ #raise ParError(spaced)
-        #~ else:
-            #~ raise Exception(spaced)
-            """
+        
         # if we want refinement, just call the grid function twice
         if self.rref:
             # using the self.rin, self.rref and self.nref for first grid
@@ -1276,32 +1454,6 @@ class Transphere:
         #
         # Create the density array
         #
-
-        from scipy import array
-        # Checking input parameters
-        #~ params = array([])
-        #~ print ('Model created with the following parameters:')
-        #~ for par,stdval in zip(params[0::2],params[1::2]):
-            #~ if par in kwargs:
-                #~ if par == 'rho_type':
-                    #~ kwargs['rho_type'] = '\"{0}\"'.format(kwargs['rho_type'])
-                #~ print '   {0:8} : {1}'.format(par, kwargs[par].strip('\"'))
-                #~ exec('self.{0} = {1}'.format(par, kwargs[par]))
-            #~ else:
-                #~ if stdval != None:
-                    #~ print '   {0:8} : {1:10} (default)'.format(par, stdval)
-                    #~ if par == 'rho_type':
-                        #~ exec('self.{0} = {1}'.format(par, '\"'+stdval+'\"'))
-                    #~ else:
-                        #~ exec('self.{0} = {1}'.format(par, stdval))
-                #~ else:
-                    #~ raise Exception('Wrong parameter input/handling'
-                                    #~ 'Check input and/or code...')
-        #
-        # calculate the density at the reference radius
-        # total GAS density = number of H2 * 2.3 * 1.67E-24
-        #~ self.rho0_gas = self.n0 * _cgs.MUH2 * _cgs.MP # in g/cm-3?
-        #
         # calculate the density at all radial points
         if self.rho_type == 'powerlaw1':
             # 1E-2  - gas-to-dust
@@ -1326,9 +1478,9 @@ class Transphere:
         #~ self.n_h2 = self.rho_gas / (_cgs.MUH2 * _cgs.MP)
         #~ self.rho_dust = self.n_h2 * 1 / self.gas2dust
         
-        self.rho0_gas = self.n0 * _cgs.MUH2 * _cgs.MP # in g/cm-3
-        self.rho_gas = self.rho0_gas * r_dependence
-        self.n_h2 = self.n0 * r_dependence
+        self.rho0_gas = self.n0 * _cgs.MUH2 * _cgs.MP   # in g/cm-3
+        self.rho_gas = self.rho0_gas * r_dependence     # in g/cm-3
+        self.n_h2 = self.n0 * r_dependence              # in n/cm-3
         self.rho_dust = self.rho0_gas / self.gas2dust * r_dependence
                 
         
@@ -1420,12 +1572,13 @@ class Transphere:
             self.Opacity.ns         = ns
             self.Opacity.nf         = nf
             self.Opacity.freq       = freq
-            self.freq               = freq
             self.Opacity.wave       = wave
             self.Opacity.cabs       = cabs
             self.Opacity.csca       = csca
             self.Opacity.nrtrange   = nrtrange
             self.Opacity.trange     = trange
+            
+            self.freq               = freq
             #~ self.opacity = {'ns': ns, 'nf': nf, 'freq': freq, 'wave': wave, 'cabs': cabs, 'csca': csca, 'nrt': nrtrange, 'trange': trange}
 
         else:
@@ -1486,7 +1639,7 @@ class Transphere:
                     f.write(str(self.Opacity.cabs[inu][0])+'\n')
                 for inu in range(0, nf):
                     f.write(str(self.Opacity.csca[inu][0])+'\n')
-
+    
     def write_transphereinput(self):
         #import natconst as nc
         #~ import math
@@ -1556,7 +1709,7 @@ class Transphere:
             f.write(' '+'\n')
             for ir in range(0,len(self.radii)):
                 f.write("%13.6E %13.6E %13.6E" % (self.radii[ir], self.rho_dust[ir], 0.e0)+'\n') # ,format='(3(E13.6,1X))'
-
+    
     def run_transphere(self):
         #~ import os
         import subprocess
@@ -1615,7 +1768,7 @@ class Transphere:
         self.transphere_output = ''.join(trans_out)
         # read in the output-files, for checks, plots etc
         self.Envstruct, self.Convhist = read_transphereoutput(self)
-
+        
 ########################################################################
 # depricated
 def radial_profile(self, spaced='log10',

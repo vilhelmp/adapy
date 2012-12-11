@@ -22,8 +22,8 @@
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #  MA 02110-1301, USA.
 #  
-#  version 
-
+#  version 1.0b
+version = '1.0b'
 
 #~ from cgsconst import *
 
@@ -42,6 +42,11 @@ Need : o scipy (and numpy)
 
 #----[ CHANGE LOG ]----
 """
+
+* 2012 Nov 4 
+    Function(s) that load/save the attributes of classes to a file 
+    plain text. Pickle does not allow dynamically created classes to 
+    be saved, at least not without some complicated changes.
 
 * 2012 Nov 22 
     Changed the structure of the whole project, to reflect 
@@ -64,28 +69,27 @@ Need : o scipy (and numpy)
 """
 Top of the list TODO:
 
-TODO : Clean up functions
-
-TODO : LineID plot
+TODO : CamelCase for classes, all lowercase forattributes, and 
+    underscores for_functions.
 
 TODO : Able to change restfrequency, or at least the V=0 point
 
 TODO : get rid of all text output in this module, move it to adavis, or 
-        just the individual __str__ methods
+        just the individual "__str__" methods
 
-TODO : method calc_offset to Fits object (calc offset from phase center given
-        sexadecimal or sim coord input)
+TODO : move method calc_offset to Fits object (calc offset from 
+        phase center given sexadecimal or sim coord input)
 
 TODO : extend the "box" plotting keyword so that it accepts arbitrary
 regions (just like the region keyword) <- perhaps sharing code is a good
 idea here(?)
 
 TODO : Cannot plot or deduce levels when some pixels have value 'nan'
+    Fixed?
 
 TODO : load frequency information from fits file if it is there, and create
 velocity array as well
-        -> more dynamic fits-file loading
-
+        -> implemented, but need more dynamic fits-file loading in gen.
 
 TODO : implement different lineID plot, make it more object oriented
 
@@ -101,7 +105,7 @@ TODO : Clean up code again, remove font handler, or inactivate it
        to Sans-serif font, for the tick labels mostly.
        (works better in later matplotlib?)
 
-TODO : Check that the set_rc function is used in all functions
+TODO : Check that the set_rc function is used in all views (?)
 
 TODO : Clean up moment 0/1(/2) function
 
@@ -209,7 +213,90 @@ def calc_sigma(N,rms,v_cdelt):
     from scipy import sqrt
     return sqrt(N)*rms*abs(v_cdelt)
 
-
+def save_class(obj, filename = 'object.save'):
+    """
+    Save a class and its attributes to a plain text file
+    
+    Takes the object/class and a filename (optional) as input
+    and writes a (text)file with the class information.
+    
+    Does not save class methods (obviously). The problem that it 
+    solves is that Pickle cannot save dynamically created classes 
+    without tweaks.
+    
+    
+    
+    So the file should look like:
+    
+    # A python class that was saved with ADAPY v'adapy version'
+    # name : value : type
+    attribute1 : text : str
+    attribute2 : array : array
+    !Classname
+    !Classname.attribute : li : list
+    !Classname!Subclass.attribute : value : type
+    
+    """
+    #~ return 0
+    variables = vars(obj)
+    keys = variables.keys()
+    subclasses = [key for key in keys if str(type(variables[key]))[7:-2] in ['instance', 'classobj']]
+    
+    #~ "__main__" in str(variables[key]) or "classobj" in str(variables[key])]
+    keys0 = [key for key in keys if not str(type(variables[key]))[7:-2] in ['instance', 'classobj']]
+    
+    #~ "__main__" not in str(variables[key]) or "classobj" not in str(variables[key])]
+    # if we have subclasses we have to get them too
+    if subclasses != []:
+        #~ print subclasses
+        # add all the subclasses as separate dictionaries 
+        # to the "variables" dictionary
+        for subclass in subclasses:
+            #~ print subclass
+            subvars = vars(getattr(obj, subclass))
+            # delete subclass name
+            #~ del(variables[subclass])
+            #~ variables['C:'+subclass] = subvars
+            variables[subclass] = subvars
+    # now write the dictionary to the file
+    #~ with open(filename, 'wb') as f:
+    #~ f.write('# A python class that was saved with ADAPY v{0}'.format(version))
+    #~ f.write('# name : value : type')
+    print('# A python class that was saved with ADAPY v{0}'.format(version))
+    print('# name : value : type')
+    # first print the level0 key:variable pair
+    for key in keys0:
+        print('!{0} : {1} : {2}'.format(
+                                        key, 
+                                        variables[key], 
+                                        repr(type(variables[key]))[7:-2]
+                                        ))
+    #~ for key in keys0:
+        #~ f.write('!{0} : {1} : {2}'.format(
+                                        #~ key, 
+                                        #~ variables[key], 
+                                        #~ type(variables[key]))
+                                        #~ )
+    # now print the class(es)
+    for subclass in subclasses:
+        for key in variables[subclass].keys():
+            print('C:{0} : {1} : {2} : {3}'.format(
+                                            subclass,
+                                            key,
+                                            variables[subclass][key],
+                                            repr(type(variables[subclass][key]))[7:-2]
+                                            ))
+        
+#~ def load_class(obj, filename = 'object.save'):
+    #~ with open(filename, 'rb') as f:
+        #~ lines = f.readlines()
+        #~ for line in lines:
+            # if it is a comment
+            #~ if line.startswith('#'):
+                #~ continue
+            # if it is a classt = 
+            #~ elif line.startswith('!'):
+                #~ for
 
 def get_telescope_diameter(telescope):
     from string import upper
@@ -1220,7 +1307,7 @@ class Fits:
     TODO : Create a frequency array as well, much simpler later on then
 
     """
-    def __init__(self, fitsfile, telescope=None, vsys=0, distance=0):
+    def __init__(self, fitsfile, telescope=None, vsys=0, distance=0, **kwargs):
         """
 
         attributes
@@ -1279,7 +1366,7 @@ class Fits:
         print u'Loading fitsfile :  %s ' % stylify(str(fitsfile),fg='g')
         s  = getsize(fitsfile)
         print " Size %0.2f MB" % (s/(1024.*1024.))
-        f = fitsopen(fitsfile)
+        f = fitsopen(fitsfile, **kwargs)
         self.hdr, self.d = f[0].header, f[0].data
         #self.d = self.d[0] # this is if the stokes axis is present,
         # but it should not be there anymore
