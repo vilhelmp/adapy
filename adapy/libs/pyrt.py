@@ -703,7 +703,7 @@ def save_ratran(Obj, filename = 'ratranmodel.pickle'):
     inp = vars(Obj.InputParameters)
     # now a dictionary is a non dynamic structure
     # as opposed to a dynamically created object attribute
-    # e.g., with the __dict__ method
+    # e.g., with the __dict__ method (-> doesn't work with pickle)
     with open(_os.path.join(Obj.directory, filename)) as f:
         pickle.dump(inp, f)
 
@@ -713,20 +713,31 @@ def load_ratran(directory = '', filename = 'ratranmodel.pickle'):
     import pickle
     with open(_os.path.join(directory, filename)) as f:
         inputdict = pickle.load(f)
-    obj = Ratran(**inputdict)
-    # IDEA : add so that it loads the output as well?
-    return obj
+    Obj = Ratran(**inputdict)
+    # IDEA : add so that it loads the output(?) as well?
+    return Obj
 
-def save_transphere(Obj, filename = 'transphere.model'):
-    # save the input object
+def save_transphere(Obj, filename = 'transpheremodel.pickle'):
+    # take input object
+    # and save it as a dictionary to filename in directory
     import pickle
-    inp = vars(obj.InputParameters)
-    with open(_os.path.join(obj.directory, filename)) as f:
+    # take all the original input parameters and put into a dictionary
+    inp = vars(Obj.InputParameters)
+    # now, a dictionary is a non dynamic structure
+    # as opposed to a dynamically created object attribute
+    # e.g., with the __dict__ method (-> doesn't work with pickle)
+    with open(_os.path.join(Obj.directory, filename)) as f:
         pickle.dump(inp, f)
 
-def load_transphere(directory = 'transphere_1', filename = 'transphere.model'):
-    # load input object and possible output from run
-    return 0
+def load_transphere(directory = '', filename = 'transpheremodel.pickle'):
+    # load input object from filename in directory
+    # and create the transphere object
+    import pickle
+    with open(_os.path.join(directory, filename)) as f:
+        inputdict = pickle.load(f)
+    Obj = Transphere(**inputdict)
+    # IDEA : add so that it loads the output(?) as well?
+    return Obj
 ######################################################################
 ## # RADIATIVE TRANSFER / MODELING
 
@@ -1076,6 +1087,8 @@ class Ratran:
         # if the directory exists
         if not make_dirs(input_dir_path): # will raise error if things go south (i.e., permissions not correct [I think...])
             print('Directory exists, continuing.')
+        
+        save_ratran(self)
         # rewrite this part when changing to object oriented
         # now it is very hack-ish and non pythonic
         ################################################################
@@ -1221,8 +1234,6 @@ class Ratran:
                 'T_r1000     : {1:7.1f} K\n'.format(self.nh2_r1000,
                                              self.temp_r1000))
 
-        # input "model_file" was called "file" in Jes' routine
-
     def write_input(self):
         """
         id    : shell number
@@ -1315,6 +1326,14 @@ class Ratran:
             pickle.dump(vars(self.InputParameters), f)
 
     def run(self):
+        # run ratran with the setup in the directory
+        #
+        # catch : ### WARNING
+        # AMC: minimum S/N  |  converged  |     photons  |  increase to
+        # AMC: -------------|-------------|--------------|-------------
+        # and the output after this..
+        # e.g.
+        # AMC: 1.38711E+00  |      78.43% |       89000  |      116000
         # import modules, subprocess replaces os
         import subprocess
         from time import time, sleep
@@ -1443,6 +1462,7 @@ class Transphere:
 ########################################################################
         # need to check that the input is correct.
         # strings should be strings, and floats floats
+        class InputParameters: pass
         param_zip = zip(params[0::4],params[1::4], params[2::4], params[3::4])
         for par, stdval, unit, typ in param_zip:
             if par in kwargs: # if input was given, save it
@@ -1462,26 +1482,43 @@ class Transphere:
             #string
             if typ == 'str':
                 #~ kwargs[par] = '{0}'.format(kwargs[par])
-                self.__dict__[par] = str(value)
+                InputParameters.__dict__[par] = str(value)
             #integer (not sure about 'itypemw' perhaps boolean)
             elif typ == 'int':
-                self.__dict__[par] = int(value)
+                InputParameters.__dict__[par] = int(value)
             #float
             elif typ == 'float':
-                self.__dict__[par] = float(value)
+                InputParameters.__dict__[par] = float(value)
             #bool
             elif typ == 'bool':
-                self.__dict__[par] = bool(value)
+                InputParameters.__dict__[par] = bool(value)
             # just try to fudge it, see if it works
             elif typ == 'mixed':
+                # TODO : change mixed to the same as in the 
+                # ratran object
                 try:
-                    self.__dict__[par] = int(value)
+                    InputParameters.__dict__[par] = int(value)
                 except ValueError:
-                    self.__dict__[par] = str(value)
-                    
+                    InputParameters.__dict__[par] = str(value)
             else:
-                self.__dict__[par] = value
-
+                InputParameters.__dict__[par] = value
+        
+        # input parameters contains all the input needed to 
+        # create this class again
+        self.InputParameters = InputParameters
+        
+        # copy important parameters to the main class
+        self.rin = self.InputParameters.rin
+        self.rout = self.InputParameters.rout
+        self.nshell = self.InputParameters.nshell
+        self.spacing = self.InputParameters.spacing
+        self.nref = self.InputParameters.nref
+        
+        
+        
+        
+        
+        self.directory = self.InputParameters.directory
 
         # CHECK if directory exists 
         # create dir if it doesn't exist
