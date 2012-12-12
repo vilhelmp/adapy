@@ -78,7 +78,6 @@ TODO :
 import cgsconst as _cgs
 import os as _os
 
-
 ########################################################################
 # GENERAL HELP FUNCTIONS (move to adavis_core)
 def check_input(input_dictionary, input_defaults):
@@ -472,7 +471,7 @@ def cleanup_transphere():
     for f in filelist:
         os.system('rm {0}'.format(f))
 
-
+# obsolete! yay, finally
 def run_ratran(r = 0.0, rho_dust = 0.0, temp = 0.0, db = 0.0, abund = 0.0, vr = 0.0, tdust = 0.0, dustonly = 0, mdl_file = 'transphere.mdl', dpc = 0.0, imsize = 129, pixel = 0.5, trans = '220.0e9', writeonly = 0, skyonly = 0, molfile='', ncell = 50, outputfile="ratranResult", snr=20, fixset=1e-6, minpop=1e-4, unit='Jypx', opstates=0, gas2dust=100, nphot=1000, temp_limit=10.0, rho_limit=1E-4, pxl_radius = 32, los = 2):
     """
 
@@ -695,15 +694,36 @@ def run_ratran(r = 0.0, rho_dust = 0.0, temp = 0.0, db = 0.0, abund = 0.0, vr = 
         print ' SKY took : {0:2.2f} seconds'.format(time()-t1)
         os.system('alert \"SKY has finished running.\"')
 
-def load_ratran():
-    # load input object and possible output from run
-    return None
 
+def save_ratran(Obj, filename = 'ratranmodel.pickle'):
+    # take input object
+    # and save it as a dictionary to filename in directory
+    import pickle
+    # take all the original input parameters and put into a dictionary
+    inp = vars(Obj.InputParameters)
+    # now a dictionary is a non dynamic structure
+    # as opposed to a dynamically created object attribute
+    # e.g., with the __dict__ method
+    with open(_os.path.join(Obj.directory, filename)) as f:
+        pickle.dump(inp, f)
+
+def load_ratran(directory = '', filename = 'ratranmodel.pickle'):
+    # load input object from filename in directory
+    # and create the ratran object
+    import pickle
+    with open(_os.path.join(directory, filename)) as f:
+        inputdict = pickle.load(f)
+    obj = Ratran(**inputdict)
+    # IDEA : add so that it loads the output as well?
+    return obj
 
 def save_transphere(Obj, filename = 'transphere.model'):
     # save the input object
-    
-    return 0
+    import pickle
+    inp = vars(obj.InputParameters)
+    with open(_os.path.join(obj.directory, filename)) as f:
+        pickle.dump(inp, f)
+
 def load_transphere(directory = 'transphere_1', filename = 'transphere.model'):
     # load input object and possible output from run
     return 0
@@ -961,8 +981,7 @@ class Ratran:
         'directory',       'ratr_model_1',    'dir name',      'str']   # Directory to work in
         # if loadfile is input, drop everythin and just load the file 
         # and, if it exists, the output
-
- over which to use multiple (5 in the example) lines of sight to get the intensity in one pixel.
+        
         print ('Model created with the following parameters:')
         
         class InputParameters: pass
@@ -1135,6 +1154,7 @@ class Ratran:
         self.r = self.r[:ind]           
         self.rhodust = self.rhodust[:ind]
         self.temp = self.temp[:ind]
+        self.tdust = self.tdust[:ind]
         self.abund = self.abund[:ind]
         self.nh2 = self.nh2[:ind]
         
@@ -1272,7 +1292,7 @@ class Ratran:
             f.write("format=miriad\n")
             f.write("outfile="+self.InputParameters.outputfile+"\n")
             if type(self.InputParameters.trans) == type([]):
-                    li = [str(i) for i in self.InputParameters.trans]
+                li = [str(i) for i in self.InputParameters.trans]
                 f.write("trans={0}\n".format(','.join(li)))
             else:
                 f.write("trans={0}\n".format(self.InputParameters.trans))
