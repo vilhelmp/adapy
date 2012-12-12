@@ -12,10 +12,18 @@ import scipy.constants as C
 jplpath = '/home/magnusp/work/data/molecules/H2-(18)-O/'
 moldatapath = '/home/magnusp/work/data/moldata/'
 
-oORp = '0'
 
-jpldata = 'c020003_11122012.cat' #H2-18O file from JPL molecular catalog 
+# Para ('0') or Ortho ('1') water?
+# Joe: this is v=0 and v=1!!!
+#~ oORp = '0'
+v0orv1 = '0'
+
+jpldata = 'c020003_11122012.cat' # H2-18O file from JPL molecular catalog 
 # http://spec.jpl.nasa.gov/ftp/pub/catalog/catdir.html
+# http://spec.jpl.nasa.gov/ftp/pub/catalog/c020003.cat # combined ortho/para
+# http://spec.jpl.nasa.gov/ftp/pub/catalog/c020003o.cat # separate
+# http://spec.jpl.nasa.gov/ftp/pub/catalog/c020003p.cat
+
 
 moldata_reference = ['ph2o-h2@daniel.dat' , 'oh2o-h2@daniel.dat'][int(oORp)]
 # http://home.strw.leidenuniv.nl/~moldata/H2O.html
