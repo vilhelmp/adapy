@@ -77,6 +77,8 @@ TODO :
 """
 import cgsconst as _cgs
 import os as _os
+import sys as _sys
+import subprocess as _subprocess
 
 ########################################################################
 # GENERAL HELP FUNCTIONS (move to adavis_core)
@@ -704,14 +706,15 @@ def save_ratran(Obj, filename = 'ratranmodel.pickle'):
     # now a dictionary is a non dynamic structure
     # as opposed to a dynamically created object attribute
     # e.g., with the __dict__ method (-> doesn't work with pickle)
-    with open(_os.path.join(Obj.directory, filename)) as f:
-        pickle.dump(inp, f)
+    with ChangeDirectory(Obj.directory):
+        with open(filename, 'w') as f:
+            pickle.dump(inp, f)
 
 def load_ratran(directory = '', filename = 'ratranmodel.pickle'):
     # load input object from filename in directory
     # and create the ratran object
     import pickle
-    with open(_os.path.join(directory, filename)) as f:
+    with open(_os.path.join(directory, filename), 'r') as f:
         inputdict = pickle.load(f)
     Obj = Ratran(**inputdict)
     # IDEA : add so that it loads the output(?) as well?
@@ -726,14 +729,15 @@ def save_transphere(Obj, filename = 'transpheremodel.pickle'):
     # now, a dictionary is a non dynamic structure
     # as opposed to a dynamically created object attribute
     # e.g., with the __dict__ method (-> doesn't work with pickle)
-    with open(_os.path.join(Obj.directory, filename)) as f:
-        pickle.dump(inp, f)
+    with ChangeDirectory(Obj.directory):
+        with open(filename, 'w') as f:
+            pickle.dump(inp, f)
 
 def load_transphere(directory = '', filename = 'transpheremodel.pickle'):
     # load input object from filename in directory
     # and create the transphere object
     import pickle
-    with open(_os.path.join(directory, filename)) as f:
+    with open(_os.path.join(directory, filename), 'r') as f:
         inputdict = pickle.load(f)
     Obj = Transphere(**inputdict)
     # IDEA : add so that it loads the output(?) as well?
@@ -1510,16 +1514,21 @@ class Transphere:
         # copy important parameters to the main class
         self.rin = self.InputParameters.rin
         self.rout = self.InputParameters.rout
-        self.nshell = self.InputParameters.nshell
-        self.spacing = self.InputParameters.spacing
+        self.rref = self.InputParameters.rref
         self.nref = self.InputParameters.nref
-        
-        
-        
-        
+        self.nshell = self.InputParameters.nshell
+        self.gas2dust = self.InputParameters.gas2dust
+        self.n0 = self.InputParameters.n0        
+        self.r0 = self.InputParameters.r0   
+        self.rstar = self.InputParameters.rstar
+        self.mstar = self.InputParameters.mstar
+        self.isrf = self.InputParameters.isrf
+        self.tbg = self.InputParameters.tbg
+        self.tstar = self.InputParameters.tstar
+        self.dpc = self.InputParameters.dpc
         
         self.directory = self.InputParameters.directory
-
+        
         # CHECK if directory exists 
         # create dir if it doesn't exist
         # will raise error if things go south 
@@ -1527,8 +1536,11 @@ class Transphere:
         input_dir_path = os.path.join(os.getcwd(), self.directory)
         if not make_dirs(input_dir_path): 
             print('Directory exists, continuing.')
-        #
-        # separate input and output? different objects
+        
+        _subprocess.Popen(['cp', self.InputParameters.freqfile, self.directory])
+        
+        save_transphere(self)
+        
         # Convert distances to CGS units
         self.rin   *= _cgs.AU   # cm
         self.rout  *= _cgs.AU   # cm
@@ -1544,18 +1556,22 @@ class Transphere:
             from scipy import concatenate
             print('Creating grid with refinement.')
             inner_grid = create_grid(
-                        self.rin, self.rref, self.nref,
-                        space=self.spacing, end=True
+                        self.rin, self.rref, self.InputParameters.nref,
+                        space=self.InputParameters.spacing, end=True
                                     )
             outer_grid = create_grid(
-                        self.rref, self.rout, self.nref,
-                        space=self.spacing, end=True
+                        self.InputParameters.rref, self.rout, self.nref,
+                        space=self.InputParameters.spacing, end=True
                                     )
             radii = concatenate([inner_grid[:-1], outer_grid]).ravel()
             #~ return inner_grid, outer_grid, radii
         else:
             # if we dont want refinement
-			radii = create_grid(self.rin, self.rout, self.nshell,space=self.spacing, end=True)
+			radii = create_grid(self.rin, 
+                                self.rout, 
+                                self.InputParameters.nshell,
+                                space = self.InputParameters.spacing, 
+                                end = True)
         #
         # radii is now in cm
         # separate the different radii, the lower/upper bounds
@@ -1570,12 +1586,12 @@ class Transphere:
         # Create the density array
         #
         # calculate the density at all radial points
-        if self.rho_type == 'powerlaw1':
+        if self.InputParameters.rho_type == 'powerlaw1':
             # 1E-2  - gas-to-dust
             # get the DUST density
             #~ self.rho_gas = self.rho0_gas * (self.radii / self.r0)**(self.plrho)
-            r_dependence = (self.radii / self.r0)**(self.plrho)
-        elif self.rho_type == 'shu_knee':
+            r_dependence = (self.radii / self.r0)**(self.InputParameters.plrho)
+        elif self.InputParameters.rho_type == 'shu_knee':
             #~ r_dependence = (self.radii / self.r0)**(self.plrho)
             #
             # what should the parameter be?
@@ -1606,21 +1622,21 @@ class Transphere:
         self.n_h2 = self.n0 * r_dependence              # nh2 * cm-3
         # gas to dust is mass relationship
         # g * cm-3 
-        self.rho_dust = self.rho0_gas / self.gas2dust * r_dependence 
+        self.rho_dust = self.rho0_gas / self.InputParameters.gas2dust * r_dependence 
         
         ################################################################        
         from scipy import array
         from sys import exit as sysexit
-        import os
+        #~ import os
         # if a dust opacity file is given
         # that is it is not tabulated correctly
         # as a dustopac.inp file
-        if self.opacfile not in [0, '0']:
-            if self.freqfile in [0, '0']:
+        if self.InputParameters.opacfile not in [0, '0']:
+            if self.InputParameters.freqfile in [0, '0']:
                 sysexit('No frequency file given (freqfile). Cannot proceed. '
                 'Need two files: one with frequency, and one with opacity'
                 ' at corresponding frequency.')
-            with open(os.path.join(self.directory, self.opacfile)) as f:
+            with open(self.InputParameters.opacfile, 'r') as f:
                 lines = f.read().split('\n')
             # get the "header" info,
             # that is the number of tabulated entries in
@@ -1642,8 +1658,8 @@ class Transphere:
                 except:
                     errmsg = 'Error parsing Opacity-file. Wrong format.'
                     raise Exception(errmsg)
-                nrtrange=1
-                trange=[0.e0,0.e0]
+                nrtrange = 1
+                trange = [0.e0,0.e0]
             else:
                 ########################################################
                 # this part not edited, dont have a file like this
@@ -1652,7 +1668,7 @@ class Transphere:
                 nf = ns
                 ismooth = 0
                 nrtrange = 0
-                with open(os.path.join(self.directory, self.opacfile)) as f:
+                with open(self.InputParameters.opacfile, 'r') as f:
                     line = f.readline().strip()
                     ns, ismooth, nrtrange = line.split()
                     ns, ismooth, nrtrange = int(ns), int(ismooth), int(nrtrange)
@@ -1664,7 +1680,7 @@ class Transphere:
                     csca = np.zeros((nf, ns, nrtrange), float)
                     dum = 0.e0
                     trange = np.zeros(nrtrange+1, float)
-
+                    
                     for ir in range(0, nrtrange):
                         a, b = f.readline().strip().split()
                         a, b = int(a), int(b)
@@ -1678,7 +1694,7 @@ class Transphere:
                                 dum = float(f.readline().split())
                                 csca[kk, iss, ir] = dum
                 ########################################################
-            with open(os.path.join(self.directory, self.freqfile)) as f:
+            with open(self.InputParameters.freqfile, 'r') as f:
                 lines = f.read().split('\n')
             nf = int(lines[0])
             freq = array(lines[2:2+nf], 'float')
@@ -1710,7 +1726,7 @@ class Transphere:
         #
         # have not got a file like this, so i am not changing it
 
-        if self.localdust:
+        if self.InputParameters.localdust:
             print ('variable localdust not False/0, this part of the code'
             'is not up to date.')
             sysexit('This part of the code is not tested'
@@ -1720,7 +1736,7 @@ class Transphere:
             _os.system('rm -f dustopac_1.inp')
             _os.system('rm -f dustopac.inp') # added this, do I really need
                                             # to remove it too?
-            f = open(os.path.join(self.directory, 'dustopac.inp'), 'w')
+            f = open(_os.path.join(self.directory, 'dustopac.inp'), 'w')
             f.write('1               Format number of this file'+'\n')
             f.write('1               Nr of dust species'+'\n')
             f.write('============================================================================'+'\n')
@@ -1736,24 +1752,24 @@ class Transphere:
             
             for ir in range(0,nr):
                 for inu in range(0,nr):
-                    f.write(self.Opacitycabs[inu]*redux)
+                    f.write(self.Opacity.cabs[inu] * redux)
                 for inu in range(0,opacity['nf']):
-                    f.write(self.Opacitycsca[inu]*redux)
+                    f.write(self.Opacity.csca[inu] * redux)
                 f.write(' ')
             f.close
-        elif not self.localdust:
+        elif not self.InputParameters.localdust:
             # first remove the standard ratran dust opacity input files
-            _os.system('rm -f {0}'.format(os.path.join(self.directory, 'dustopac_0.inp')))
-            _os.system('rm -f {0}'.format(os.path.join(self.directory, 'dustopac.inp'))) # added this, do I really need
+            _os.system('rm -f {0}'.format(_os.path.join(self.directory, 'dustopac_0.inp')))
+            _os.system('rm -f {0}'.format(_os.path.join(self.directory, 'dustopac.inp'))) # added this, do I really need
                                             # to remove it too?
-            with open(os.path.join(self.directory, 'dustopac.inp'),'w') as f:
+            with open(_os.path.join(self.directory, 'dustopac.inp'),'w') as f:
                 f.write('1               Format number of this file\n')
                 f.write('1               Nr of dust species\n')
                 f.write('============================================================================\n')
                 f.write('-1              Way in which this dust species is read (-1=file)\n')
                 f.write('1               Extension of name of dustopac_***.inp file\n')
                 f.write('----------------------------------------------------------------------------\n')
-            with open(os.path.join(self.directory, 'dustopac_1.inp'), 'w') as f:
+            with open(_os.path.join(self.directory, 'dustopac_1.inp'), 'w') as f:
                 f.write(str(self.Opacity.nf)+' 1\n \n')
                 for inu in range(0, self.Opacity.nf):
                     f.write(str(self.Opacity.cabs[inu][0])+'\n')
@@ -1761,31 +1777,26 @@ class Transphere:
                     f.write(str(self.Opacity.csca[inu][0])+'\n')
     
     def write_transphereinput(self):
-        #import natconst as nc
-        #~ import math
-        #~ import astroProcs
-        #~ import numpy as np
         from scipy import pi, zeros
         import os
-        #~ import cgsconst as cgs
         # Transphere input file
         text = ('{0}\n{1}\n{2}\n{3}\n'
                 '{4}\n{5}\n{6}\n{7}'.format(2,
-                self.nriter,
-                self.convcrit,
-                self.ncst,
-                self.ncex,
-                self.ncnr,
-                self.itypemw,
-                int(self.idump)))
-        with open(os.path.join(self.directory, 'transphere.inp'),'w') as f:
+                self.InputParameters.nriter,
+                self.InputParameters.convcrit,
+                self.InputParameters.ncst,
+                self.InputParameters.ncex,
+                self.InputParameters.ncnr,
+                self.InputParameters.itypemw,
+                int(self.InputParameters.idump)))
+        with open(_os.path.join(self.directory, 'transphere.inp'),'w') as f:
             f.write(text)
         #
         # Make the stellar information file
         # (mstar and tstar are irrelevant; they are there for historical reasons)
         # isn't "tstar" used for planck calc?
         #~ f=open('starinfo.inp','w')
-        with open(os.path.join(self.directory, 'starinfo.inp'),'w') as f:
+        with open(_os.path.join(self.directory, 'starinfo.inp'),'w') as f:
             f.write('1\n'
                     '{0}\n'
                     '{1}\n'
@@ -1797,7 +1808,7 @@ class Transphere:
         #
         #~ f=open('starspectrum.inp','w')
         sspec = (self.rstar / _cgs.PC)**2 * pi * bplanck(self.freq, self.tstar)
-        with open(os.path.join(self.directory, 'starspectrum.inp'), 'w') as f:
+        with open(_os.path.join(self.directory, 'starspectrum.inp'), 'w') as f:
             f.write('{0}\n'.format(len(self.freq)))
             for inu in range(0,len(self.freq)):
                 f.write('{0:20}\t{1:20}\n'.format(self.freq[inu], sspec[inu]))
@@ -1816,23 +1827,21 @@ class Transphere:
         else:
             if self.tbg > 0: bgspec = bplanck(self.freq, self.tbg) * self.isrf
 
-
-        with open(os.path.join(self.directory, 'external_meanint.inp'), 'w') as f:
+        with open(_os.path.join(self.directory, 'external_meanint.inp'), 'w') as f:
             f.write('{0}\n'.format(len(self.freq)))
             for inu in range(0, len(self.freq)):
                 f.write('{0:20}\t{1:20}\n'.format(self.freq[inu], bgspec[inu]))
         #
         # Write the envelope structure
         #
-        with open(os.path.join(self.directory, 'envstruct.inp'),'w') as f:
+        with open(_os.path.join(self.directory, 'envstruct.inp'),'w') as f:
             f.write(str(len(self.radii))+'\n')
             f.write(' '+'\n')
             # rho_dust has unit g/cm3
             for ir in range(0,len(self.radii)):
                 f.write("%13.6E %13.6E %13.6E" % (self.radii[ir], self.rho_dust[ir], 0.e0)+'\n') # ,format='(3(E13.6,1X))'
     
-    def run_transphere(self):
-        #~ import os
+    def run(self):
         import subprocess
         from time import time, sleep
         import sys
@@ -1848,7 +1857,7 @@ class Transphere:
             t1 = time()
             proc = subprocess.Popen(['transphere'], 
                                     stdout = subprocess.PIPE, 
-                                    stderr=subprocess.STDOUT)
+                                    stderr = subprocess.STDOUT)
             sys.stdout.write('Iteration no : ')
             sys.stdout.flush() # flush output so we can write again
             trans_out = []
