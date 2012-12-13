@@ -3,7 +3,7 @@
 #
 #  pyrt.py
 #
-#  Module to interface with RADEX, RATRAN and Transphere
+#  Module to interface with RADEX, RATRAN and Transphere etc
 #
 #  Copyright 2012 Magnus Persson <http://vilhelm.nu>
 #
@@ -115,15 +115,12 @@ class ChangeDirectory:
 
 # Now you can enter the directory like this:
 
-#~ import subprocess
-#~ 
+
 #~ with cd("~/Library"):
-   #~ # we are in ~/Library
-   #~ subprocess.call("ls")
-
-
-
-
+    #~ # we are in ~/Library
+    #~ run some code
+    #~ import subprocess
+    #~ subprocess.call("ls")
 
 
 ########################################################################
@@ -412,7 +409,7 @@ def create_molecular_abundance(temperature,
     [Xin, Xout] = Xs
     # jump abundance
     if 'jump' in abund_type:
-        i = where(temperature > Tjump)[0]
+        i = where(temperature >= Tjump)[0]
         mol_abundance = ones(len(temperature)) * Xout
         mol_abundance[i] = Xin
     # add more abundance types later on
@@ -908,6 +905,14 @@ class Ratran:
 
         *14/03/2012 - class created
     """
+    
+    # IDEA : if one wants to run several different molecules with the 
+    # same model?
+    # -> just run SKY once, and them AMC several times with different 
+    # parameters
+    # copy SKY to every folder where you run one molecule?
+    # or just have some file-naming scheme?
+    # 
     def __init__(self, **kwargs):
         """
         r = 0.0, 
@@ -952,7 +957,7 @@ class Ratran:
         from scipy import array
         # imports
         import cgsconst as _cgs
-        from scipy import zeros, array, logspace, log10, where, pi
+        from numpy import zeros, array, logspace, log10, where, pi
         import scipy.interpolate
         import sys
         import os
@@ -960,6 +965,8 @@ class Ratran:
         from time import time
 
         # Checking input parameters
+        #
+        # 'abundance',     'jump, 100, 1E-4, 1E-9', 'type, tjump, in, out', 'str'
         params = [
         'r',                            0,          'cm',    'array',   # Radial points
         'rhodust',                      0,       'g/cm3',    'array',   # Dust density
@@ -975,7 +982,8 @@ class Ratran:
         'dustonly',                 False,            '',      'bool',  # 
         'skyonly',                  False,            '',     'bool',   # 
         'writeonly',                False,            '',     'bool',   # Only write the input files (obsolete)
-        'temp',                         0,           'K',    'array',   # 
+        'kappa',           'jena,thin,e6',            '',      'str',   # powerlaw,NU0,KAPPA0,BETA  OR  jena,(bare|thin|thick),(no|e5|e6|e7|e8)
+        'temp',                         0,           'K',    'array',   # A power law emissivity model, kappa=KAPPA0*(nu/NU0)^BETA, where NU0 is in Hz, KAPPA0 in cm2/g_dust, and BETA is the power law index.
         'templim',                   10.0,           'K',    'float',   #
         'nh2lim',                    1E-4,      'g/cm-3',    'float',   #
         'trans',                        7,            '',    'mixed',   # Transition number(s) as int, or list
@@ -985,7 +993,7 @@ class Ratran:
         'pxlradius',                   32,            '',      'int',   # Region (in numbers of pixels radius w.r.t. image center) over which to use multiple lines of sight (los)
         'los',                          2,            '',      'int',   # Number of lines of sight
         'unit',                    'Jypx',            '',      'str',   # Output units ['Jypx', 'K', 'Wm2Hzsr']
-        'trans',                        7,            '',      'int',   # Transition numbers
+        'trans',                        7,            '',      'int',   # Transition numbers. If the input 'molfile' is defined, trans contains the transition numbers to be calculated. These are the numbers at the start of lines (10+NLEV) to (10+NLEV+NLIN) in the molecular data file.
         'snr',                       10.0,       'ratio',    'float',   # Requested minimum signal-to-noise
         'fixset',                    1E-6,            '',    'float',   # Convergence requirement for first stage
         'minpop',                    1E-4,            '',    'float',   # Minimum population to include in S/N calculation
@@ -1194,12 +1202,14 @@ class Ratran:
         self.tkf = scipy.interpolate.interp1d(log10(self.r), log10(self.temp))
         self.tdf = scipy.interpolate.interp1d(log10(self.r), log10(self.tdust))
         self.abund_f = scipy.interpolate.interp1d(log10(self.r), log10(self.abund))
+        self.vr_f = scipy.interpolate.interp1d(log10(self.r), log10(self.vr))
         #
         # Convert logarithms to floats
         self.nh2int = 10**self.nh2f(log10(self.rr))
         self.tkint = 10**self.tkf(log10(self.rr))
         self.tdint = 10**self.tdf(log10(self.rr))
         self.abund_int = 10**self.abund_f(np.log10(self.rr))
+        self.vr_int = 10**self.vr_f(np.log10(self.rr))
         ############################
         #~ nhint_p = nhint*2/4.
         #~ nhint_p[0] = 0.0
@@ -1279,7 +1289,7 @@ class Ratran:
             vr    : radial velocity (km s-1)
             """
             for ii in range(0, len(self.r1)):
-                f.write("%4i %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E" % (ii+1, self.r1[ii]/100.0, self.r2[ii]/100.0, self.nh2int[ii], self.nh2int[ii]*self.abund_int[ii], self.tkint[ii], self.tdint[ii], self.db, self.vr)+'\n')
+                f.write("%4i %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E" % (ii+1, self.r1[ii]/100.0, self.r2[ii]/100.0, self.nh2int[ii], self.nh2int[ii]*self.abund_int[ii], self.tkint[ii], self.tdint[ii], self.db, self.vr[ii])+'\n')
             
         if not self.InputParameters.skyonly:
             if self.InputParameters.molfile == '':
@@ -1290,7 +1300,7 @@ class Ratran:
                 f.write("molfile={0}\n".format(self.InputParameters.molfile))
                 f.write("snr={0}\n".format(self.InputParameters.snr))
                 f.write("nphot={0}\n".format(self.InputParameters.nphot))
-                f.write("kappa=jena,thin,e6\n")
+                f.write("kappa={0}\n".format(self.InputParameters.kappa))
                 f.write("minpop={0:3.2E}\n".format(self.InputParameters.minpop))
                 f.write("seed=1971\n")
                 f.write("fixset={0:3.2E}\n".format(self.InputParameters.fixset))
@@ -1409,7 +1419,7 @@ class Transphere:
     def __init__(self, **kwargs):
         # imports
         from scipy import log10, log, arange, linspace, logspace,\
-        array
+        array, concatenate
         import os
         
         #
@@ -1447,6 +1457,7 @@ class Transphere:
         'plrho',        -1.5,           ' ',    'float',    # Powerlaw for rho
         'rho_type',     'powerlaw1',    ' ',    'str',      # Type of rho dependence with radius ['powerlaw1', 'shu-knee']
         'n0',           2e6,            'cm-3', 'float',    # H2 number density at reference radius
+        'r_knee',       1280.0,         'AU',   'float',
         'gas2dust',     100.0,          ' ',    'float',    # Gas to dust ratio
         'localdust',    False,          ' ',    'bool',     # Dust opacity local?
         'silent',       True,           ' ',    'bool',     # Verbose?
@@ -1592,6 +1603,18 @@ class Transphere:
             #~ self.rho_gas = self.rho0_gas * (self.radii / self.r0)**(self.plrho)
             r_dependence = (self.radii / self.r0)**(self.InputParameters.plrho)
         elif self.InputParameters.rho_type == 'shu_knee':
+            
+            # where to put the knee
+            self.r_knee = self.InputParameters.r_knee * _cgs.AU # in cm
+            
+            # two r_dependence
+            # what does radii look like?
+            # cells_in = where(self.radii <= self.r_knee)
+            # cells_out = where(self.radii > self.knee)
+            # r_dep_inner = (self.r[cells_in]/self.r0)**(1.5)
+            # r_dep_outer = (self.r[cells_out]/self.r0)**(2)
+            # r_dependence = concatenate((r_dep_inner, r_dep_outer))
+            
             #~ r_dependence = (self.radii / self.r0)**(self.plrho)
             #
             # what should the parameter be?
@@ -1873,6 +1896,11 @@ class Transphere:
                     iter_no = int(nextline[10:])
                     sys.stdout.write('{0:3} \b\b\b\b'.format(iter_no)) # print out a point
                     sys.stdout.flush()
+                    
+                    
+                    
+                    
+                    
                 #~ if "Error" in nextline:
                     # if it is the error of the first iteration
                     # we grab the error of it
