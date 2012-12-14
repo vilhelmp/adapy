@@ -288,7 +288,7 @@ def plot_spectrum(freq, intensity, dpc = 0, jy = 0, pstyle = '', xlog = 1, ylog 
     if xlog == 1: pl.xscale('log')
     if ylog == 1: pl.yscale('log')
 
-def read_ratraninput(model_file = "transphere.mdl"):
+def read_ratraninput(modelfile = "transphere.mdl"):
     """
     Read the input model to Ratran and plots all parameters 
     agains ra/r1 column.
@@ -311,7 +311,7 @@ def read_ratraninput(model_file = "transphere.mdl"):
     
     class Mdl: pass
     
-    with open(model_file) as f:
+    with open(modelfile, 'r') as f:
         lines = f.read().split('\n')
     table_start_indicator = where(array(lines) == '@')[0][0]
     # get the header/preamble with the singel values
@@ -335,15 +335,15 @@ def read_ratraninput(model_file = "transphere.mdl"):
     Mdl.table = array([i.split() for i in table][:-1]).astype('float')
     Mdl.table = Mdl.table.transpose()
     # put each column in to its own attribute of the class
-    for col,vals in zip(Mdl.columns,Mdl.table):
+    for col,vals in zip(Mdl.columns, Mdl.table):
         Mdl.__dict__[col] = vals
     # convert to AUs
-    Mdl.ra /= 100*_cgs.AU
-    Mdl.rb /= 100*_cgs.AU
+    Mdl.ra = Mdl.ra * 100 / _cgs.AU # input in m, so times 100 and devide by cm/AU
+    Mdl.rb = Mdl.rb * 100 / _cgs.AU
     return Mdl
 
 # FIXME, does not work tries to import old adavis module
-def plot_ratraninput(model_file = "transphere.mdl"):
+def plot_ratraninput(directory = '', modelfile = "transphere.mdl"):
     import matplotlib.pyplot as pl
     from scipy import arange, array
     pl.ion()
@@ -353,7 +353,7 @@ def plot_ratraninput(model_file = "transphere.mdl"):
     rc('patch', linewidth=1.5)
     rc('lines', linewidth=1.5, markeredgewidth=1)
     # read in the model file
-    Ratran_mdl = read_ratraninput(model_file)
+    Ratran_mdl = read_ratraninput(_os.path.join(directory, modelfile))
     
     # -2 because we dont want the first two cols, id and ra
     N = len(Ratran_mdl.columns) - 2
@@ -371,9 +371,9 @@ def plot_ratraninput(model_file = "transphere.mdl"):
         pln =  i +1
         plots[ax] = fig.add_subplot(np, 3, pln)
         if ylbl in ['db', 'vr']:
-            plots[ax].semilogx(Ratran_mdl.ra, dat)
+            plots[ax].semilogx(Ratran_mdl.ra, dat, '.')
         else:
-            plots[ax].loglog(Ratran_mdl.ra, dat)
+            plots[ax].loglog(Ratran_mdl.ra, dat, '.')
         # set the rrights ylabel
         if ylbl in ['nh', 'nm', 'ne']:
             ylbl += ' (cm-3)'
@@ -382,7 +382,7 @@ def plot_ratraninput(model_file = "transphere.mdl"):
         elif ylbl in ['db', 'vr']:
             ylbl += ' (km s-1)'
         elif ylbl in ['rb']:
-            ylbl += ' (AU)'
+            ylbl += ' (m)'
         plots[ax].set_ylabel(ylbl)
         plots[ax].grid()
     [plots['ax{0}'.format(i)].set_xlabel('ra (AU)') for i in arange(N-3, N)]
@@ -419,14 +419,16 @@ def create_molecular_abundance(temperature,
     return mol_abundance
 # temporary function
 # needs to be more modular
-def plot_envstruct(self, mol_abundance=0):
+def plot_envstruct(self, mol_abundance=''):
     if not hasattr(self, 'Envstruct'):
         raise Exception('you havent read in the transphere output')
     import matplotlib.pyplot as pl
+    from matplotlib.ticker import ScalarFormatter, LogFormatter
     pl.ion()
     pl.close()
     fig = pl.figure(1, figsize=(8,6))
     ax1 = fig.add_subplot(111)
+    pl.grid()
     ax2 = ax1.twinx()
     # Density
     p1 = ax1.loglog(self.Envstruct.r/_cgs.AU, self.n_h2, label='n_H2')
@@ -435,8 +437,11 @@ def plot_envstruct(self, mol_abundance=0):
     ax1.set_ylabel('Number Density (cm-3)')
     # Temperature
     p2 = ax2.loglog(self.Envstruct.r/_cgs.AU, self.Envstruct.temp, color='r', label='Temp')
+
+    ax2.yaxis.set_major_formatter(ScalarFormatter())
+    
     ax2.set_ylabel('Temp (K)', color='r')
-    if mol_abundance != 0:
+    if mol_abundance != '':
         def make_patch_spines_invisible(ax):
             ax.set_frame_on(True)
             ax.patch.set_visible(False)
@@ -453,7 +458,15 @@ def plot_envstruct(self, mol_abundance=0):
         ax3.spines["right"].set_visible(True)
         ax3.set_ylabel('Rel. Abundance', color='g')
         #ax1.legend([p1, p2, p3], ['Density', 'Temp', 'Rel. Abundance'])
+        #~ ax3.yaxis.set_major_formatter(())
+        #~ ax3.xticks(['1E-9','1E-8','1E-7','1E-6','1E-5','1E-4'],[1E-9,1E-8,1E-7,1E-6,1E-5,1E-4])
+        #~ ax3.set_yticks([1E-9,1E-8,1E-7,1E-6,1E-5,1E-4], minor=True)
+        #~ ax3.tick_params(axis='y', direction='in')
         fig.subplots_adjust(right = 0.75)
+        
+        #~ pl.legend('n_H2', 'Temp', 'Mol Abund')
+    #~ else:
+    ax1.xaxis.set_major_formatter(ScalarFormatter())
     pl.legend()
 
 # test functions
@@ -1079,11 +1092,11 @@ class Ratran:
         
         # calculate the radial dependence of the molecular
         # abundance depends on what type of abundance type is choosen
-        self.abund =  create_molecular_abundance(self.temp, 
+        self.InputParameters.abund =  create_molecular_abundance(self.temp, 
                                 abund_type = self.InputParameters.abundtype, 
                                 Tjump = self.InputParameters.tjump, 
                                 Xs = self.InputParameters.xs)
-        
+        self.abund = self.InputParameters.abund
         # come up with a nicer solution than this...
         # check that none of the required arrays are not empty, or
         # to short
@@ -1140,7 +1153,7 @@ class Ratran:
         # thus just use the last element
         if ind_n == False and ind_T == False:
             r_constraint = None
-            ind = len(r)-1
+            ind = len(self.r)-1
         # Both constraint, which comes first
         elif ind_n != False and ind_T != False:
             # ind_n comes first
@@ -1162,7 +1175,7 @@ class Ratran:
         self.temp_10k = self.temp[ind]
         #~ self.Y = self.InputParameters.r.max() / self.InputParameters.r.min()
         self.Y = self.r_10k / self.r.min()
-        
+        self.ind = ind
         ################################################################
         # get values at r = 1000 AU
         ind_r1000 = where(self.r > 1000 * _cgs.AU)[0].min()
@@ -1182,7 +1195,7 @@ class Ratran:
         self.tdust = self.tdust[:ind]
         self.abund = self.abund[:ind]
         self.nh2 = self.nh2[:ind]
-        
+        self.vr = self.vr[:ind]
         ################################################################
         # Refinement
         # for the refinement, easiest way is to redefine rx!
@@ -1419,7 +1432,7 @@ class Transphere:
     def __init__(self, **kwargs):
         # imports
         from scipy import log10, log, arange, linspace, logspace,\
-        array, concatenate
+        array, concatenate, where
         import os
         
         #
@@ -1602,50 +1615,82 @@ class Transphere:
             # get the DUST density
             #~ self.rho_gas = self.rho0_gas * (self.radii / self.r0)**(self.plrho)
             r_dependence = (self.radii / self.r0)**(self.InputParameters.plrho)
+            # now also save the dust density, and H2 number density
+            #~ self.rho_gas = self.rho0_gas * (self.radii / self.r0)**(self.plrho)
+            #~ self.n_h2 = self.rho_gas / (_cgs.MUH2 * _cgs.MP)
+            #~ self.rho_dust = self.n_h2 * 1 / self.gas2dust
+            #
+            # n0 is in nh2 / cm3
+            #    g/cm3           nh2 / cm3 * amu/h2 * mass of amu(g)
+            #~ self.rho0_gas = self.n0 * _cgs.MUH2 * _cgs.MP   # g * cm-3
+            # all gas, MUH2 is including H2+He+Metals
+            # apply the radial dependence to the gas density
+            #~ self.rho_gas = self.rho0_gas * r_dependence     # g * cm-3
+            # apply radial dependence to the H2 number density
+            self.n_h2 = self.n0 * r_dependence              # nh2 * cm-3
+            self.rho_gas = self.n_h2 * _cgs.MUH2 * _cgs.MP  # g * cm-3
+            self.rho_dust = self.rho_gas / self.InputParameters.gas2dust  # g * cm-3
+            # gas to dust is mass relationship
+            # g * cm-3 
+            #~ self.rho_dust = self.rho0_gas / self.InputParameters.gas2dust * r_dependence 
+
         elif self.InputParameters.rho_type == 'shu_knee':
             
             # where to put the knee
             self.r_knee = self.InputParameters.r_knee * _cgs.AU # in cm
-            
-            # two r_dependence
-            # what does radii look like?
-            # cells_in = where(self.radii <= self.r_knee)
-            # cells_out = where(self.radii > self.knee)
-            # r_dep_inner = (self.r[cells_in]/self.r0)**(1.5)
-            # r_dep_outer = (self.r[cells_out]/self.r0)**(2)
-            # r_dependence = concatenate((r_dep_inner, r_dep_outer))
-            
-            #~ r_dependence = (self.radii / self.r0)**(self.plrho)
             #
-            # what should the parameter be?
-            # where should the knee be?
-            #~ if rho_flat == 0:
-                #~ rho    = (1/gas2dust)*rho0 * (r/r0)**(plrho) # Gas2dust = 100
-            #~ else:
-                #~ # two component rho, with a "knee" in the middle
-                #~ rho    = (1/gas2dust)*rho0 * (r/r0)**(plrho) # Gas2dust = 100
-                #~ for i in range(len(rho)):
-                    #~ if rho[i] < (1/gas2dust)*rho_flat:
-                        #~ rho[i] = (1/gas2dust)*rho_flat
-            pass
+            # n(r) = n0 (r / r0) **-1.5     for r <= r_knee
+            # n(r) = n0 (r / r0) **-2.0     for r >= r_knee
+            #
+            #
+            # two r_dependence
+            # get the n0 for each r_dependence
+            self.n01 = self.n0
+            self.n02 = self.n0 * (self.r_knee / self.r0)**-1.5 / (self.r_knee / self.r0)**-2.0
+            
+            # get the inner/outer radii cells
+            cells_in = where(self.radii <= self.r_knee)
+            cells_out = where(self.radii > self.r_knee)
+            r_dep_inner = (self.radii[cells_in] / self.r0)**(-1.5)
+            r_dep_outer = (self.radii[cells_out] / self.r0)**(-2.0)
+            
+            # self.n_h2 = self.n0 * r_dependence
+            n_inner = self.n01 * r_dep_inner
+            n_outer = self.n02 * r_dep_outer
+            # put them in the same array
+            self.n_h2 = concatenate((n_inner, n_outer))                 # cm-3
+            # calculate the gas density
+            self.rho_gas = self.n_h2 * _cgs.MUH2 * _cgs.MP              # g * cm-3
+            self.rho_dust = self.rho_gas /self.InputParameters.gas2dust # g * cm-3
+            # apply radial dependence to the H2 number density
+                          # nh2 * cm-3
+            # gas to dust is mass relationship
+            # g * cm-3 
+            #~ self.rho_dust = self.rho0_gas / self.InputParameters.gas2dust * r_dependence 
+            
+            #r_dependence = concatenate((r_dep_inner, r_dep_outer))
+            
+            #
+            # now also save the dust density, and H2 number density
+            #~ self.rho_gas = self.rho0_gas * (self.radii / self.r0)**(self.plrho)
+            #~ self.n_h2 = self.rho_gas / (_cgs.MUH2 * _cgs.MP)
+            #~ self.rho_dust = self.n_h2 * 1 / self.gas2dust
+            #
+            # n0 is in nh2 / cm3
+            #    g/cm3           nh2 / cm3 * amu/h2 * mass of amu(g)
+            #~ self.rho0_gas = self.n0 * _cgs.MUH2 * _cgs.MP   # g * cm-3
+            # all gas, MUH2 is including H2+He+Metals
+            # apply the radial dependence to the gas density
+            #~ self.rho_gas = self.rho0_gas * r_dependence     # g * cm-3
+            # apply radial dependence to the H2 number density
+                          # nh2 * cm-3
+            # gas to dust is mass relationship
+            # g * cm-3 
+            #~ self.rho_dust = self.rho0_gas / self.InputParameters.gas2dust * r_dependence 
+                        
         else:
             raise Exception('rho_type parameter not recognised')
-        # now also save the dust density, and H2 number density
-        #~ self.rho_gas = self.rho0_gas * (self.radii / self.r0)**(self.plrho)
-        #~ self.n_h2 = self.rho_gas / (_cgs.MUH2 * _cgs.MP)
-        #~ self.rho_dust = self.n_h2 * 1 / self.gas2dust
-        #
-        # n0 is in nh2 / cm3
-        #    g/cm3           nh2 / cm3 * amu/h2 * mass of amu(g)
-        self.rho0_gas = self.n0 * _cgs.MUH2 * _cgs.MP   # g * cm-3
-        # all gas, MUH2 is including H2+He+Metals
-        # apply the radial dependence to the gas density
-        self.rho_gas = self.rho0_gas * r_dependence     # g * cm-3
-        # apply radial dependence to the H2 number density
-        self.n_h2 = self.n0 * r_dependence              # nh2 * cm-3
-        # gas to dust is mass relationship
-        # g * cm-3 
-        self.rho_dust = self.rho0_gas / self.InputParameters.gas2dust * r_dependence 
+
         
         ################################################################        
         from scipy import array
@@ -1739,7 +1784,6 @@ class Transphere:
             
             self.freq               = freq
             #~ self.opacity = {'ns': ns, 'nf': nf, 'freq': freq, 'wave': wave, 'cabs': cabs, 'csca': csca, 'nrt': nrtrange, 'trange': trange}
-
         else:
             # always neeed a opacity file and a frequency file
             sysexit('No opacity-file given.')
