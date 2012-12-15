@@ -62,6 +62,9 @@ Need :  o scipy (and numpy)
 
 #What to do
 
+#TODO : Grab the color of the TD tag in each row. The color represents
+#       a certain ALMA band, store this as well.
+
 #TODO : Separate data handling and UI
 
 #TODO : Solve the parsing, the removal of tags... (huh?)
@@ -71,7 +74,7 @@ Need :  o scipy (and numpy)
 #        - available in cmd version?
 
 #IDEA : get the export-to-file directly from splatalogue?
-#        - initial testing indicates > does not work
+#        - initial testing indicates that it does not work
 
 #TODO : add so that one can enter the wavelength/wavenumber in m, cm / m-1, cm-1
 #       just translate to frequency after input 
