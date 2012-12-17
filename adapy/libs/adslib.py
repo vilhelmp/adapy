@@ -183,7 +183,7 @@ def search(query, **kwargs):
     
     
     #~  Then check if going for the advanced interface.
-    advanced = int(type(query) == type({})
+    #~ advanced = int((type(query) == type({}))
     if advanced:
         # ADVANCED QUERY 
         response = mechanize.urlopen(mirrors[working_mirror] + advanced_q)
