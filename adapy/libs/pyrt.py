@@ -912,9 +912,17 @@ class Ratran:
     """
     ----------------------------------------------
     Changelog:
-        *20/03/2012 - radial profile grid function
+        *00/12/2012
+            tweaks to the input, so that the velocity grid works(?).
+        
+        *00/11/2012
+            full routine works
+        
+        *20/03/2012
+            radial profile grid function
 
-        *14/03/2012 - class created
+        *14/03/2012
+            class created
     """
     
     # IDEA : if one wants to run several different molecules with the 
@@ -987,16 +995,20 @@ class Ratran:
         'db',                         0.0,        'km/s',    'float',   # 1/e half-width of line profile (Doppler b-parameter) (km s-1)
         'abundtype',               'jump',            '',      'str',   # Molecular abundance type ['jump', '?']
         'tjump',                    100.0,           'K',    'float',   # If 'jump' profile, at what T should the jump be
+        #~ 'collapse_radius',         1000.0,          'AU',    'float',   # radii where the collapse has proceeded a*t where a is the sound speed and t time since collapse start, or it is where the knee is in the shu model
         'xs',                [1E-4, 1E-9],    'relative',     'list',   # If 'jump' profile, what is [inner, outer] relative abundance
         'vr',                         0.0,        'km/s',    'array',   # Radial velocity
+        'velocitydirection',     'None',            '',      'str',   # Velocity direction if vr given 'infall', 'outflow'
+        #'velocityfield',     lambda,              ,      'str',   # Velocity model 'shu_infall', 'db'
         'tdust',                      0.0,           'K',    'array',   # Dust temperature profile
-        'dustonly',                 False,            '',      'bool',  # 
+        'dustonly',                 False,            '',     'bool',   # 
         'skyonly',                  False,            '',     'bool',   # 
         'writeonly',                False,            '',     'bool',   # Only write the input files (obsolete)
         'kappa',           'jena,thin,e6',            '',      'str',   # powerlaw,NU0,KAPPA0,BETA  OR  jena,(bare|thin|thick),(no|e5|e6|e7|e8)
         'temp',                         0,           'K',    'array',   # A power law emissivity model, kappa=KAPPA0*(nu/NU0)^BETA, where NU0 is in Hz, KAPPA0 in cm2/g_dust, and BETA is the power law index.
-        'templim',                   10.0,           'K',    'float',   #
-        'nh2lim',                    1E-4,      'g/cm-3',    'float',   #
+        'templim',                    8.0,           'K',    'float',   # Daniel uses 8 K
+        'nh2lim',                     1E4,        'cm-3',    'float',   #
+        'Tconstouter',              False,            '',     'bool',   # Constant temperature (=templim) where temp < templim
         'trans',                        7,            '',    'mixed',   # Transition number(s) as int, or list
         'dpc',                        0.0,          'pc',    'float',   # Distance to source
         'imsize',                     129,      'pixels',      'int',   # Number of pixels in the output image
@@ -1044,24 +1056,30 @@ class Ratran:
             if typ == 'str':
                 #~ kwargs[par] = '{0}'.format(kwargs[par])
                 Input.__dict__[par] = str(value)
+                self.__dict__[par] = str(value)
             #integer (not sure about 'itypemw' perhaps boolean)
             elif typ == 'int':
                 Input.__dict__[par] = int(value)
+                self.__dict__[par] = int(value)
             #float
             elif typ == 'float':
                 Input.__dict__[par] = float(value)
+                self.__dict__[par] = float(value)
             #bool
             elif typ == 'bool':
                 Input.__dict__[par] = bool(value)
+                self.__dict__[par] = bool(value)
             # array
             elif typ == 'array':
                 Input.__dict__[par] = array(value)
+                self.__dict__[par] = array(value)
             elif typ == 'list':
                 Input.__dict__[par] = list(value)
-            # lastly try to fudge it, see if it works
+                self.__dict__[par] = list(value)
             elif typ == 'mixed':
                 #~ try:
                 Input.__dict__[par] = value
+                self.__dict__[par] = value
                 #~ except ValueError:
                     #~ try:
                         #~ Input.__dict__[par] = int(value)
@@ -1069,21 +1087,27 @@ class Ratran:
                         #~ Input.__dict__[par] = str(value)
             else:
                 Input.__dict__[par] = value
+                self.__dict__[par] = value
         
         # input parameters contains all the input needed to 
         # create this class again
         self.Input = Input
         
         # copy important parameters to the main class
-        self.r = self.Input.r
-        self.rhodust = self.Input.rhodust
-        self.temp = self.Input.temp
-        self.tdust = self.Input.tdust        
-        self.directory = self.Input.directory
-        self.temp = self.Input.temp
-        self.db = self.Input.db
-        self.vr = self.Input.vr
+        #~ self.r = self.Input.r
+        #~ self.rhodust = self.Input.rhodust
+        #~ self.temp = self.Input.temp
+        #~ self.tdust = self.Input.tdust        
+        #~ self.directory = self.Input.directory
+        #~ self.temp = self.Input.temp
+        #~ self.db = self.Input.db
+        #~ self.vr = self.Input.vr
         
+        #~ self.collapse_radius *= _cgs.AU # convert to cm
+        
+        if self.Tconstouter:
+            i = where(self.temp < self.templim)
+            self.temp[i] = self.templim
         
         # If no dust temperature given, assume it is in equilibrium 
         # with the gas
@@ -1092,11 +1116,11 @@ class Ratran:
         
         # calculate the radial dependence of the molecular
         # abundance depends on what type of abundance type is choosen
-        self.Input.abund =  create_molecular_abundance(self.temp, 
+        self.abund =  create_molecular_abundance(self.temp, 
                                 abund_type = self.Input.abundtype, 
                                 Tjump = self.Input.tjump, 
                                 Xs = self.Input.xs)
-        self.abund = self.Input.abund
+        #~ self.abund = self.Input.abund
         # come up with a nicer solution than this...
         # check that none of the required arrays are not empty, or
         # to short
@@ -1133,26 +1157,39 @@ class Ratran:
         # so
         # rhogas / molecular mass = number density of H2 in cm-3
         
+        
+        
+        ################################################################
+        # Velocity grid
+        #~ 
+        #~ self.vr = -1 * sqrt(2 * cgs.GG * self.mstar / (ratr.r)) * 1E-5 # to go over to km/s
+        #~ self.vr[(self.r / cgs.AU) > self.rref] = 0.0  # r_inf in Crimier+2010
+        #~ if self.collapse_radius: # if we have a maximum collapse radius
+            #~ self.vr_int[(self.rr > self.collapse_radius)] = 0.0
+        # so that we can run log10(self.vr) (these values are rounded off to 0.0 before writing to input file)
+        self.vr[self.vr == 0.0] = 1E-20
+        #~ vr_negative = where(self.vr < 0.0)[0]
+        #~ self.vr[vr_negative] *= -1
         ################################################################
         # ENVELOPE CUT OFF LIMIT
         #Find the envelope cut off for T and n
         #
         # if T goes below tepmlim (10K def) somewhere in the model
         try:
-           ind_T = where(self.temp < self.Input.templim)[0].min()
+           ind_T = where(self.temp < self.templim)[0].min()
         #~ ind = where(r<(1.2E4*cgs.AU))[0].max()
         except (ValueError):
             ind_T = False
-        # if n goes below nh2lim (1E-4 def) somewhere in the model
+        # if n goes below rholim (1E4 def /cm3) somewhere in the model
         try:
-            ind_n = where((self.nh2) < self.Input.nh2lim)[0].min()
+            ind_n = where((self.nh2) < self.nh2lim)[0].min()
         except (ValueError):
             ind_n = False
         # T or n strongest constraints on radius
         # Neither T nor n constrain the radius
         # thus just use the last element
         if ind_n == False and ind_T == False:
-            r_constraint = None
+            self.r_constraint = None
             ind = len(self.r)-1
         # Both constraint, which comes first
         elif ind_n != False and ind_T != False:
@@ -1160,13 +1197,13 @@ class Ratran:
             ind = min((ind_n, int_T))
             # what if both have the same...
             # it will pick T, ok
-            r_constraint = ['n', 'T'][ind_n < ind_T]
+            self.r_constraint = ['n', 'T'][ind_n < ind_T]
         elif ind_n != False:
             ind = ind_n
-            r_constraint = 'n'
+            self.r_constraint = 'n'
         elif ind_T != False:
             ind = ind_T
-            r_constraint = 'T'
+            self.r_constraint = 'T'
         
         # get values at cut off
         self.r_10k = self.r[ind]
@@ -1182,10 +1219,9 @@ class Ratran:
         self.rhodust_r1000 = self.rhodust[ind_r1000]
         self.nh2_r1000 =  self.nh2[ind_r1000]
         self.temp_r1000 = self.temp[ind_r1000]
-    
         ################################################################
-        # cut off where T<10 K OR nh2<1E-4
-        # first we have to remove all cells where T<10 K
+        # cut off where T<templim OR nh2<nh2lim (8-10 K and 1E4 cm-3)
+        # first we have to remove all cells where T<templim K
         # RATRAN does not work well with them
         # after this you use the self.parameter.
         # TODO : perhaps not the best tactics..?
@@ -1197,10 +1233,9 @@ class Ratran:
         self.nh2 = self.nh2[:ind]
         self.vr = self.vr[:ind]
         ################################################################
-        # Refinement
-        # for the refinement, easiest way is to redefine rx!
+        # Refinement, for the refinement, easiest way is to redefine rx!
         #
-        rx = logspace(log10(self.r[0]), log10(self.r[-1]), num = self.Input.ncell + 1, endpoint = True)
+        rx = logspace(log10(self.r[0]), log10(self.r[-1]), num = self.ncell + 1, endpoint = True)
         rx = np.insert(rx, 0, 0)
         self.r1 = rx[0:-1]
         self.r2 = rx[1:]
@@ -1223,6 +1258,12 @@ class Ratran:
         self.tdint = 10**self.tdf(log10(self.rr))
         self.abund_int = 10**self.abund_f(np.log10(self.rr))
         self.vr_int = 10**self.vr_f(np.log10(self.rr))
+        # if it is infall, multiply by -1 
+        # log10 does not work all that well
+        if self.velocitydirection in ['infall']:
+            self.vr_int *= -1
+        # round off the array so that 1E20 is 0E15
+        self.vr_int = array([round(i, 15) for i in self.vr_int])
         ############################
         #~ nhint_p = nhint*2/4.
         #~ nhint_p[0] = 0.0
@@ -1238,9 +1279,9 @@ class Ratran:
         #~ mass=[]
         # V = 4*pi*r**3/3
         # r in cm (?)
-        V = 4 * pi * (self.r2**3 - self.r1**3) / 3         # cm3
-        self.M = V * self.nh2int * _cgs.MUH2 * _cgs.MP # cm3 * g/cm3 ?
-        self.M /= _cgs.MSUN
+        V = 4 * pi * (self.r2**3 - self.r1**3) / 3     # cm3
+        self.M = V * self.nh2int * _cgs.MUH2 * _cgs.MP # g = cm3 * g/cm3
+        self.M /= _cgs.MSUN                            # Msun
         
         # to get the column density, integrate over radius r1 to r_10k
         #r_10k * 2 nh2_10k
@@ -1256,12 +1297,13 @@ class Ratran:
                                             self.nh2_10k,
                                             self.Y,
                                             self.temp_10k))
-        print 'Constraining the envelope : ', r_constraint
+        print 'Constraining the envelope : ', self.r_constraint
         print ('nH2_r1000   : {0:<7.1e} cm-3\n'
                 'T_r1000     : {1:7.1f} K\n'.format(self.nh2_r1000,
                                              self.temp_r1000))
-
-    def write_input(self):
+        
+        print('printing input files')
+        
         """
         id    : shell number
         ra,rb : inner & outer radius (m)
@@ -1275,66 +1317,81 @@ class Ratran:
         db    : 1/e half-width of line profile (Doppler b-parameter) (km s-1)
         vr    : radial velocity (km s-1)
         """
-        with open(_os.path.join(self.directory, self.Input.modelfile),'w') as f: 
+        with open(_os.path.join(self.directory, self.modelfile),'w') as f: 
             f.write('# Ratran input file based on Transphere results'+'\n')
-            if self.Input.skyonly: 
+            if self.skyonly: 
                 f.write('# ... intended for (SKY) continuum calculations only.'+'\n')
             f.write("rmax={0:.5E}\n".format( self.r2[-1] / 100 ))       # rmax in METERS (convert from cm i.e. / 100)
             f.write("ncell={0:}\n".format(len(self.r2)))
             f.write("tcmb=2.728\n")
             f.write("columns=id,ra,rb,nh,nm,tk,td,db,vr\n")
-            f.write("gas:dust={0}\n".format(self.Input.gas2dust))
-            if self.Input.skyonly: 
-                f.write("kappa={0}\n".format(self.Input.kappa))
+            f.write("gas:dust={0}\n".format(self.gas2dust))
+            if self.skyonly: 
+                f.write("kappa={0}\n".format(self.kappa))
             f.write('@\n')
             # r1/r2 in meter (convert from cm)
             for ii in range(0, len(self.r1)):
                 test = "{0:4} {1:12.5E} {2:12.5E} {3:12.5E} {4:12.5E} {5:12.5E} {6:12.5E} {7:12.5E} {8:12.5E}\n"
-                f.write(test.format(ii+1, self.r1[ii]/100.0, self.r2[ii]/100.0, self.nh2int[ii], self.nh2int[ii]*self.abund_int[ii], self.tkint[ii], self.tdint[ii], self.db, self.vr[ii]))
+                f.write(test.format(ii+1, self.r1[ii]/100.0, self.r2[ii]/100.0, self.nh2int[ii], self.nh2int[ii]*self.abund_int[ii], self.tkint[ii], self.tdint[ii], self.db, round(self.vr_int[ii], 15)))
                 #~ f.write("%4i %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E" % (ii+1, self.r1[ii]/100.0, self.r2[ii]/100.0, self.nh2int[ii], self.nh2int[ii]*self.abund_int[ii], self.tkint[ii], self.tdint[ii], self.db, self.vr[ii])+'\n')
             
-        if not self.Input.skyonly:
-            if self.Input.molfile == '':
+        if not self.skyonly:
+            if self.molfile == '':
                 sys.exit('Error: for AMC calculations the molecular datafile (molfile) needs to be set.')
             with open(_os.path.join(self.directory, "amc.inp"),'w') as f:
-                f.write("source={0}\n".format(self.Input.modelfile))
+                f.write("source={0}\n".format(self.modelfile))
                 f.write("outfile=populations.pop\n")
-                f.write("molfile={0}\n".format(self.Input.molfile))
-                f.write("snr={0}\n".format(self.Input.snr))
+                f.write("molfile={0}\n".format(self.molfile))
+                f.write("snr={0}\n".format(self.snr))
                 #~ f.write("velo=grid")
-                f.write("nphot={0}\n".format(self.Input.nphot))
-                f.write("kappa={0}\n".format(self.Input.kappa))
-                f.write("minpop={0:3.2E}\n".format(self.Input.minpop))
+                f.write("nphot={0}\n".format(self.nphot))
+                f.write("kappa={0}\n".format(self.kappa))
+                f.write("minpop={0:3.2E}\n".format(self.minpop))
                 f.write("seed=1971\n")
-                f.write("fixset={0:3.2E}\n".format(self.Input.fixset))
+                f.write("fixset={0:3.2E}\n".format(self.fixset))
                 f.write("go\n")
                 f.write("q\n")
                 f.write("\n")
 
 
         with open(_os.path.join(self.directory, "sky.inp"),'w') as f:
-            if self.Input.skyonly:
-                f.write("source={0}\n".format(self.Input.modelfile))
+            if self.skyonly:
+                f.write("source={0}\n".format(self.modelfile))
             else:
                 f.write("source=populations.pop\n")                     # just use the AMC output file (always set to populations.pop above)
             f.write("format=miriad\n")
-            f.write("outfile="+self.Input.outputfile+"\n")
-            if type(self.Input.trans) == type([]):    # if there is more than one transition
-                li = [str(i) for i in self.Input.trans]
+            f.write("outfile="+self.outputfile+"\n")
+            if type(self.trans) == type([]):    # if there is more than one transition
+                li = [str(i) for i in self.trans]
                 f.write("trans={0}\n".format(','.join(li)))
             else:
-                f.write("trans={0}\n".format(self.Input.trans))
-            f.write("pix={0},{1:f},{2},{3}".format(self.Input.imsize, self.Input.pixel, self.Input.pxlradius, self.Input.los))
-            if self.Input.skyonly:
+                f.write("trans={0}\n".format(self.trans))
+            f.write("pix={0},{1:f},{2},{3}\n".format(self.imsize, self.pixel, self.pxlradius, self.los))
+            if self.skyonly:
                 f.write("chan=1,1.0\n")
             else:
-                f.write("chan={0},{1:f}\n".format(self.Input.chans, self.Input.chwidth))
-            f.write("distance="+str(self.Input.dpc)+"\n")
-            f.write("units={0}\n".format(self.Input.unit))
+                f.write("chan={0},{1:f}\n".format(self.chans, self.chwidth))
+            f.write("distance={0}\n".format(self.dpc))
+            f.write("units={0}\n".format(self.unit))
             f.write("go\n")
             f.write("q\n")
             f.write("\n")
+            
     def __str__(self):
+        
+        print ('M_10K   : {0:<7.2f} Msun\n'
+        'R_10K   : {1:<7.0f} AU\n'
+        'nH2_10K : {2:<7.1e} cm-3\n'
+        'Y       : {3:<7.0f}\n'
+        'T       : {4:<7.1f} K\n'.format(self.M.sum(),
+                                    self.r_10k/_cgs.AU,
+                                    self.nh2_10k,
+                                    self.Y,
+                                    self.temp_10k))
+        print 'Constraining the envelope : ', self.r_constraint
+        print ('nH2_r1000   : {0:<7.1e} cm-3\n'
+                'T_r1000     : {1:7.1f} K\n'.format(self.nh2_r1000,
+                                             self.temp_r1000))
         return 'Info. about the model'
 
     def save(self, filename='ratran_input.pick'):
@@ -1356,19 +1413,126 @@ class Ratran:
         from time import time, sleep
         import sys
         # 
-        if not self.Input.writeonly:
-            if not self.Input.skyonly:
+        if not self.writeonly:
+            if not self.skyonly:
                 #~ print "Starting AMC calculation..."
                 with ChangeDirectory(self.directory):
+                    f = open('amc.log', 'w')
+                    f.close()
                     t1 = time()
-                    proc = subprocess.call(['amc', 'amc.inp'])
-                print('\nAMC took {0:2.1f} seconds'.format((time()-t1)))
+                    proc = subprocess.Popen(['amc', 'amc.inp'],
+                                    stdout = subprocess.PIPE, 
+                                    stderr = subprocess.STDOUT)
+    
+                    #~ sys.stdout.write('Iteration no : ')
+                    #~ sys.stdout.flush() # flush output so we can write again
+                    #~ amc_out = []
+                    self.amc_output = []
+                    step = 0
+                    sys.stdout.write('AMC Fixset converged : ')
+                    sys.stdout.flush()
+                    while True:
+                        # first : if process is done, break the loop
+                        if proc.poll() != None: 
+                            break
+                        nextline = proc.stdout.readline()
+                        #~ amc_out.append(nextline)
+                        self.amc_output.append(nextline)
+                        #~ sys.stdout.write(nextline+'\n')
+                        #~ sys.stdout.flush()
+                        if "% converged" in nextline:
+                            conv_perc = nextline[-18:-10]
+                            sys.stdout.write('{0:7}{1}'.format(conv_perc, '\b'*8)) # print out a point
+                            sys.stdout.flush()
+                        if "FIXSET convergence reached..." in nextline:
+                            step += 1
+                            sys.stdout.write('{0:7} {1}\n'.format('100.00%', 'FIXSET done, starting RANDOM'))
+                            sys.stdout.flush()
+                            sys.stdout.write('{0}'.format('Percent converged : '))
+                            sys.stdout.flush()
+                        if "% | " in nextline and step == 1:
+                            conv_perc = nextline[24:31]
+                            sys.stdout.write('{0:8}{1}'.format(conv_perc, '\b'*8)) # print out a point
+                            sys.stdout.flush()
+                        if "Warning" in nextline or "Fatal Error" in nextline:
+                            sys.stdout.write('{0}'.format(nextline)) # print out a point
+                            sys.stdout.flush()
+                        open('amc.log', 'a').write('{0}'.format(nextline))
+                            #~ # grab the iteration number
+                            #~ iter_no = int(nextline[10:])
+                            #~ sys.stdout.write('{0:3} \b\b\b\b'.format(iter_no)) # print out a point
+                            #~ sys.stdout.flush()
+                            
+                        #~ if "Error" in nextline:
+                            # if it is the error of the first iteration
+                            # we grab the error of it
+                            #~ if iter_no == 1:
+                                #~ start_error = float(nextline[13:])
+                                #~ first = 0 # now we are not at the first any longer
+                            # if it is not the first error, calculate per cent done
+                            #~ else:
+                                #~ current_error = float(nextline[13:])
+                                #~ diff1 = start_error - self.convcrit
+                                #~ diff2 = start_error - current_error
+                                #~ p_done = (diff2 / diff1 * 100)
+                                #~ sys.stdout.write(' {0} : {1}\r'.format(iter_no, p_done)) # print out a point
+                                #~ sys.stdout.flush()    # flush output so we can write again
+                        #~ sleep(0.5)            # wait for 0.5 second
+                        #~ sys.stdout.write('Downloading File FooFile.txt [%d%%]\r'%i)
+                        #~ sys.stdout.flush()
+                    print('\nAMC took {0:2.1f} seconds'.format((time()-t1)))
+                    f.close()
+                    #~ self.amc_output = ''.join(amc_out)
+            # now run SKY
             with ChangeDirectory(self.directory):
+                f = open('sky.log', 'w')
+                f.close()
                 t1 = time()
-                proc = subprocess.call(['sky', 'sky.inp'])
-                print('\nSKY took {0:2.1f} seconds'.format((time()-t1)))
+                proc = subprocess.Popen(['sky', 'sky.inp'],
+                                    stdout = subprocess.PIPE, 
+                                    stderr = subprocess.STDOUT)
+                #~ sys.stdout.write('Iteration no : ')
+                #~ sys.stdout.flush() # flush output so we can write again
+                #~ sky_out = []
+                self.sky_output = []
+                while True:
+                    # first : if process is done, break the loop
+                    if proc.poll() != None: 
+                        break
+                    nextline = proc.stdout.readline()
+                    #~ print(nextline)
+                    #~ sky_out.append(nextline)
+                    self.sky_output.append(nextline)
+                    #~ sys.stdout.write(nextline+'\n'); sys.stdout.flush()
+                    open('sky.log', 'a').write('{0}'.format(nextline))
                     
-          
+                    #~ if "Iteration" in nextline:
+                        #~ # grab the iteration number
+                        #~ iter_no = int(nextline[10:])
+                        #~ sys.stdout.write('{0:3} \b\b\b\b'.format(iter_no)) # print out a point
+                        #~ sys.stdout.flush()
+                        
+                    #~ if "Error" in nextline:
+                        # if it is the error of the first iteration
+                        # we grab the error of it
+                        #~ if iter_no == 1:
+                            #~ start_error = float(nextline[13:])
+                            #~ first = 0 # now we are not at the first any longer
+                        # if it is not the first error, calculate per cent done
+                        #~ else:
+                            #~ current_error = float(nextline[13:])
+                            #~ diff1 = start_error - self.convcrit
+                            #~ diff2 = start_error - current_error
+                            #~ p_done = (diff2 / diff1 * 100)
+                            #~ sys.stdout.write(' {0} : {1}\r'.format(iter_no, p_done)) # print out a point
+                            #~ sys.stdout.flush()    # flush output so we can write again
+                    #~ sleep(0.5)            # wait for 0.5 second
+                    
+                    #~ sys.stdout.write('Downloading File FooFile.txt [%d%%]\r'%i)
+                    #~ ys.stdout.flush()
+                print('\nSKY took {0:2.1f} seconds'.format((time()-t1)))
+                f.close()
+                #~ self.sky_output = ''.join(sky_out)
         #~ # now get the output as a string, so we can check stuff if
         #~ # we want to
         #~ self.transphere_output = ''.join(trans_out)
@@ -1565,7 +1729,7 @@ class Transphere:
         _subprocess.Popen(['cp', self.freqfile, self.directory])
         
         # save the transphere input
-        # move outside of the class?
+        # TODO : move outside of the class so its optional?
         save_transphere(self)
         
         # Convert distances to CGS units
@@ -1664,7 +1828,7 @@ class Transphere:
             self.n_h2 = concatenate((n_inner, n_outer))                 # cm-3
             # calculate the gas density
             self.rho_gas = self.n_h2 * _cgs.MUH2 * _cgs.MP              # g * cm-3
-            self.rho_dust = self.rho_gas /self.gas2dust # g * cm-3
+            self.rho_dust = self.rho_gas /self.gas2dust                 # g * cm-3
             # apply radial dependence to the H2 number density
                           # nh2 * cm-3
             # gas to dust is mass relationship

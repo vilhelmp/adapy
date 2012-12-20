@@ -1,8 +1,8 @@
 #
 # Magnus Persson < vilhelm.nu >
 #
-# Script to create a moldata file for pH2(18)O-H2, combining
-# the JPL catalog file for H2(18)O and the existing H2O moldata file.
+# Script to create a moldata file for (o/p)pH2(18)O-H2, combining
+# the JPL catalog file for (o/p)H2(18)O and the existing pH2O-H2 moldata file.
 #
 # Converted from a script by Suzanne Bisschop for CH3OCH3
 #
@@ -14,30 +14,59 @@ moldatapath = '/home/magnusp/work/data/moldata/'
 
 
 # Para ('0') or Ortho ('1') water?
-# Joe: this is v=0 and v=1!!!
-#~ oORp = '0'
+ortho = '0'
+# Only transitions with v = 0, i.e. only the rotational transitions
+# and not the vibrational ones.
 v0orv1 = '0'
+# it only checks this if you input the combined file
+# because it is not included in the specific ortho/para files
 
-jpldata = 'c020003_11122012.cat' # H2-18O file from JPL molecular catalog 
+# if jpldata is the new files, with 'o' or 'p' appended, then this check is
+# not necessary, if so set 'docheck' to False
+# if you use the combined file, set to True
+docheck = False
+
+# either:
+#~ jpldata = 'c020003.cat' # combined o/p H2-18O file from JPL molecular catalog 
+# or:
+jpldata = ['c020003p.cat', 'c020003o.cat'][int(ortho)] # H2-18O file from JPL molecular catalog 
+# from:
 # http://spec.jpl.nasa.gov/ftp/pub/catalog/catdir.html
 # http://spec.jpl.nasa.gov/ftp/pub/catalog/c020003.cat # combined ortho/para
-# http://spec.jpl.nasa.gov/ftp/pub/catalog/c020003o.cat # separate
-# http://spec.jpl.nasa.gov/ftp/pub/catalog/c020003p.cat
+# http://spec.jpl.nasa.gov/ftp/pub/catalog/c020003o.cat # ortho separate
+# http://spec.jpl.nasa.gov/ftp/pub/catalog/c020003p.cat # para separate
 
-
-moldata_reference = ['ph2o-h2@daniel.dat' , 'oh2o-h2@daniel.dat'][int(oORp)]
+# LAMBDA moldata file(s)
+moldatareference = ['ph2o-h2@daniel.dat' , 'oh2o-h2@daniel.dat'][int(ortho)]
 # http://home.strw.leidenuniv.nl/~moldata/H2O.html
 
-newmoldatafile = ['ph2-18o-h2.dat', 'oh2-18o-h2.dat'][int(oORp)]
+# name of the new moldata file
+newmoldatafile = ['ph2-18o-h2.dat', 'oh2-18o-h2.dat'][int(ortho)]
 # gets written to 'moldatapath'
 
-Q300 = 179.639 # ('old') value for the partition function at 300 K
+
+
+# Q300 value
+
+# either: (for the combined file)
+#~ Q300 = 179.639 # ('old') value for the partition function at 300 K
                # for H2-18O (for ortho-para combo) 
                # i.e. not the new values from May 2011 by Brian Druin @ JPL 
                # [only para water], we did not trust them
 # from http://www.cv.nrao.edu/php/splat/species_metadata_displayer.php?species_id=620
 
+# or: (for the ortho/para files)
+pQ300 = 44.8740 # 'new' value for para H2-18O 
+oQ300 = 150.8666 # 'new' value for ortho H2-18O
 
+Q300 = [pQ300, oQ300][int(ortho)]
+
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
+########################################################################
 #  1
 #
 # Read in the JPL catalog and convert quantum numbers into strings(?)
@@ -47,27 +76,33 @@ Q300 = 179.639 # ('old') value for the partition function at 300 K
 
 
 #~ f= open(jplpath+'c020003.cat','r')
-f= open(jplpath + jpldata ,'r')
+f = open(jplpath + jpldata, 'r')
 data = f.read().split('\n')[:-1]
 f.close()
-class catalog:
+class Catalog:
     pass
 
-catalog.data = data
-catalog.freq = array([float(i[1:13])*1E6 for i in data if i[73:75].strip()==oORp])      # 12  (1) in Hz from MHz
-catalog.ufreq = array([float(i[13:21])*1E6 for i in data if i[73:75].strip()==oORp])    # 8   (2) in Hz from MHz
-catalog.linestrength = array([float(i[21:29]) for i in data if i[73:75].strip()==oORp]) # 8   (3)
-catalog.df = array([int(i[29:31]) for i in data if i[73:75].strip()==oORp])             # 2   (4)
-catalog.elevel = array([float(i[31:41]) for i in data if i[73:75].strip()==oORp])       # 10  (5)
-catalog.gup = array([int(i[41:44]) for i in data if i[73:75].strip()==oORp])            # 3   (6)
-catalog.tag = array([int(i[44:51]) for i in data if i[73:75].strip()==oORp])            # 7   (7)
-catalog.gid = array([int(i[51:55]) for i in data if i[73:75].strip()==oORp])            # 4   (8)
+def v0or1check(inp, v, doit = True):
+    if doit:
+        return (inp == v)
+    if not doit:
+        return True
+
+Catalog.data = data
+Catalog.freq = array([float(i[1:13])*1E6 for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])      # 12  (1) in Hz from MHz
+Catalog.ufreq = array([float(i[13:21])*1E6 for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])    # 8   (2) in Hz from MHz
+Catalog.linestrength = array([float(i[21:29]) for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)]) # 8   (3)
+Catalog.df = array([int(i[29:31]) for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])             # 2   (4)
+Catalog.elevel = array([float(i[31:41]) for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])       # 10  (5)
+Catalog.gup = array([int(i[41:44]) for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])            # 3   (6)
+Catalog.tag = array([int(i[44:51]) for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])            # 7   (7)
+Catalog.gid = array([int(i[51:55]) for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])            # 4   (8)
 # a bit nasty read-in of the quantum level numbers
 # could perhaps be done in a more elegant way?
-catalog.qup = array(['_'.join((i[55:57].strip(),i[57:59].strip(),i[59:61].strip())) for i in data if i[73:75].strip()==oORp])  # 8 (9)
+Catalog.qup = array(['_'.join((i[55:57].strip(),i[57:59].strip(),i[59:61].strip())) for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])  # 8 (9)
 # 5 spaces
 #~ qlow = array([i[67:75].strip()[:-2] for i in data if i[73:75].strip()==oORp]) # 8 (10)
-catalog.qlow = array(['_'.join((i[67:69].strip(),i[69:71].strip(),i[71:73].strip())) for i in data if i[73:75].strip()==oORp])
+Catalog.qlow = array(['_'.join((i[67:69].strip(),i[69:71].strip(),i[71:73].strip())) for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])
 
 # 
 # create our new moldata file and write the first few lines along
@@ -75,24 +110,24 @@ catalog.qlow = array(['_'.join((i[67:69].strip(),i[69:71].strip(),i[71:73].strip
 #
 # open reference moldata file for main isotopologue
 #~ f = open(moldatapath+'ph2o-h2@daniel.dat','r')
-f = open(moldatapath + moldata_reference,'r')
+f = open(moldatapath + moldatareference, 'r')
 molref = f.read().split('\n')
 f.close()
-class moldata:
+class Moldata:
     pass
 
 molref = molref[:-1]
-moldata.data = molref
-moldata.n_elevels = int(moldata.data[5])
-moldata.elevels_d = [i.split() for i in moldata.data[7:7+moldata.n_elevels]]
+Moldata.data = molref
+Moldata.n_elevels = int(Moldata.data[5])
+Moldata.elevels_d = [i.split() for i in Moldata.data[7:7 + Moldata.n_elevels]]
 
 #
 # Read in the data for the main isotopologue for the energy levels
 # and convert quantum numbers into strings(?)
 #
 # data1 is the whole molref table
-moldata.wh2o = array([i[2] for i in moldata.elevels_d],dtype='float')
-moldata.qh2o = array([i[3] for i in moldata.elevels_d]) # this is the X_Y_Z values
+Moldata.wh2o = array([i[2] for i in Moldata.elevels_d],dtype='float')
+Moldata.qh2o = array([i[3] for i in Moldata.elevels_d]) # this is the X_Y_Z values
 
 #
 # match the energy levels of p-h2-18o with h2o
@@ -100,56 +135,56 @@ moldata.qh2o = array([i[3] for i in moldata.elevels_d]) # this is the X_Y_Z valu
 # NOTE : if it doesnt find the energy level, it skips it.
 #
 
-indices = [where(i == catalog.qlow)[0] for i in moldata.qh2o if len(where(i == catalog.qlow)[0]) != 0]
+indices = [where(i == Catalog.qlow)[0] for i in Moldata.qh2o if len(where(i == Catalog.qlow)[0]) != 0]
 
-neglected = [where(i == catalog.qlow)[0] for i in moldata.qh2o if len(where(i == catalog.qlow)[0]) == 0]
-neglected_ID = [i for i in moldata.qh2o if len(where(i == catalog.qlow)[0]) == 0]
+neglected = [where(i == Catalog.qlow)[0] for i in Moldata.qh2o if len(where(i == Catalog.qlow)[0]) == 0]
+neglected_ID = [i for i in Moldata.qh2o if len(where(i == Catalog.qlow)[0]) == 0]
 if len(neglected)>0:
     print ('IMPORTANT: {0} energy levels were NOT matched, this could be significant.'.format(len(neglected)))
     print ('The ignored levels are :\n {0}'.format('\n '.join(neglected_ID)))
 
-class new_moldata:
+class NewMoldata:
     pass
 
 # get the energy levels
-new_moldata.en = array([catalog.elevel[i[0]] for i in indices])
-new_moldata.nlevels = len(indices)
+NewMoldata.en = array([Catalog.elevel[i[0]] for i in indices])
+NewMoldata.nlevels = len(indices)
 
 # 
 #
 # Read and convert transitions
 #
 # main header is 7 lines, header for rad. trans is 3 lines (including title for ! TRANS...)
-i_rtrans = moldata.n_elevels+7+3
+i_rtrans = Moldata.n_elevels+7+3
 # main hdr 7 lines, first line "!NUMBER OF RADIATIVE TRANSITIONS"
-moldata.n_rtrans = int(moldata.data[moldata.n_elevels+7+1])
-new_moldata.n_rtrans = moldata.n_rtrans
+Moldata.n_rtrans = int(Moldata.data[Moldata.n_elevels+7+1])
+NewMoldata.n_rtrans = Moldata.n_rtrans
 # get the radiative transitions table from the H2O moldata file
 # i_rtrans is 55 for the ph2o-h2@daniel
-moldata.trans_d = array([array(i.split()) for i in moldata.data[i_rtrans:i_rtrans + moldata.n_rtrans]])
-# now moldata.trans_d[:,X] is the whole table
+Moldata.trans_d = array([array(i.split()) for i in Moldata.data[i_rtrans:i_rtrans + Moldata.n_rtrans]])
+# now Moldata.trans_d[:,X] is the whole table
 # where X (0=TRANS, 1=UP, 2=LOW, 3= EINSTEIN, 4=FREQ, 5=E_up)
 
-moldata.up = moldata.trans_d[:,1].astype('int') # up levels (not python slice-friendly)
-moldata.low = moldata.trans_d[:,2].astype('int') # low
+Moldata.up = Moldata.trans_d[:,1].astype('int') # up levels (not python slice-friendly)
+Moldata.low = Moldata.trans_d[:,2].astype('int') # low
 
-moldata.qup = moldata.qh2o[moldata.up-1] # since we are slicing in Python
-moldata.qlow = moldata.qh2o[moldata.low-1]
+Moldata.qup = Moldata.qh2o[Moldata.up-1] # since we are slicing in Python
+Moldata.qlow = Moldata.qh2o[Moldata.low-1]
 
-# find where the values are in catalog.qup/qlow (JPL), in the order of
-# moldata.qup/qlow, i.e. moldata.up/low
-test_result = lambda i: where((catalog.qup == moldata.qup[i]) * (catalog.qlow == moldata.qlow[i]))[0]
+# find where the values are in Catalog.qup/qlow (JPL), in the order of
+# Moldata.qup/qlow, i.e. Moldata.up/low
+test_result = lambda i: where((Catalog.qup == Moldata.qup[i]) * (Catalog.qlow == Moldata.qlow[i]))[0]
 
-#~ new_moldata.up = empty((moldata.n_rtrans))
-#~ new_moldata.low = empty((moldata.n_rtrans))
-new_moldata.up = moldata.up     # we are checking in this order in the
-new_moldata.low = moldata.low   # for-loop later on.
+#~ NewMoldata.up = empty((Moldata.n_rtrans))
+#~ NewMoldata.low = empty((Moldata.n_rtrans))
+NewMoldata.up = Moldata.up     # we are checking in this order in the
+NewMoldata.low = Moldata.low   # for-loop later on.
 
-new_moldata.Aij = empty((moldata.n_rtrans))
-new_moldata.freq = empty((moldata.n_rtrans))
-new_moldata.el = empty((moldata.n_rtrans))
-new_moldata.eu = empty((moldata.n_rtrans))
-new_moldata.A = empty((moldata.n_rtrans))
+NewMoldata.Aij = empty((Moldata.n_rtrans))
+NewMoldata.freq = empty((Moldata.n_rtrans))
+NewMoldata.el = empty((Moldata.n_rtrans))
+NewMoldata.eu = empty((Moldata.n_rtrans))
+NewMoldata.A = empty((Moldata.n_rtrans))
 
 #~ Q300 = 179.639 # value for the partition function at 300 K
 
@@ -160,35 +195,35 @@ new_moldata.A = empty((moldata.n_rtrans))
 
 not_matched = []
 
-for i in arange(moldata.n_rtrans):
+for i in arange(Moldata.n_rtrans):
     if not test_result(i): # if NO match is found, use 'moldata' value
         # we need to calculate/get : freq, eu, A
-        new_moldata.A[i] = moldata.trans_d[i,3]
-        new_moldata.freq[i] = float(moldata.trans_d[i,4])*1E9  # in Hz from GHz
-        new_moldata.eu[i] = float(moldata.trans_d[i,5])
+        NewMoldata.A[i] = Moldata.trans_d[i,3]
+        NewMoldata.freq[i] = float(Moldata.trans_d[i,4])*1E9  # in Hz from GHz
+        NewMoldata.eu[i] = float(Moldata.trans_d[i,5])
         not_matched.append(i)
     else: # if a match IS found, get the 'catalog' value and calculate
         # we need to calculate/get : freq, eu, A
-        new_moldata.freq[i] = catalog.freq[test_result(i)]              # in Hz already
+        NewMoldata.freq[i] = Catalog.freq[test_result(i)]              # in Hz already
         # convert El from cm-1 to K
-        new_moldata.el[i] = catalog.elevel[test_result(i)] * C.c*1e2 * C.h / C.k
+        NewMoldata.el[i] = Catalog.elevel[test_result(i)] * C.c*1e2 * C.h / C.k
         # cm-1 * (cm/s) * (m2 kg / s)/(J/K) =
         # = cm-1 * cm * (m2 kg / s2) K / (m2 kg / s2) =
         # = K
         # calculate the Eu from El and freq
-        new_moldata.eu[i] = new_moldata.el[i] + C.h * new_moldata.freq[i] / C.k
-        # new_moldata.el[i] because we defined it above
+        NewMoldata.eu[i] = NewMoldata.el[i] + C.h * NewMoldata.freq[i] / C.k
+        # NewMoldata.el[i] because we defined it above
         # [el] K + (m2 kg/s) * s-1 / (J/K) =
         # [el] K + K = K
-        It = 10**(catalog.linestrength[test_result(i)])
-        f = exp(-new_moldata.el[i]/300.) - exp(-new_moldata.eu[i]/300.)
+        It = 10**(Catalog.linestrength[test_result(i)])
+        f = exp(-NewMoldata.el[i]/300.) - exp(-NewMoldata.eu[i]/300.)
         constant = 2.7964E-16 # in s-1
-        new_moldata.A[i] = constant * (new_moldata.freq[i]*1E-6)**2 * It * Q300 /(catalog.gup[i] * f)
+        NewMoldata.A[i] = constant * (NewMoldata.freq[i]*1E-6)**2 * It * Q300 /(Catalog.gup[i] * f)
         # Calculate the Einstein A coefficient with Equation 9 from
         # Pickett et al. (1998) "Submillimeter, millimeter and microwave spectral line catalog"
         # where freq should be in MHz
         # now output this as
-        # N new_moldata.up new_moldata.low new_moldata.A new_moldata.freq new_moldata.eu
+        # N NewMoldata.up NewMoldata.low NewMoldata.A NewMoldata.freq NewMoldata.eu
 
 # 
 #
@@ -205,9 +240,9 @@ The IDL code for this
 ; 2,'c031503.cat' JPL catalog file
 ; 3,'o-h2c-13-o.dat' new moldata file
 ;
-el=elevel(outputIndex)              # catalog.elevel[test_result(i)]
-freq=freq(outputIndex)              # catalog.freq[test_result(i)]
-dg=gup(outputIndex)                 # catalog.qup[test_result(i)]
+el=elevel(outputIndex)              # Catalog.elevel[test_result(i)]
+freq=freq(outputIndex)              # Catalog.freq[test_result(i)]
+dg=gup(outputIndex)                 # Catalog.qup[test_result(i)]
 k=1.38066d-23                       # C.k (J/K)
 h=6.62608d-34                       # C.h (m2 kg / s)
 c=2.997925d10                       # C.c *1e2(?)
@@ -246,22 +281,24 @@ f_new = open(moldatapath + newmoldatafile, 'w')
 # write the header
 f_new.writelines(['!MOLECULE\n','para-H2-18O (JPL data)\n'])
 f_new.writelines(['!MOLECULAR WEIGHT\n','20.\n'])
-f_new.writelines(['!NUMBER OF ENERGY LEVELS\n{0}\n'.format(new_moldata.nlevels)])
+f_new.writelines(['!NUMBER OF ENERGY LEVELS\n{0}\n'.format(NewMoldata.nlevels)])
 # write the energy level table
 f_new.write('!LEVEL + ENERGIES(CM^-1) + WEIGHT + J_Kp_Ko\n')
 # what is new here is the "en" array
-f_new.writelines(['{0: =3} {1: =13.6f} {2: =6.1f} {3:^14}\n'.format(i,j,k,l) for (i,j,k,l) in zip(arange(1,46,1), new_moldata.en, moldata.wh2o, moldata.qh2o)])
+f_new.writelines(['{0: =3} {1: =13.6f} {2: =6.1f} {3:^14}\n'.format(i,j,k,l) for (i,j,k,l) in zip(arange(1,46,1), NewMoldata.en, Moldata.wh2o, Moldata.qh2o)])
 # write header for radiative transitions
-f_new.writelines(['!NUMBER OF RADIATIVE TRANSITIONS\n{0}\n'.format(new_moldata.n_rtrans)])
+f_new.writelines(['!NUMBER OF RADIATIVE TRANSITIONS\n{0}\n'.format(NewMoldata.n_rtrans)])
 f_new.writelines(['!TRANS + UP + LOW + EINSTEINA(s^-1) + FREQ(GHz)+ E_up(K)\n'])
 # write the matched radiative transitions as
 # i+1,up(i),low(i),A(i),freq(i),eu(i)
-format_array = zip(arange(moldata.n_rtrans), new_moldata.up, new_moldata.low, new_moldata.A, new_moldata.freq * 1E-9, new_moldata.eu)
+format_array = zip(arange(Moldata.n_rtrans), NewMoldata.up, NewMoldata.low, NewMoldata.A, NewMoldata.freq * 1E-9, NewMoldata.eu)
 rtrans_output = ['{0:3}    {1:2}    {2:2}    {3:6.3E}    {4: 13.5f}    {5:5.1f}\n'.format(i+1,j,k,l,m,n) for (i,j,k,l,m,n) in format_array]
 f_new.writelines(rtrans_output)
 
 # Collision rates for main partner
 # Perhaps it should account for the mass difference between 
 # 16O and 18O? Or does it already? Gah...
-retcode = [f_new.writelines(i+'\n') for i in moldata.data[55+moldata.n_rtrans:]]
+retcode = [f_new.writelines(i+'\n') for i in Moldata.data[55+Moldata.n_rtrans:]]
 f_new.close()
+
+print("\n{0} transitions not matched and left out.\n".format(len(not_matched)))
