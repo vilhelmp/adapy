@@ -1009,7 +1009,7 @@ class Ratran:
         'templim',                    8.0,           'K',    'float',   # Daniel uses 8 K
         'nh2lim',                     1E4,        'cm-3',    'float',   #
         'Tconstouter',              False,            '',     'bool',   # Constant temperature (=templim) where temp < templim
-        'trans',                      '7',            '',      'str',   # Transition number(s) as int, or list
+        'trans',                      '7',            '',      'str',   # Transition number(s) as string. If the input 'molfile' is defined, trans contains the transition numbers to be calculated. These are the numbers at the start of lines (10+NLEV) to (10+NLEV+NLIN) in the molecular data file.
         'dpc',                        0.0,          'pc',    'float',   # Distance to source
         'imsize',                     129,      'pixels',      'int',   # Number of pixels in the output image
         'pixel',                      0.5,    'asec/pxl',    'float',   # Pixel size in arcseconds
@@ -1018,7 +1018,6 @@ class Ratran:
         'chans',                       50,            '',      'int',   # number of velocity channels
         'chwidth',                    0.2,            '',    'float',   # Channel width, in km/s
         'unit',                    'Jypx',            '',      'str',   # Output units ['Jypx', 'K', 'Wm2Hzsr']
-        'trans',                        7,            '',      'int',   # Transition numbers. If the input 'molfile' is defined, trans contains the transition numbers to be calculated. These are the numbers at the start of lines (10+NLEV) to (10+NLEV+NLIN) in the molecular data file.
         'snr',                       10.0,       'ratio',    'float',   # Requested minimum signal-to-noise
         'fixset',                    1E-6,            '',    'float',   # Convergence requirement for first stage
         'minpop',                    1E-4,            '',    'float',   # Minimum population to include in S/N calculation
@@ -1088,6 +1087,8 @@ class Ratran:
             else:
                 Input.__dict__[par] = value
                 self.__dict__[par] = value
+        #
+        Input.trans = Input.trans.replace(' ', '') # remove whitespaces!
         
         # input parameters contains all the input needed to 
         # create this class again

@@ -14,7 +14,7 @@ moldatapath = '/home/magnusp/work/data/moldata/'
 
 
 # Para ('0') or Ortho ('1') water?
-ortho = '0'
+ortho = '1'
 # Only transitions with v = 0, i.e. only the rotational transitions
 # and not the vibrational ones.
 v0orv1 = '0'
@@ -176,10 +176,6 @@ Moldata.low = Moldata.trans_d[:,2].astype('int') # low
 Moldata.qup = Moldata.qh2o[Moldata.up-1] # since we are slicing in Python
 Moldata.qlow = Moldata.qh2o[Moldata.low-1]
 
-# find where the values are in Catalog.qup/qlow (JPL), in the order of
-# Moldata.qup/qlow, i.e. Moldata.up/low
-test_result = lambda i: where((Catalog.qup == Moldata.qup[i]) * (Catalog.qlow == Moldata.qlow[i]))[0]
-
 #~ NewMoldata.up = empty((Moldata.n_rtrans))
 #~ NewMoldata.low = empty((Moldata.n_rtrans))
 NewMoldata.up = Moldata.up     # we are checking in this order in the
@@ -198,29 +194,33 @@ NewMoldata.A = empty((Moldata.n_rtrans))
 #
 #First the frequency is in Hz
 
+# find where the values are in Catalog.qup/qlow (JPL), in the order of
+# Moldata.qup/qlow, i.e. Moldata.up/low
+# only one transition, or none
+test_result = lambda i: where((Catalog.qup == Moldata.qup[i]) * (Catalog.qlow == Moldata.qlow[i]))[0]
+
 not_matched = []
 
 for i in arange(Moldata.n_rtrans):
-    if not test_result(i): # if NO match is found, use 'moldata' value
-        # we need to calculate/get : freq, eu, A
-        NewMoldata.A[i] = Moldata.trans_d[i,3]
-        NewMoldata.freq[i] = float(Moldata.trans_d[i,4])*1E9  # in Hz from GHz
-        # This frequency is WRONG!, need to take the Catalog.freq that 
-        # correponds to the Moldata.up - Moldata.low transition
-        #~ NewMoldata.freq[i] = float(Moldata.trans_d[i,4])*1E9  # in Hz from GHz
-        NewMoldata.eu[i] = float(Moldata.trans_d[i,5])
-        not_matched.append(i)
-    else: # if a match IS found, get the 'catalog' value and calculate
+    # 2012-12-23 - magnusp: changed here so that 
+    # I use the size() function, this is correct when checking 
+    # numpy/scipy arrays
+    if size(test_result(i)): 
+        # if a match IS found, get the 'catalog' value and calculate
         # we need to calculate/get : freq, eu, A
         NewMoldata.freq[i] = Catalog.freq[test_result(i)]              # in Hz already
         # convert El from cm-1 to K
-        NewMoldata.el[i] = Catalog.elevel[test_result(i)] * C.c*1e2 * C.h / C.k
+        # the ratio C.h/C.k cancels out the cgs or SI units that would change
+        # i.e. if in CGS, it gives the same as if in SI. See below both depends on m2
+        NewMoldata.el[i] = Catalog.elevel[test_result(i)] * C.c*1e2 * C.h / C.k 
+        # UNIT check:
         # cm-1 * (cm/s) * (m2 kg / s)/(J/K) =
         # = cm-1 * cm * (m2 kg / s2) K / (m2 kg / s2) =
         # = K
         # calculate the Eu from El and freq
         NewMoldata.eu[i] = NewMoldata.el[i] + C.h * NewMoldata.freq[i] / C.k
         # NewMoldata.el[i] because we defined it above
+        # UNIT check:
         # [el] K + (m2 kg/s) * s-1 / (J/K) =
         # [el] K + K = K
         It = 10**(Catalog.linestrength[test_result(i)])
@@ -232,6 +232,15 @@ for i in arange(Moldata.n_rtrans):
         # where freq should be in MHz
         # now output this as
         # N NewMoldata.up NewMoldata.low NewMoldata.A NewMoldata.freq NewMoldata.eu
+    else:# if NO match is found, use 'moldata' value 
+        # we need to calculate/get : freq, eu, A
+        NewMoldata.A[i] = Moldata.trans_d[i,3]
+        NewMoldata.freq[i] = float(Moldata.trans_d[i,4])*1E9  # in Hz from GHz
+        # This frequency is WRONG!, need to take the Catalog.freq that 
+        # correponds to the Moldata.up - Moldata.low transition
+        #~ NewMoldata.freq[i] = float(Moldata.trans_d[i,4])*1E9  # in Hz from GHz
+        NewMoldata.eu[i] = float(Moldata.trans_d[i,5])
+        not_matched.append(i)
 
 # 
 #
@@ -303,9 +312,11 @@ format_array = zip(arange(Moldata.n_rtrans), NewMoldata.up, NewMoldata.low, NewM
 rtrans_output = ['{0:3}    {1:2}    {2:2}    {3:6.3E}    {4: 13.5f}    {5:5.1f}\n'.format(i+1,j,k,l,m,n) for (i,j,k,l,m,n) in format_array]
 f_new.writelines(rtrans_output)
 
+#
 # Collision rates for main partner
 # Perhaps it should account for the mass difference between 
 # 16O and 18O? Or does it already? Gah...
+# It just prints what ever is there already
 retcode = [f_new.writelines(i+'\n') for i in Moldata.data[55+Moldata.n_rtrans:]]
 f_new.close()
 
