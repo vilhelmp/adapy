@@ -1009,7 +1009,7 @@ class Ratran:
         'templim',                    8.0,           'K',    'float',   # Daniel uses 8 K
         'nh2lim',                     1E4,        'cm-3',    'float',   #
         'Tconstouter',              False,            '',     'bool',   # Constant temperature (=templim) where temp < templim
-        'trans',                        7,            '',    'mixed',   # Transition number(s) as int, or list
+        'trans',                      '7',            '',      'str',   # Transition number(s) as int, or list
         'dpc',                        0.0,          'pc',    'float',   # Distance to source
         'imsize',                     129,      'pixels',      'int',   # Number of pixels in the output image
         'pixel',                      0.5,    'asec/pxl',    'float',   # Pixel size in arcseconds
@@ -1361,11 +1361,7 @@ class Ratran:
                 f.write("source=populations.pop\n")                     # just use the AMC output file (always set to populations.pop above)
             f.write("format=miriad\n")
             f.write("outfile="+self.outputfile+"\n")
-            if type(self.trans) == type([]):    # if there is more than one transition
-                li = [str(i) for i in self.trans]
-                f.write("trans={0}\n".format(','.join(li)))
-            else:
-                f.write("trans={0}\n".format(self.trans))
+            f.write("trans={0}\n".format(self.trans))
             f.write("pix={0},{1:f},{2},{3}\n".format(self.imsize, self.pixel, self.pxlradius, self.los))
             if self.skyonly:
                 f.write("chan=1,1.0\n")

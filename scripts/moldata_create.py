@@ -84,7 +84,7 @@ class Catalog:
 
 def v0or1check(inp, v, doit = True):
     if doit:
-        return (inp == v)
+        return inp == v
     if not doit:
         return True
 
@@ -134,8 +134,10 @@ Moldata.qh2o = array([i[3] for i in Moldata.elevels_d]) # this is the X_Y_Z valu
 #
 # NOTE : if it doesnt find the energy level, it skips it.
 #
-
+# The same energy levels exists in the Catalog.qup array, only the 
+# first ('0_0_0') energy level is missing.
 indices = [where(i == Catalog.qlow)[0] for i in Moldata.qh2o if len(where(i == Catalog.qlow)[0]) != 0]
+
 
 neglected = [where(i == Catalog.qlow)[0] for i in Moldata.qh2o if len(where(i == Catalog.qlow)[0]) == 0]
 neglected_ID = [i for i in Moldata.qh2o if len(where(i == Catalog.qlow)[0]) == 0]
@@ -146,7 +148,10 @@ if len(neglected)>0:
 class NewMoldata:
     pass
 
-# get the energy levels
+# Get the energy levels 
+# (the matches are the same energy levels, so only use first index)
+# NewMoldata.en is what is listen in teh ENERGIES(CM^-1) column in 
+# the moldata file
 NewMoldata.en = array([Catalog.elevel[i[0]] for i in indices])
 NewMoldata.nlevels = len(indices)
 
@@ -200,6 +205,9 @@ for i in arange(Moldata.n_rtrans):
         # we need to calculate/get : freq, eu, A
         NewMoldata.A[i] = Moldata.trans_d[i,3]
         NewMoldata.freq[i] = float(Moldata.trans_d[i,4])*1E9  # in Hz from GHz
+        # This frequency is WRONG!, need to take the Catalog.freq that 
+        # correponds to the Moldata.up - Moldata.low transition
+        #~ NewMoldata.freq[i] = float(Moldata.trans_d[i,4])*1E9  # in Hz from GHz
         NewMoldata.eu[i] = float(Moldata.trans_d[i,5])
         not_matched.append(i)
     else: # if a match IS found, get the 'catalog' value and calculate
@@ -285,7 +293,7 @@ f_new.writelines(['!NUMBER OF ENERGY LEVELS\n{0}\n'.format(NewMoldata.nlevels)])
 # write the energy level table
 f_new.write('!LEVEL + ENERGIES(CM^-1) + WEIGHT + J_Kp_Ko\n')
 # what is new here is the "en" array
-f_new.writelines(['{0: =3} {1: =13.6f} {2: =6.1f} {3:^14}\n'.format(i,j,k,l) for (i,j,k,l) in zip(arange(1,46,1), NewMoldata.en, Moldata.wh2o, Moldata.qh2o)])
+f_new.writelines(['{0: =3} {1: =13.6f} {2: =6.1f} {3:^14}\n'.format(i,j,k,l) for (i,j,k,l) in zip(arange(1, NewMoldata.nlevels+1, 1), NewMoldata.en, Moldata.wh2o, Moldata.qh2o)])
 # write header for radiative transitions
 f_new.writelines(['!NUMBER OF RADIATIVE TRANSITIONS\n{0}\n'.format(NewMoldata.n_rtrans)])
 f_new.writelines(['!TRANS + UP + LOW + EINSTEINA(s^-1) + FREQ(GHz)+ E_up(K)\n'])
