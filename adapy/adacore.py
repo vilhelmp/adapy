@@ -2206,6 +2206,7 @@ class Spectrum:
 
         """
         from scipy import array, sqrt, log, alen, arange, pi, diff
+        from libs.cgsconst import CC
         if 'linefit' not in args:
             # add either interactive fitting or
             # some guessing algorithm

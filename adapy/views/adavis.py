@@ -249,6 +249,8 @@ Need :  o scipy (and numpy)
         #~ SIDE_CAPTION_FIG_WIDTH = SIDE_CAPTION_FIG_WIDTH_MM*INCHES_PER_MM
         #~ FIG_SIZE = [ONE_COL_FIG_WIDTH,ONE_COL_FIG_HEIGHT]
 from ._figsizes import AandA as _AandA # only to local namespace
+
+from ..adacore import *
 ########################################################################
 # USEFUL STRINGS
 _KMS = u"km\u00b7s\u207b\u00b9"

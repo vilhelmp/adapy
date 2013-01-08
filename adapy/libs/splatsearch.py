@@ -235,7 +235,8 @@ def splatsearch(**arg):
     #
     #
     #           No frequency given, what then?
-    #           a looooot of hits returned, perhaps pause and ask if user wants to continue??
+    #           a looooot of hits returned, perhaps pause and ask if 
+    #           user wants to continue??
     #
     #
     #
