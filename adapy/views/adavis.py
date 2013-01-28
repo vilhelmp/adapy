@@ -420,7 +420,8 @@ def draw_sizebar(ax, data, dist=220, au=200, loc=8):
                             pad=0.1, borderpad=0.5, sep=5,
                             frameon=False)
     ax.add_artist(asb)
-def draw_beam(ax, data,loc=3, bpad=0.2, ppad=0.15, box=True):
+    return asb
+def draw_beam(ax, data, loc=3, bpad=0.2, ppad=0.15, box=True):
     """
     function that draws the beam
     the attributes data.bmin, .bmaj and .bpa must exist in the data class
@@ -519,6 +520,11 @@ def steppify(arr, isX=False, interval=0):
     else:
         newarr = array([arr,arr]).transpose().flatten()
         return newarr
+def calc_levels(sigma, mini, maxi):
+    from scipy import arange
+    levels_neg = -1 * arange(sigma, abs(mini) + 2 * sigma, sigma)
+    levels_pos = arange(sigma, maxi + 2 * sigma, sigma)
+    return levels_neg, levels_pos
 ########################################################################
 # DATA OUTPUT
 def write_latex_table(self, filename):
@@ -1641,7 +1647,7 @@ def plot_moment_map(self,
         print '{0}'.format('='*70)
 
     print_title('LINE DATA')
-    mjybeamkms = u'mJy\u00b7beam\u207b\u00b9\u00b7s\u207b\u00b9'
+    mjybeamkms = u'mJy\u00b7beam\u207b\u00b9\u00b7km\u00b7s\u207b\u00b9'
     mjybeamchannel = u'mJy\u00b7beam\u207b\u00b9\u00b7channel\u207b\u00b9'
     print '\n Channels \t: {0:3d} to {1:3d}'.format(Mom.channels.min(), Mom.channels.max())
     print u' RMS \t\t: {0:>10.2f}  {1}'.format(1e3*self.rms, mjybeamchannel)
@@ -1662,7 +1668,7 @@ def plot_moment_map(self,
     self.Mom = Mom
     if send==True:
         print 'sending you moment class and extents'
-        return Mom, self.extent
+        return Mom, array(self.extent).reshape((2,2))
 
     ####################################################################
 

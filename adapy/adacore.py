@@ -198,6 +198,9 @@ class FitsError(Exception):
 ########################################################################
 # GENERAL FUNCTIONS
 
+def calc_gain(bmin, bmaj, frequency):
+    return 8.168E-25 * bmin * bmaj * frequency**2
+    
 def calc_frequency(vlsr, freq0):
     """
     vlsr in kms
@@ -336,7 +339,7 @@ def get_vals(chvals=None, nvals=None):
             nvals = None
     close(1)
     return chvals, nvals
-def calc_offset(ra,dec,**kwargs):
+def calc_offset(ra, dec, display = True, **kwargs):
     """
 
     ra,dec - string with coordinate
@@ -377,62 +380,76 @@ def calc_offset(ra,dec,**kwargs):
         cosdec = cos(dec_decimal*pi/180.) # convert to radians
         new_ra = ra_decimal + offset[0]/cosdec
         new_dec = dec_decimal + offset[1]
-        print 'Input coordinates:'
-        print 'RA:\t{0}\nDEC:\t{1}'.format(parse_ra(ra_decimal,string=1),
-                                    parse_dec(dec_decimal,string=1))
-        print 'Offset: {}'.format(offset_inp)
-        print 'New coordinates:'
-        print 'RA:\t{}\nDEC:\t{}'.format(parse_ra(new_ra,string=1),
-                                    parse_dec(new_dec,string=1))
+        if display:
+            print 'Input coordinates:'
+            print 'RA:\t{0}\nDEC:\t{1}'.format(parse_ra(ra_decimal,string=1),
+                                        parse_dec(dec_decimal,string=1))
+            print 'Offset: {}'.format(offset_inp)
+            print 'New coordinates:'
+            print 'RA:\t{}\nDEC:\t{}'.format(parse_ra(new_ra,string=1),
+                                        parse_dec(new_dec,string=1))
     elif kwargs.get('offset') == None:
         if kwargs.get('data') != None:
-            # calculate the offset from the phase center
-            ralist=[]
-            ralist.append(parse_ra(kwargs['data'].ra_crval,string=1))
+            #~ # calculate the offset from the phase center
+            ralist = []
+            ralist.append(kwargs['data'].ra_crval)
+            #~ ralist.append(parse_ra(kwargs['data'].ra_crval, string=1))
             ralist.append(ra)
-            declist=[]
-            declist.append(parse_dec(kwargs['data'].dec_crval,string=1))
+            declist = []
+            declist.append(kwargs['data'].dec_crval)
+            #~ declist.append(parse_dec(kwargs['data'].dec_crval, string=1))
             declist.append(dec)
-            # calculate the offset from the two lists
+            #~ # calculate the offset from the two lists
         else:
             ralist = ra
             declist = dec
-        ra0_inp = ralist[0]
-        ra0 = ra0_inp.split(':')
-        ra0 = [float(i) for i in ra0]
+            #
+        #~ ra0_inp = ralist[0]
+        #~ ra0 = ra0_inp.split(':')
+        #~ ra0 = [float(i) for i in ra0]
         # convert to decimal number in degrees
-        ra0_decimal = (ra0[0] + ra0[1]/60.0 + ra0[2]/3600.0)*15.0
-        ra1_inp = ralist[1]
-        ra1 = ra1_inp.split(':')
-        ra1 = [float(i) for i in ra1]
+        #~ ra0_decimal = (ra0[0] + ra0[1]/60.0 + ra0[2]/3600.0)*15.0
+        ra0_decimal = ralist[0]
+        #~ ra1_inp = ralist[1]
+        ra1_decimal = ralist[1]
+        #~ ra1 = ra1_inp.split(':')
+        #~ ra1 = [float(i) for i in ra1]
         # convert to decimal number in degrees
-        ra1_decimal = (ra1[0] + ra1[1]/60.0 + ra1[2]/3600.0)*15.0
+        #~ ra1_decimal = (ra1[0] + ra1[1]/60.0 + ra1[2]/3600.0)*15.0
         #
-        dec0_inp = declist[0]
-        dec0 = dec0_inp.split(':')
-        dec0 = [float(i) for i in dec0]
+        
+        #~ dec0_inp = declist[0]
+        #~ dec0 = dec0_inp.split(':')
+        #~ dec0 = [float(i) for i in dec0]
         # convert to decimal number
-        dec0_decimal = sign(dec0[0])*(abs(dec0[0]) + dec0[1]/60.0 +
-                    dec0[2]/3600.0)
-        dec1_inp = declist[1]
-        dec1 = dec1_inp.split(':')
-        dec1 = [float(i) for i in dec1]
+        #~ dec0_decimal = sign(dec0[0])*(abs(dec0[0]) + dec0[1]/60.0 +
+        dec0_decimal = declist[0]
+        
+        #~ dec1_inp = declist[1]
+        #~ dec1 = dec1_inp.split(':')
+        #~ dec1 = [float(i) for i in dec1]
         # convert to decimal number
-        dec1_decimal = sign(dec1[0])*(abs(dec1[0]) + dec1[1]/60.0 +
-                    dec1[2]/3600.0)
+        #~ dec1_decimal = sign(dec1[0])*(abs(dec1[0]) + dec1[1]/60.0 + dec1[2]/3600.0)
+        dec1_decimal = declist[1]
+        
+        ##### calculate the offset
         # correction factor
         cosdec = cos(dec0_decimal*pi/180.) # convert to radians
         # calculate offsets
-        ra_offset = (ra1_decimal-ra0_decimal)*cosdec
-        dec_offset = dec1_decimal-dec0_decimal
-        print 'Reference\nRA:\t{0}\nDEC:\t{1}'.format(
-                                            parse_ra(ra0_decimal,string=1),
-                                            parse_dec(dec0_decimal,string=1))
-        print 'Final\nRA:\t{0}\nDEC \t{1}'.format(
-                                            parse_ra(ra1_decimal,string=1),
-                                            parse_dec(dec1_decimal,string=1))
-        print '\nOffset: {0:.4f}, {1:.4f}'.format(ra_offset*3600,
-                                                dec_offset*3600)
+        ra_offset = (ra1_decimal - ra0_decimal) * cosdec
+        dec_offset = dec1_decimal - dec0_decimal
+        
+        if display:
+            print 'Reference\nRA:\t{0}\nDEC:\t{1}'.format(
+                                                parse_ra(ra0_decimal,string=1),
+                                                parse_dec(dec0_decimal,string=1))
+            print 'Final\nRA:\t{0}\nDEC \t{1}'.format(
+                                                parse_ra(ra1_decimal,string=1),
+                                                parse_dec(dec1_decimal,string=1))
+            print '\nOffset: {0:.4f}, {1:.4f}'.format(ra_offset*3600,
+                                                    dec_offset*3600)
+        elif not display:
+            return ra_offset*3600, dec_offset*3600
     else:
         raise(ParError(ra,dec,kwargs))
 
@@ -571,10 +588,10 @@ def parse_ra (ra,string=False):
         seconds = (b-minutes)*60
         if string:
             return '{0:0>2}:{1:2}:{2:0>4.2f}'.format(hours,minutes,seconds)
-        return hours,minutes,seconds
+        return hours, minutes, seconds
     elif type(ra) == type(''):
         h, m, s = array(ra.split(':')).astype('float')
-        h += m/60.+s/3600.
+        h += m/60. + s/3600.
         h *= 15
         if string:
             return '{0:5.2f}'.format(h)
@@ -1811,6 +1828,16 @@ class Fits:
             known_lines = {}
         known_lines[204.38343] = {'name' : 'SO$_2$','frequency' : frequency, 'channels' : channels, 'width' : width}
     #
+    def phase_center_string(self):
+        ra = parse_ra(self.ra_crval, string = True)
+        dec = parse_dec(self.dec_crval, string = True)
+        center = [ra, dec]
+        return center
+    
+    def calc_offset(self, InputData):
+        #~ ra, dec = self.phase_center_string()
+        ra, dec = self.ra_crval, self.dec_crval
+        return calc_offset(ra, dec, data = InputData, display = False)
     # method to change the v_sys
     def change_v_sys (self, v_sys):
         self.v_sys = v_sys
