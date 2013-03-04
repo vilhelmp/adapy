@@ -186,6 +186,9 @@ def search(query, **kwargs):
     #~ advanced = int((type(query) == type({}))
     if advanced:
         # ADVANCED QUERY 
+        #
+        # Should I use http://adsabs.harvard.edu/abstract_service.html
+        # or the full ADS Labs?
         response = mechanize.urlopen(mirrors[working_mirror] + advanced_q)
         forms = mechanize.ParseResponse(response, backwards_compat=False)
         response.close()
@@ -383,72 +386,259 @@ class _Result:
 #           Z Abstract Custom
 
 
+"""
 
 
-#~ Z39.50 or via URLlib/mecahnise etc
+6.3.4 - Embedded Queries
 
-#~ The ADS server supports the following services:
-#~ 
-#~ Initialization
-#~ Search
-#~ Present
-#~ 
-#~ Production Server
-#~ Domain name: z3950.adsabs.harvard.edu (131.142.185.23)
-#~ Port: 210
+This section describes how the abstract service can be accessed from embedded forms. The URL for submitting embedded forms is: 
 
+http://adsabs.harvard.edu/cgi-bin/abs_connect 
 
-#~ Protocol Version
-#~ Z39.50-1992 (Version 2)
-#~ Options Supported
-#~ Search
-#~ Present
-#~ Preferred Message Size
-#~ There is no restriction on message size. However, the ADS will only return a maximum of 500 records at a time.
-#~ Maximum Record Size
-#~ n/a
-#~ ID Authentication
-#~ User-id and password are not required by ADS Servers at this time.
+The syntax is: 
 
-#~ 
-#~ Result Set Name
-#~ No named result sets are supported.
-#~ Database Names (case sensitive)
-#~ (ADS Server supports searching one database at a time)
-#~ Element Set Names
-#~ ADS will return either brief, full, or tagged records. Database specific Element Set Names are not supported.
-#~ Query
-#~ Type-1 only is supported.
-#~ Attribute Set ID
-#~ Bib-1 only is supported.
-#~ Operators Supported:
-#~ AND
-#~ OR
-#~ AND-NOT
+<a href=http://adsabs.harvard.edu/cgi-bin/abs_connect?param1=val1&param2=val2&... >...</a> 
 
-#~ """
-#~ Simple script to search a Z39.50 target using Python
-#~ and PyZ3950. 
-#~ """
-#~ 
-#~ from PyZ3950 import zoom
-#~ 
-#~ 
-#~ ISBNs = ['9781905017799', '9780596513986']
-#~ 
-#~ conn = zoom.Connection ('z3950.loc.gov', 7090)
-#~ conn.databaseName = 'VOYAGER'
-#~ conn.preferredRecordSyntax = 'USMARC'
-#~ 
-#~ for isbn in ISBNs:
-    #~ query = zoom.Query ('PQF', '@attr 1=7 %s' % str(isbn))
-    #~ res = conn.search (query)
-    #~ for r in res:
-        #~ print str(r)
-#~ 
-#~ conn.close ()
+where parami are the names of the parameters and vali are their values. There are no spaces allowed in a URL. Any blanks need to be encoded as a '+' (e.g. between author last and first names). The list of the possible parameters and their possible values is available to build queries. It is advisable to use only the more basic parameters for such queries since the more complicated parameters are more likely to change with future versions of the search system. 
+
+One use of this is for including a link to the bibliography for a particular author in a document. 
+
+To do so, use the following syntax: 
+
+http://adsabs.harvard.edu/cgi-bin/abs_connect?author=last,+f.&return_req=no_params 
+
+This sets the author=last, f, and prevents the listing of parameters at the bottom of the page (return_req=no_params). 
+
+If you want to specify the author middle initial in addition to the first initial, use exact author matching (&aut_xct=YES). 
+
+To build a search for two different formats of author names, enter the two author arguments separated with a semicolon. 
+
+http://adsabs.harvard.edu/cgi-bin/abs_connect?author=last,+f.m.;last,+first+m.&aut_xct=YES&return_req=no_params 
+
+Such a link will always provide access to the latest bibliography of an author without the need to update anything. 
+
+Sometimes such a list includes articles by somebody else with the same name. You can exclude specific articles from the results list with the command 
+
+exclude=bibcode1,bibcode2,... 
+
+You can also include specific articles with the command 
+
+include=bibcode1,bibcode2,... 
+
+This allows for finely customized bibliographies. 
 
 
+
+List of ADS query parameter keywords
+
+author	list of semicolon separated authornames as last, f
+object	list of semicolon separated object names
+keyword	list of semicolon separated keywords
+start_mon	starting month as integer (Jan == 1, Dec == 12)
+start_year	starting year as integer (4 digits)
+end_mon	ending month as integer (Jan == 1, Dec == 12)
+end_year	ending year as integer (4 digits)
+start_entry_day	start entry day of month as integer
+start_entry_mon	start entry month as integer
+start_entry_year	start entry year as integer
+end_entry_day	start entry day of month as integer
+end_entry_mon	start entry month as integer
+end_entry_year	start entry year as integer
+title	title words, any non-alpha-numeric character separates
+text	abstract words, any non-alpha-numeric character separates
+fulltext	OCRd fulltext, any non-alpha-numeric character separates
+affiliation	affiliation words, any non-alpha-numeric character separates
+bibcode	bibcode for partial bibcode search. If a bibcode is 
+specified, no other search will be done
+nr_to_return	how many abstracts to return (default is 50, max 500)
+start_nr	where to start returning in list of retrieved abstracts 
+default is 1
+aut_wt	floating point weight for author search, default: 1.0
+obj_wt	floating point weight for object search, default: 1.0
+kwd_wt	floating point weight for keyword search, default: 1.0
+ttl_wt	floating point weight for title search, default: 0.3
+txt_wt	floating point weight for text search, default: 3.0
+full_wt	floating point weight for full search, default: 3.0
+aff_wt	floating point weight for affiliation search, default: 1.0
+aut_syn	author synonym replacement. aut_syn="YES" turns it on (default is on)
+ttl_syn	title synonym replacement. ttl_syn="YES" turns it on (default is on)
+txt_syn	text synonym replacement. txt_syn="YES" turns it on (default is on)
+full_syn	full text synonym replacement. full_syn="YES" turns it on (default is on)
+aff_syn	affiliation synonym replacement. aff_syn="YES" turns it on (default is on)
+aut_wgt	authors used for weighting. aut_wgt="YES" turns it on (default is on)
+obj_wgt	objects used for weighting. obj_wgt="YES" turns it on (default is on)
+kwd_wgt	keywords used for weighting. kwd_wgt="YES" turns it on (default is on)
+ttl_wgt	title used for weighting. ttl_wgt="YES" turns it on (default is on)
+txt_wgt	text used for weighting. txt_wgt="YES" turns it on (default is on)
+full_wgt	full text used for weighting. full_wgt="YES" turns it on (default is on)
+aff_wgt	affiliation used for weighting. aff_wgt="YES" turns it on (default is on)
+aut_sco	authors weighted scoring. aut_sco="YES" turns it on (default is off)
+kwd_sco	keywords weighted scoring. kwd_sco="YES" turns it on (default is off)
+ttl_sco	title weighted scoring. ttl_sco="YES" turns it on (default is on)
+txt_sco	text weighted scoring. txt_sco="YES" turns it on (default is on)
+full_sco	text weighted scoring. full_sco="YES" turns it on (default is on)
+aff_sco	affiliation weighted scoring. aff_sco="YES" turns it on (default is off)
+aut_req	authors required for results. aut_req="YES" turns it on (default is off)
+obj_req	objects required for results. obj_req="YES" turns it on (default is off)
+kwd_req	keywords required for results. kwd_req="YES" turns it on (default is off)
+ttl_req	title required for results. ttl_req="YES" turns it on (default is off)
+txt_req	text required for results. txt_req="YES" turns it on (default is off)
+full_req	text required for results. full_req="YES" turns it on (default is off)
+aff_req	affiliation required for results. aff_req="YES" turns it on (default is off)
+aut_logic
+obj_logic
+kwd_logic
+ttl_logic
+txt_logic
+full_logic
+aff_logic	Combination logic: 
+xxx_logic="AND": combine with AND 
+xxx_logic="OR": combine with OR (default)
+xxx_logic="SIMPLE": simple logic (use +, -) 
+xxx_logic="BOOL": full boolean logic 
+xxx_logic="FULLMATCH": do AND query in the selected field 
+and calculate the score according to how many words in 
+the field of the selected reference were matched by 
+the query
+return_req	requested return: 
+return_req="result" : return results (default) 
+return_req="form" : return new query form 
+return_req="no_params": return results 
+set default parameters, don't display params
+db_key	which database to query: db_key="AST" : Astronomy(default)
+"PRE": arXiv e-prints 
+"PHY": Physics, "GEN": General, CFA: CfA Preprints
+atcl_only	select only OCR pages from articles
+jou_pick	specify which journals to select: 
+jou_pick="ALL" : return all journals (default) 
+jou_pick="NO" : return only refereed journals 
+jou_pick="EXCL" : return only non-refereed journals
+ref_stems	list of comma-separated ADS bibstems to return, e.g. ref_stems="ApJ..,AJ..."
+min_score	minimum score of returned abstracts 
+(floating point, default 0.0)
+data_link	return only entries with data. 
+data_link="YES" turns it on, default is off
+abstract	return only entries with abstracts. 
+abstract="YES" turns it on, default is off
+alt_abs	return only entries with alternate abstracts. 
+alt_abs="YES" turns it on, default is off
+aut_note	return only entries with author notes. 
+aut_note="YES" turns it on, default is off
+article	return only entries with articles. 
+article="YES" turns it on, default is off
+article_link	return only entries with electronic articles. 
+article_link="YES" turns it on, default is off
+simb_obj	return only entries with simbad objects. 
+simb_obj="YES" turns it on, default is off
+ned_obj	return only entries with ned objects. 
+ned_obj="YES" turns it on, default is off
+gpndb_obj	return only entries with gpndb objects. 
+gpndb_obj="YES" turns it on, default is off
+lib_link	return only entries with library links. 
+lib_link="YES" turns it on, default is off
+data_and	return only entries with all selected data available. 
+data_and="ALL": no selection, return all refs (default) 
+data_and="NO" : return entries with AT LEAST ONE of the 
+data items selected with the above flags 
+data_and="YES": return only entries that have ALL links 
+selected with the above flags
+version	version number for the query form
+data_type	data type to return 
+data_type="HTML" return regular list (default) 
+data_type="PORTABLE" return portable tagged format 
+data_type="PLAINTEXT" return plain text 
+data_type="BIBTEX" return bibtex format 
+data_type="BIBTEXPLUS" return bibtex with abstract 
+data_type="ENDNOTE" return ENDNOTE format 
+data_type="DUBLINCORE" return DUBLINCORE format 
+data_type="XML" return XML format 
+data_type="SHORT_XML" return short XML format (no abstract)
+data_type="VOTABLE" return VOTable format 
+data_type="RSS" return RSS format
+mail_link	return only entries with mailorder. 
+mail_link="YES" turns it on, default is off
+toc_link	return only entries with tocorder. 
+toc_link="YES" turns it on, default is off
+pds_link	return only entries with pds data. 
+pds_link="YES" turns it on, default is off
+multimedia_link	return only entries with multimedia data. 
+multimedia_link="YES" turns it on, default is off
+spires_link	return only entries with spires data. 
+spires_link="YES" turns it on, default is off
+group_and	return only entries from all selected groups. 
+group_and="ALL":no selection (default) 
+group_and="NO" :return entries that are in at least one grp
+group_and="YES":return only entries from ALL groups 
+selected with group_bits
+group_sel	which group to select, e.g. group_sel="Chandra,HST"
+ref_link	return only entries with reference links. 
+ref_link="YES" turns it on, default is off
+citation_link	return only entries with citation links. 
+citation_link="YES" turns it on, default is off
+gif_link	return only entries with scanned articles links.
+open_link	return only entries with open access.
+aut_xct	exact author search. aut_xct="YES" turns it on
+lpi_query	lpi_query="YES" query for LPI objects, default is off
+sim_query	sim_query="YES" query for SIMBAD objects, default is on
+ned_query	ned_query="YES" query for NED objects, default is on
+iau_query	iau_query="YES" query for IAU objects, default is off
+sort	sort options: 
+"SCORE": sort by score 
+"AUTHOR": sort by first author 
+"NDATE": sort by date (most recent first 
+"ODATE": sort by date (oldest first) 
+"BIBCODE": sort by bibcode 
+"ENTRY": sort by entry date in the database
+"PAGE": sort by page number 
+"RPAGE": reverse sort by page number 
+"CITATIONS": sort by citation count (replaces 
+score with number of citations) 
+"NORMCITATIONS": sort by normalized citation count 
+(replaces score with number of normalized citations) 
+"AUTHOR_CNT": sort by author count
+query_type	what to return: query_type=PAPERS returns regular records (default) 
+query_type=CITES returns citations to selected records 
+query_type=REFS returns references in selected records 
+query_type=ALSOREADS returns also-reads in selected records
+return_fmt	return format: return_fmt="LONG": return full abstract 
+return_fmt="SHORT": return short listing (default)
+type	where to return the data (screen, file, printer, etc)
+defaultset	use default settings (same as ret_req=no_params 
+but displays query parameters on short form)
+format	Custom reference format
+charset	character set for text output
+year	year field for bibcode matching
+bibstem	bibstem field for bibcode matching
+volume	volume field for bibcode matching
+page	page field for bibcode matching
+associated_link	return only entries with associated articles. 
+associated_link="YES" turns it on, default is off
+ar_link	return only entries with AR links. 
+ar_link="YES" turns it on, default is off
+tables	return results with table formatting (overrides pref.)
+email_ret	email_ret="YES": return query result via email
+exclude	exclude=bibcode1[,bibcode2...]: exclude specified bibcodes
+from results list
+include	include=bibcode1[,bibcode2...]: include specified bibcodes
+in results list
+selectfrom	selectfrom=bibcode1[,bibcode2...]: include only bibcodes 
+from specified bibcode list
+RA	Right ascension for cone search
+DEC	Declination for cone search
+SR	Search radius for cone search (default is 10 arcmin)
+method	form method of query form: GET or POST
+nfeedback	number of records to use in feedback queries
+doi	DOI
+preprint_link	return only entries with preprint data. 
+preprint_link="YES" turns it on, default is off
+refstr	reference string to resolve
+mimetype	mimetype of returned page (default depends on data_type)
+qsearch	if set, quick search box is displayed in HTML output
+arxiv_sel	which arxiv categories to select
+article_sel	select only articles (not catalogs, abstracts, etc)
+adsobj_query	search object names in abstract text
+
+"""
 
 
 

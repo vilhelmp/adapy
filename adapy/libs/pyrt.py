@@ -417,7 +417,7 @@ def create_molecular_abundance(temperature,
     return mol_abundance
 # temporary function
 # needs to be more modular
-def plot_envstruct(self, mol_abundance=''):
+def plot_envstruct(self, mol_abundance = '', mark100k = True):
     if not hasattr(self, 'Envstruct'):
         raise Exception('you havent read in the transphere output')
     import matplotlib.pyplot as pl
@@ -461,11 +461,40 @@ def plot_envstruct(self, mol_abundance=''):
         #~ ax3.set_yticks([1E-9,1E-8,1E-7,1E-6,1E-5,1E-4], minor=True)
         #~ ax3.tick_params(axis='y', direction='in')
         fig.subplots_adjust(right = 0.75)
-        
+    
+    if mark100k:
+        from scipy import where
+        # where is the value closest to 100 K?
+        i_100k = where(abs(100 - self.Envstruct.temp).round(2) == round(min(abs(100 - self.Envstruct.temp)), 2))[0][0]
+        r_100k = self.Envstruct.r[i_100k]/_cgs.AU
+        t_100k = self.Envstruct.temp[i_100k]
+        ax2.annotate('T = {0:.1f} K\nR = {1:.1f} AU'.format(round(t_100k,2), r_100k),
+                xy=(r_100k, t_100k), xycoords='data',
+                xytext=(-30, -100), textcoords='offset points', fontsize=12,
+                arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=-.2"))
+        ax2.plot([r_100k], [t_100k] , 'o',color='r', ms=4, mew=0)
         #~ pl.legend('n_H2', 'Temp', 'Mol Abund')
     #~ else:
     ax1.xaxis.set_major_formatter(ScalarFormatter())
-    pl.legend()
+    if mol_abundance == '':
+        #Create custom artists
+        simArtist = pl.Line2D((0,1),(0,0), color='b')
+        anyArtist = pl.Line2D((0,1),(0,0), color='r')
+        
+        #Create legend from custom artist/label lists
+        ax1.legend([simArtist,anyArtist],
+                  ['Density', 'Temperature'])
+    elif mol_abundance != '':
+        #Create custom artists
+        simArtist = pl.Line2D((0,1),(0,0), color='b')
+        anyArtist = pl.Line2D((0,1),(0,0), color='r')
+        molArtist = pl.Line2D((0,1),(0,0), color='g')
+        
+        #Create legend from custom artist/label lists
+        ax1.legend([simArtist, anyArtist, molArtist],
+                  ['Density', 'Temperature', 'Mol. abundance'])
+    
+
 
 # test functions
 def cleanup_ratran():

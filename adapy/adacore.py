@@ -69,6 +69,12 @@ Need : o scipy (and numpy)
 """
 Top of the list TODO:
 
+TODO : Move from pyfits to astropy
+
+TODO : use astropy.constants.cgs instead of own built in cgs const
+        (Just make a pull request to the astropy constants if missing constants)
+
+
 TODO : CamelCase for classes, all lowercase forattributes, and 
     underscores for_functions.
 
@@ -1069,7 +1075,16 @@ def fit_gauss1d((X,Y),
 # 2D
 # to adacore.py
 def gauss2d (a, X, Y):
-    """ Gaussian 2D """
+    """ Gaussian 2D 
+    a[0] - Amplitude
+    a[1] - x grid
+    a[2] - y grid
+    a[3] - x sigma 
+    a[4] - y sigma
+    a[5] - PA
+    
+    
+    """
     #
     from scipy import cos, sin, exp
     xp = X*cos(a[5]) - Y*sin(a[5])
@@ -2403,12 +2418,13 @@ class Spectrum:
                 # calculate frequency and velocity offset if linelist exists
                 if hasattr(self,'lines'):
                     # print offset (freq. & vel.)
-                    print "Id molecule : {0}".format(self.lines[0][j])
-                    print u"Frequency shift : {0:2.5} GHz Vel shift : {1:5.5} {2}".format(freq_shift,vel_shift,KMS)
+                    print " Id molecule : {0}".format(self.lines[0][j])
+                    print u" Frequency shift : {0:2.5} GHz Vel shift : {1:5.5} {2}".format(freq_shift,vel_shift,KMS)
                 frequency_string =\
                 u' Frequency : {0:3.9f} GHz (v_sys corrected)'.format(frequency_corrected)
                 print stylify(frequency_string,fg='b')
                 print u' FWHM      : {0}, {1} ({2}) (0-based) ([{3:.2f}, {4:.2f}] {5})'.format(channels_half.min(), channels_half.max(),(channels_half.max()-channels_half.min()+1), lower_half, upper_half,KMS)
+                print u' \u00b1FWHM   : {0}, {1} ({2}) (0-based) ([{3:.2f}, {4:.2f}] {5})'.format(channels.min(), channels.max(), (channels.max()-channels.min()+1), lower,upper,KMS)
                 print u' \u00b1FWHM   : {0}, {1} ({2}) (0-based) ([{3:.2f}, {4:.2f}] {5})'.format(channels.min(), channels.max(), (channels.max()-channels.min()+1), lower,upper,KMS)
                 if self.binned:
                     channels_nobin = get_indices(self.Original.v_arr,[lower,upper])

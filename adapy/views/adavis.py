@@ -508,13 +508,15 @@ def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
     rc('axes', linewidth=0.45)
     rc('patch', linewidth=0.45)
     rc('lines', linewidth=0.45, markeredgewidth=0.45)
-def steppify(arr, isX=False, interval=0):
+def steppify(arr, isX = False, interval = 0):
     """
     Converts an array to double-length for step plotting
+    Adapted from a script by Adam Ginsburg 
+    (http://casa.colorado.edu/~ginsbura/)
     """
     from scipy import array
     if isX and interval==0:
-        interval = abs(arr[1]-arr[0]) / 2.0
+        interval = (arr[1]-arr[0]) / 2.0
         newarr = array(zip(arr - interval, arr + interval)).ravel()
         return newarr
     else:
@@ -525,6 +527,30 @@ def calc_levels(sigma, mini, maxi):
     levels_neg = -1 * arange(sigma, abs(mini) + 2 * sigma, sigma)
     levels_pos = arange(sigma, maxi + 2 * sigma, sigma)
     return levels_neg, levels_pos
+def plot_contours(ax, data, extent, levels, cp = 'b', cn='r', **kwargs):
+    # plot contours with nice control over 
+    # the dash size for negative values
+    from scipy import where
+    i_neg = data<0
+    i_pos = data>=0
+    d_neg = data.copy()
+    d_neg[i_pos] = 0
+    d_pos = data.copy()
+    d_pos[i_neg] = 0
+    
+    c_pos = ax.contour(d_pos,
+                extent = extent,
+                levels = levels,
+                colors = cp,
+                **kwargs)
+    c_neg = ax.contour(d_neg,
+                extent = extent,
+                levels = levels,
+                colors = cn,
+                **kwargs)    
+    for c in c_neg.collections:
+        c.set_dashes([(0, (2.5, 2.5))])
+    return c_pos, c_neg
 ########################################################################
 # DATA OUTPUT
 def write_latex_table(self, filename):
