@@ -1480,7 +1480,7 @@ class Fits:
             # need to be changed to a more flexible code...
             hdr_values = [self.hdr[i] for i in self.hdr.keys()]
             # need to match VELO, VELO-LSR, VELOCITY and VRAD
-            _velname = [i for i in self.hdr.values() if ("VELO" in str(i) or "VRAD" in str(i))]
+            _velname = [i for i in hdr_values if ("VELO" in str(i) or "VRAD" in str(i))]
             if _velname != []:
                 _velname = _velname[0]
                 velax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and _velname in self.hdr[x]][0][-1:])
