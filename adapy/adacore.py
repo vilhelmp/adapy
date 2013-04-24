@@ -724,7 +724,7 @@ def parse_linelist(linelist, out='brief'):
         # cannot mix types in an numpy.ndarray, works in list
         return [names, freqs]
     else:
-        print_warning('Did not parse!')
+        print('Did not parse!')
 def get_indices (arr,vals,disp=False):
     """
 
@@ -928,7 +928,7 @@ def fit_gauss1d((X,Y),
 
     pos = params[arange(1,len(params),3)]
     if (pos<X.min()).any() or (pos>X.max()).any():
-        print_warning('You are trying to fit a Gaussian outside of the \
+        print('You are trying to fit a Gaussian outside of the \
     data range\n Not allowed. Exciting without fitting')
         return None
     widths = params[arange(2,len(params),3)]
@@ -1653,7 +1653,7 @@ class Fits:
             self.bpa = self.hdr['BPA']
         except KeyError, ex:
             msg='Header keywords (bmaj,bmin,bpa) incomplete and not loaded.'
-            print_warning(msg)
+            print(msg)
             #~ self.bmaj = None
             #~ self.bmin = None
             #~ self.bpa = None
@@ -1668,7 +1668,7 @@ class Fits:
                 self.unitpixel = u"K\u00b7channel\u207b\u00b9"
                 self.unitint = u"K\u00b7" + KMS
         else:
-            print_warning('No beam unit in header.')
+            print('No beam unit in header.')
             self.unitpixel = "INTENSITY"
             self.unitint = "INTEGRATED-INTENSITY"
         # calculate the GAIN of the observations (interferometric observations?)
@@ -2454,10 +2454,10 @@ class Spectrum:
         if not args.has_key('writetofile'):
             args['writetofile'] = 0
         if not hasattr(self, 'Fit'):
-            print_warning('Spectrum not fitted, aborting line id')
+            print('Spectrum not fitted, aborting line id')
             raise ParError('linefit - need to fit lines')
         if hasattr(self, 'lines'):
-            print_warning('Line list exists, overwriting...')
+            print('Line list exists, overwriting...')
         # now import the splatsearch module and other stuff
         import splatsearch as spl
         from scipy import arange, array
