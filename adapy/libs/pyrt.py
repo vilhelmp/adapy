@@ -1187,8 +1187,6 @@ class Ratran:
         # so
         # rhogas / molecular mass = number density of H2 in cm-3
         
-        
-        
         ################################################################
         # Velocity grid
         #~ 
@@ -1353,7 +1351,7 @@ class Ratran:
                 f.write('# ... intended for (SKY) continuum calculations only.'+'\n')
             f.write("rmax={0:.5E}\n".format( self.r2[-1] / 100 ))       # rmax in METERS (convert from cm i.e. / 100)
             f.write("ncell={0:}\n".format(len(self.r2)))
-            f.write("tcmb=2.728\n")
+            f.write("tcmb=2.735\n")
             f.write("columns=id,ra,rb,nh,nm,tk,td,db,vr\n")
             f.write("gas:dust={0}\n".format(self.gas2dust))
             if self.skyonly: 
@@ -1373,7 +1371,8 @@ class Ratran:
                 f.write("outfile=populations.pop\n")
                 f.write("molfile={0}\n".format(self.molfile))
                 f.write("snr={0}\n".format(self.snr))
-                #~ f.write("velo=grid")
+                f.write("velo=grid") 
+                # velo=grid if velocity vector is given in input model?
                 f.write("nphot={0}\n".format(self.nphot))
                 f.write("kappa={0}\n".format(self.kappa))
                 f.write("minpop={0:3.2E}\n".format(self.minpop))
