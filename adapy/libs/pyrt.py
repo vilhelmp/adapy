@@ -1017,7 +1017,7 @@ class Ratran:
         # 'abundance',     'jump, 100, 1E-4, 1E-9', 'type, tjump, in, out', 'str'
         params = [
         'r',                            0,          'cm',    'array',   # Radial points
-        'rin',                         20,          'AU',    'float',   # Inner radius
+        'rin',                          0,          'AU',    'float',   # Inner radius
         'rhodust',                      0,       'g/cm3',    'array',   # Dust density
         'molfile',      'ph2-18o-ph2.dat',            '',      'str',   # Name of moldata file
         'modelfile',     'transphere.mdl',            '',      'str',   # Name of model input file
@@ -1145,12 +1145,20 @@ class Ratran:
         if self.tdust == 0.0:
             self.tdust = self.temp
         
-        _index = max(where(self.r<self.rin)[0])
-        self.temp = self.temp[_index:]
-        self.tdust = self.tdust[_index:]
-        self.rhodust = self.rhodust[_index:]
-        self.db = self.db[_index:]
-        self.vr = self.vr[_index:]
+        if self.rin > 0:
+            _index = max(where(self.r<self.rin)[0])
+            print _index
+            self.r = self.r[_index:]
+            #~ print self.r
+            self.temp = self.temp[_index:]
+            self.tdust = self.tdust[_index:]
+            self.rhodust = self.rhodust[_index:]
+            
+            if type(self.db) == type(1.0):
+                pass
+            else:                
+                self.db = self.db[_index:]
+            self.vr = self.vr[_index:]
         
         # calculate the radial dependence of the molecular
         # abundance depends on what type of abundance type is choosen
