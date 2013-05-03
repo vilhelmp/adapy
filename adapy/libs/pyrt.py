@@ -1387,7 +1387,7 @@ class Ratran:
                 f.write("outfile=populations.pop\n")
                 f.write("molfile={0}\n".format(self.molfile))
                 f.write("snr={0}\n".format(self.snr))
-                f.write("velo=grid") 
+                f.write("velo=grid\n") 
                 # velo=grid if velocity vector is given in input model?
                 f.write("nphot={0}\n".format(self.nphot))
                 f.write("kappa={0}\n".format(self.kappa))
