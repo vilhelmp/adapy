@@ -779,6 +779,45 @@ def load_transphere(directory = '', filename = 'transpheremodel.pickle'):
     Obj = Transphere(**inputdict)
     # IDEA : add so that it loads the output(?) as well?
     return Obj
+
+def find_intensity(fitsfile, interval=[]):
+    import matplotlib.pyplot as pl
+    import pyfits 
+    
+    class ModelData: pass
+
+    ModelData.data = pyfits.getdaRESTFREQta(fitsfile)
+    ModelData.header = pyfits.getheader(fitsfile)
+    
+    # get some of the stuff from the header
+    ModelData.bunit = header['BUNIT']
+    ModelData.restfreq = header['RESTFREQ']
+    
+    # create the velocity array, just for fun
+    v_cdelt = header['CDELT3']*1e-3     # in km/s
+    v_crpix = header['CRPIX3']
+    v_crval = header['CRVAL3']
+    v_naxis = header['NAXIS3']
+    
+    
+    
+    #~ if 
+    
+    
+    if len(ModelData.data.shape) < 3: # needs to be a cube for analysis to work
+        print("Wrong data shape of input fits file")
+        return 0
+    pl.ion()
+    if interval == []: # if no interval given, need to do it interactively
+        # assume model peak in center
+        z, y ,x = ModelData.data.shape
+        ModelData.spectrum = ModelData.data[:, y/2, x/2]
+        from pylab import ginput
+        pl.plot(ModelData.velocity_array, ModelData.spectrum)
+        
+        
+        
+    
 ######################################################################
 ## # RADIATIVE TRANSFER / MODELING
 
@@ -1005,7 +1044,7 @@ class Ratran:
         from scipy import array
         # imports
         import cgsconst as _cgs
-        from numpy import zeros, array, logspace, log10, where, pi
+        from numpy import zeros, array, logspace, log10, where, pi, exp
         import scipy.interpolate
         import sys
         import os
@@ -1185,6 +1224,9 @@ class Ratran:
             print('Directory exists, continuing.')
         
         save_ratran(self)
+        
+        
+        
         # rewrite this part when changing to object oriented
         # now it is very hack-ish and non pythonic
         ################################################################
@@ -1256,6 +1298,7 @@ class Ratran:
         self.nh2_10k = self.rhodust_10k * 100 / _cgs.MUH2 / _cgs.MP
         self.temp_10k = self.temp[ind]
         #~ self.Y = self.Input.r.max() / self.Input.r.min()
+        print self.r_10k, self.r.min()
         self.Y = self.r_10k / self.r.min()
         self.ind = ind
         ################################################################
@@ -1318,13 +1361,21 @@ class Ratran:
         ############################
         # nh2 needs to start at 0
         self.nh2int[0] = 0.0
-    
+        
+        # define teint, ortho, para
+        self.teint = self.tkint
+        self.opr = 9.0 * exp(-170.6 / self.teint)
+        self.opr = np.clip(self.opr, 1.0E-3, 3.0)
+        self.para = 1.0 / (1 + self.opr)
+        self.ortho = 1 - self.para
+        
         # mass of it all
         #~ vol=[]
         #~ mass=[]
         # V = 4*pi*r**3/3
         # r in cm (?)
-        V = 4 * pi * (self.r2**3 - self.r1**3) / 3     # cm3
+        #~ V = 4 * pi * (self.r2**3 - self.r1**3) / 3     # cm3
+        V = 4 * pi * ((self.r2**3  - self.r1**3 )) / 3     # cm3
         self.M = V * self.nh2int * _cgs.MUH2 * _cgs.MP # g = cm3 * g/cm3
         self.M /= _cgs.MSUN                            # Msun
         
@@ -1358,26 +1409,51 @@ class Ratran:
         ne    : density (cm-3) of second collision partner (e.g. electrons)
         tk    : kinetic temperature (K) 
         td    : dust temperature (K)
-        te    : electron' temperature (K)
+        te    : electron/second coll. partner temperature (K)
         db    : 1/e half-width of line profile (Doppler b-parameter) (km s-1)
         vr    : radial velocity (km s-1)
         """
-        with open(_os.path.join(self.directory, self.modelfile),'w') as f: 
+        with open(_os.path.join(self.directory, self.modelfile),'w') as f:
             f.write('# Ratran input file based on Transphere results'+'\n')
             if self.skyonly: 
                 f.write('# ... intended for (SKY) continuum calculations only.'+'\n')
             f.write("rmax={0:.5E}\n".format( self.r2[-1] / 100 ))       # rmax in METERS (convert from cm i.e. / 100)
             f.write("ncell={0:}\n".format(len(self.r2)))
             f.write("tcmb=2.735\n")
-            f.write("columns=id,ra,rb,nh,nm,tk,td,db,vr\n")
+            f.write("columns=id,ra,rb,nh,nm,ne,tk,td,te,db,vr\n")
             f.write("gas:dust={0}\n".format(self.gas2dust))
             if self.skyonly: 
                 f.write("kappa={0}\n".format(self.kappa))
             f.write('@\n')
             # r1/r2 in meter (convert from cm)
             for ii in range(0, len(self.r1)):
-                test = "{0:4} {1:12.5E} {2:12.5E} {3:12.5E} {4:12.5E} {5:12.5E} {6:12.5E} {7:12.5E} {8:12.5E}\n"
-                f.write(test.format(ii+1, self.r1[ii]/100.0, self.r2[ii]/100.0, self.nh2int[ii], self.nh2int[ii]*self.abund_int[ii], self.tkint[ii], self.tdint[ii], self.db, round(self.vr_int[ii], 15)))
+                test = ("{0:4} "                         #  1 id : shell number
+                        "{1:12.5E} "                     #  2 ra : inner radius (m)  
+                        "{2:12.5E} "                     #  3 rb : outer radius (m)
+                        "{3:12.5E} "                     #  4 nh : density (cm-3) of main coll. partner (usually H2)
+                        "{4:12.5E} "                     #  5 nm : density (cm-3) of molecule
+                        "{5:12.5E} "                     #  6 ne : density (cm-3) of second coll. partner (e.g. electrons)
+                        "{6:12.5E} "                     #  7 tk : kinetic temperature (K) 
+                        "{7:12.5E} "                     #  8 td : dust temperature (K)
+                        "{8:12.5E} "                     #  9 te : second coll. partner temperature (K)
+                        "{9:12.5E} "                     # 10 db : 1/e half-width of line profile (Doppler b-parameter) (km s-1)
+                        "{10:12.5E}\n")                  # 11 vr : radial velocity (km s-1)
+                # now print the whole shebang
+                f.write(test.format(ii + 1,               #  1 id : shell number
+                    self.r1[ii] / 100.0,                  #  2 ra : inner radius (m)  
+                    self.r2[ii] / 100.0,                  #  3 rb : outer radius (m)
+                    self.nh2int[ii] * self.para[ii],          #  4 nh : density (cm-3) of main coll. partner (usually p-H2)
+                    self.nh2int[ii] * self.abund_int[ii], #  5 nm : density (cm-3) of molecule
+                    self.nh2int[ii] * self.ortho[ii],         #  6 ne : density (cm-3) of second coll. partner (e.g, e^-, o-H2)
+                    self.tkint[ii],                       #  7 tk : kinetic temperature (K) 
+                    self.tdint[ii],                       #  8 td : dust temperature (K)
+                    self.teint[ii],                       #  9 te : second coll. partner temperature (K)
+                    self.db,                              # 10 db : 1/e half-width of line profile (Doppler b-parameter) (km s-1)
+                    round(self.vr_int[ii], 15))           # 11 vr : radial velocity (km s-1)
+                        )          
+                                    
+                                    
+                                    
                 #~ f.write("%4i %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E" % (ii+1, self.r1[ii]/100.0, self.r2[ii]/100.0, self.nh2int[ii], self.nh2int[ii]*self.abund_int[ii], self.tkint[ii], self.tdint[ii], self.db, self.vr[ii])+'\n')
             
         if not self.skyonly:
@@ -1405,7 +1481,7 @@ class Ratran:
                 f.write("source={0}\n".format(self.modelfile))
             else:
                 f.write("source=populations.pop\n")                     # just use the AMC output file (always set to populations.pop above)
-            f.write("format={0}\n".format(outformat))
+            f.write("format={0}\n".format(self.outformat))
             f.write("outfile="+self.outputfile+"\n")
             f.write("trans={0}\n".format(self.trans))
             f.write("pix={0},{1:f},{2},{3}\n".format(self.imsize, self.pixel, self.pxlradius, self.los))
