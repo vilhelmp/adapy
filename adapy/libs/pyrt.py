@@ -1031,6 +1031,7 @@ class Ratran:
         'velocitydirection',     'None',            '',      'str',   # Velocity direction if vr given 'infall', 'outflow'
         #'velocityfield',     lambda,              ,      'str',   # Velocity model 'shu_infall', 'db'
         'tdust',                      0.0,           'K',    'array',   # Dust temperature profile
+        'outformat',               'fits',            '',      'str',   # output format, for SKY
         'dustonly',                 False,            '',     'bool',   # 
         'skyonly',                  False,            '',     'bool',   # 
         'writeonly',                False,            '',     'bool',   # Only write the input files (obsolete)
@@ -1404,7 +1405,7 @@ class Ratran:
                 f.write("source={0}\n".format(self.modelfile))
             else:
                 f.write("source=populations.pop\n")                     # just use the AMC output file (always set to populations.pop above)
-            f.write("format=miriad\n")
+            f.write("format={0}\n".format(outformat))
             f.write("outfile="+self.outputfile+"\n")
             f.write("trans={0}\n".format(self.trans))
             f.write("pix={0},{1:f},{2},{3}\n".format(self.imsize, self.pixel, self.pxlradius, self.los))
