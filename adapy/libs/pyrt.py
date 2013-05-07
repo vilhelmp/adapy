@@ -789,7 +789,7 @@ def find_intensity(fitsfile, interval=[]):
 
     data = getdata(fitsfile)
     ModelData.continuum = data[0]
-    data -= data[0] # remove continuum
+    #~ data -= data[0] # remove continuum
     ModelData.data = data.copy()
     header = getheader(fitsfile)
     
