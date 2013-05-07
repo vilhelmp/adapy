@@ -788,6 +788,7 @@ def find_intensity(fitsfile, interval=[]):
     class ModelData: pass
 
     data = getdata(fitsfile)
+    data -= data[0] # remove continuum
     ModelData.data = data.copy()
     header = getheader(fitsfile)
     
