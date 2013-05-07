@@ -781,13 +781,15 @@ def load_transphere(directory = '', filename = 'transpheremodel.pickle'):
     return Obj
 
 def find_intensity(fitsfile, interval=[]):
+    from scipy import array, arange, where, log, pi, meshgrid
     import matplotlib.pyplot as pl
-    import pyfits 
-    
+    from pyfits import getdata, getheader
+    pl.ion()
     class ModelData: pass
 
-    ModelData.data = pyfits.getdaRESTFREQta(fitsfile)
-    ModelData.header = pyfits.getheader(fitsfile)
+    data = getdata(fitsfile)
+    ModelData.data = data.copy()
+    header = getheader(fitsfile)
     
     # get some of the stuff from the header
     ModelData.bunit = header['BUNIT']
@@ -799,27 +801,87 @@ def find_intensity(fitsfile, interval=[]):
     v_crval = header['CRVAL3']
     v_naxis = header['NAXIS3']
     
+    v_array = arange(v_naxis) - v_crpix
+    v_array *= v_cdelt
+    ModelData.v_array = v_array + v_crval
+    ModelData.v_cdelt = v_cdelt         # in km/s
     
     
-    #~ if 
+    ModelData.ra_cdelt = header['CDELT1']*3600
+    ModelData.dec_cdelt = header['CDELT2']*3600
+    ModelData.ra_array = ((arange(header['NAXIS1']) - header['CRPIX1']) * header['CDELT1']*3600) + header['CRVAL1']
+    ModelData.dec_array = ((arange(header['NAXIS2']) - header['CRPIX2']) * header['CDELT2']*3600) + header['CRVAL2']
+    
     
     
     if len(ModelData.data.shape) < 3: # needs to be a cube for analysis to work
         print("Wrong data shape of input fits file")
         return 0
-    pl.ion()
     if interval == []: # if no interval given, need to do it interactively
         # assume model peak in center
         z, y ,x = ModelData.data.shape
         ModelData.spectrum = ModelData.data[:, y/2, x/2]
-        from pylab import ginput
-        pl.plot(ModelData.velocity_array, ModelData.spectrum)
+        from adapy.adacore import fit_gauss1d as gaussfit
+        from adapy.adacore import gaussfit2d
+        #~ from pylab import ginput
+        #~ from matplotlib.widgets import Cursor
+        #~ fig = pl.figure()
+        #~ ax = fig.add_subplot(111) 
+        #~ ax.plot(ModelData.v_array, ModelData.spectrum)
+        #~ cursor = Cursor(ax, color='red', linewidth=2 )
+        #~ print('Click on lower limit')
+        #~ x_low  = ginput()[0][0]
+        #~ print('Click on upper limit')
+        #~ x_high  = ginput()[0][0]
+        #~ fig.close()
+        #~ ModelData.mom0 = 
+        # simple guesses/assumptions, 
+        # perhaps extend to calculate moment0/1 for the position
+        # and width of the distribution?
+        datamax = ModelData.spectrum.max()
+        # where is the max?
+        ii = where(ModelData.spectrum.max()==ModelData.spectrum)[0] 
+        width_estimate = (ModelData.v_array.max() - ModelData.v_array.min()) * 0.2
+        # fit a 1D Gaussian
+        results_1d = gaussfit((ModelData.v_array, ModelData.spectrum), 
+                            params=(
+                                    datamax,
+                                    ModelData.v_array[ii], 
+                                    width_estimate
+                                    ),
+                            verbose=0
+                            )[0]
+        ModelData.results_1d = results_1d
+        amplitude_1d = results_1d[2]
+        position_1d = results_1d[1]
+        fwhm_1d = results_1d[2]
+        sigmafromfwhm = 1 / (2 * (2 * log(2))**.5)
+        sigma_1d = fwhm_1d * sigmafromfwhm
         
-        
-        
+        interval = position_1d + array([-1, 1]) * 3 * sigma_1d
+        ModelData.interval = interval
+        indices = where(
+                            (ModelData.v_array >= interval[0]) * 
+                            (ModelData.v_array <= interval[1])
+                            )
+    
+    ModelData.zero = ModelData.data[indices].sum(axis=0) * abs(ModelData.v_cdelt)
+    X, Y = meshgrid(arange(header['NAXIS1']),arange(header['NAXIS2']))
+    #~ results_2d = gaussfit2d((X, Y, ModelData.zero), params=(0.0, (0.1, 64, 64, 2, 2, 0)))[0]
+    results_2d = gaussfit2d((X, Y, ModelData.zero), fitheight=0)[0]
+    # Volume (integral) of the Gaussian
+    # V = 2 pi Amp sigma1 sigma2
+    ModelData.amplitude_2d = results_2d[0]
+    ModelData.sigma_x = results_2d[3]
+    ModelData.sigma_y = results_2d[4]
+    ModelData.results_2d = results_2d
+    
+    ModelData.intensity = pi * 2 * ModelData.amplitude_2d * ModelData.sigma_x * ModelData.sigma_y
+    print('Integrated intensity : {0:.2f} Jy'.format(ModelData.intensity))
+    return ModelData
     
 ######################################################################
-## # RADIATIVE TRANSFER / MODELING
+### RADIATIVE TRANSFER / MODELING
 
 #### NOT used
 class Radex:

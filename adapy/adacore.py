@@ -922,7 +922,8 @@ def fit_gauss1d((X,Y),
     # hstack, zeros, sqrt, diag
     from mpfit import mpfit
     #from sys import exit as sysexit
-    print 'Fitting Gaussians, checking input parameters'
+    if verbose:
+        print 'Fitting Gaussians, checking input parameters'
     # flatten the parameters, so it is readable for the gaussian fitting
     params = array(params).flatten()
 
@@ -1003,7 +1004,8 @@ def fit_gauss1d((X,Y),
     elif tie == None:
         tie = ['','','']*no_fits
     #
-    print '\nDefining fitting function and fitting'
+    if verbose:
+        print '\nDefining fitting function and fitting'
     #
     ## Defining the fitting function and the error function
     # NB: we are fitting FWHM directly, and its squared, so sqrt disapears
@@ -1092,9 +1094,9 @@ def gauss2d (a, X, Y):
     yp = X*sin(a[5]) + Y*cos(a[5])
     yp0 = a[1]*sin(a[5]) + a[2]*cos(a[5])
     #
-    f = a[0]*exp(-.5*(((xp - xp0)/a[3])**2 + ((yp - yp0)/a[4])**2))
+    f = a[0] * exp(-.5*(((xp - xp0)/a[3])**2 + ((yp - yp0)/a[4])**2))
     return f
-def gaussfit2d((X,Y,Z), params=None, err=None):
+def gaussfit2d((X,Y,Z), params=None, err=None, fitheight=0,verbose=0):
     """
 
     params= (height, (amplitude, x, y, sig_x, sig_y, rota), (amplitude, x, y, sig_x, sig_y, rota)) etc
@@ -1133,7 +1135,8 @@ def gaussfit2d((X,Y,Z), params=None, err=None):
     #
     #
     if params==None:
-        print '--> No parameters given, guestimates\n'
+        if verbose:
+            print('--> No parameters given, guestimates\n')
         from scipy.ndimage import center_of_mass as cmass
         from scipy.stats import mode
         y0,x0 = cmass(Z)
@@ -1144,27 +1147,51 @@ def gaussfit2d((X,Y,Z), params=None, err=None):
         height = mode(Z.ravel())[0][0]
         amplitude = Z.max() - height
         # guess the PA to be 0
-        params = [height, amplitude, X[0,x0], Y[y0,0], xsig, ysig, 0]
-        print('done.')
+        if fitheight:
+            params = [height, amplitude, X[0,x0], Y[y0,0], xsig, ysig, 0]
+            no_fits = len(params[1:])/6
+        elif not fitheight:
+            params = [amplitude, X[0,x0], Y[y0,0], xsig, ysig, 0]
+            no_fits = len(params)/6
+        if verbose:
+            print('done.')
     elif params!=None:
-        print '--> Parameters entered, using them\n'
-        a = array(params[0])
-        b = array([list(i) for i in params[1:]]).flatten()
-        # switch to radians!
-        index = arange(5,len(b),5)
-        for i in index:
-            b[i] = b[i]*pi/180
-        params = hstack((a,b))
-        if len(params[1:])%6 != 0:
-            print ' '
-            print 'wrong number of input parameters'
-            print '(N*6)+1 parameters where N are the number of gaussians fited'
-            print '  height,  amplitude, x0, y0, xisg, ysig, angle(deg)'
-            print ' '
-            return ; sysexit()
+        if verbose:
+            print '--> Parameters entered, using them\n'
+        if fitheight:
+            a = array(params[0])
+            b = array([list(i) for i in params[1:]]).flatten()
+            # switch to radians!
+            index = arange(5,len(b),5)
+            for i in index:
+                b[i] = b[i]*pi/180
+            params = hstack((a,b))
+            if len(params[1:])%6 != 0:
+                print ' '
+                print 'wrong number of input parameters'
+                print '(N*6)+1 parameters where N are the number of gaussians fited'
+                print '  height,  amplitude, x0, y0, xisg, ysig, angle(deg)'
+                print ' '
+                return ; sysexit()
+            no_fits = len(params[1:])/6
+        elif not fitheight:
+            b = array([list(i) for i in params[1:]]).flatten()
+            # switch to radians!
+            index = arange(5,len(b),5)
+            for i in index:
+                b[i] = b[i]*pi/180
+            params = b
+            if len(params)%6 != 0:
+                print ' '
+                print 'wrong number of input parameters'
+                print '(N*6)+1 parameters where N are the number of gaussians fited'
+                print '  height,  amplitude, x0, y0, xisg, ysig, angle(deg)'
+                print ' '
+                return ; sysexit()
+            no_fits = len(params)/6
     #
     #
-    no_fits = len(params[1:])/6
+    
 
     # List of the indices (a):
     #   0   1   2    3    4      5
@@ -1185,10 +1212,16 @@ def gaussfit2d((X,Y,Z), params=None, err=None):
                                         #+gau2d(p[7:13],X,Y)\
                                         #+gau2d(p[13:19],X,Y)
     def fitfunc (p, X, Y):
-        S = p[0] # first the baseline
-        # then the gaussians
-        for i in arange(1,len(p[1:]),6):
-            S += gauss2d(p[i:i+6], X, Y)
+        if fitheight:
+            S = p[0] # first the baseline
+            # then the gaussians
+            for i in arange(1,len(p[1:]),6):
+                S += gauss2d(p[i:i+6], X, Y)
+        elif not fitheight:
+            S = 0.0
+            # then the gaussians
+            for i in arange(0,len(p),6):
+                S += gauss2d(p[i:i+6], X, Y)
         return S
     # error function
     # List of the indices (p):
@@ -1203,7 +1236,11 @@ def gaussfit2d((X,Y,Z), params=None, err=None):
     #
     #switch back to degrees and positive width
     # check so degrees betweem 0 and 180
-    index = arange(4,len(p1),5) # start at xsig
+    if fitheight:
+        index = arange(4,len(p1),5) # start at xsig
+    else:
+        index = arange(3,len(p1),5) # start at xsig
+    
     for i in index:
         p1[i] = abs(p1[i])
         p1[i+1] = abs(p1[i+1])
