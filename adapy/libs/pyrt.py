@@ -790,7 +790,7 @@ def find_intensity(fitsfile, interval=[]):
     data = getdata(fitsfile)
     ModelData.continuum = data[0]
     #~ data -= data[0] # remove continuum
-    ModelData.data = data.copy()
+    ModelData.data = data - ModelData.continuum
     header = getheader(fitsfile)
     
     # get some of the stuff from the header
@@ -860,7 +860,7 @@ def find_intensity(fitsfile, interval=[]):
         sigmafromfwhm = 1 / (2 * (2 * log(2))**.5)
         sigma_1d = fwhm_1d * sigmafromfwhm
         
-        interval = position_1d + array([-1, 1]) * 3 * sigma_1d
+        interval = position_1d + array([-1, 1]) * 2 * sigma_1d
         ModelData.interval = interval
         indices = where(
                             (ModelData.v_array >= interval[0]) * 
