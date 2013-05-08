@@ -780,7 +780,7 @@ def load_transphere(directory = '', filename = 'transpheremodel.pickle'):
     # IDEA : add so that it loads the output(?) as well?
     return Obj
 
-def find_intensity(fitsfile, interval=[]):
+def find_intensity(fitsfile, interval = [], nsig = 3):
     from scipy import array, arange, where, log, pi, meshgrid
     import matplotlib.pyplot as pl
     from pyfits import getdata, getheader
@@ -859,7 +859,7 @@ def find_intensity(fitsfile, interval=[]):
         sigmafromfwhm = 1 / (2 * (2 * log(2))**.5)
         sigma_1d = fwhm_1d * sigmafromfwhm
         
-        interval = position_1d + array([-1, 1]) * 2 * sigma_1d
+        interval = position_1d + array([-1, 1]) * nsig * sigma_1d
     
     ModelData.interval = interval
     indices = where(
