@@ -784,6 +784,7 @@ def find_intensity(fitsfile, interval=[]):
     from scipy import array, arange, where, log, pi, meshgrid
     import matplotlib.pyplot as pl
     from pyfits import getdata, getheader
+    from adapy.adacore import gaussfit2d
     pl.ion()
     class ModelData: pass
 
@@ -814,17 +815,15 @@ def find_intensity(fitsfile, interval=[]):
     ModelData.ra_array = ((arange(header['NAXIS1']) - header['CRPIX1']) * header['CDELT1']*3600) + header['CRVAL1']
     ModelData.dec_array = ((arange(header['NAXIS2']) - header['CRPIX2']) * header['CDELT2']*3600) + header['CRVAL2']
     
-    
+    # assume model peak in center
+    z, y ,x = ModelData.data.shape
+    ModelData.spectrum = ModelData.data[:, y/2, x/2]
     
     if len(ModelData.data.shape) < 3: # needs to be a cube for analysis to work
         print("Wrong data shape of input fits file")
         return 0
     if interval == []: # if no interval given, need to do it interactively
-        # assume model peak in center
-        z, y ,x = ModelData.data.shape
-        ModelData.spectrum = ModelData.data[:, y/2, x/2]
         from adapy.adacore import fit_gauss1d as gaussfit
-        from adapy.adacore import gaussfit2d
         #~ from pylab import ginput
         #~ from matplotlib.widgets import Cursor
         #~ fig = pl.figure()
