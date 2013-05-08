@@ -861,11 +861,12 @@ def find_intensity(fitsfile, interval=[]):
         sigma_1d = fwhm_1d * sigmafromfwhm
         
         interval = position_1d + array([-1, 1]) * 2 * sigma_1d
-        ModelData.interval = interval
-        indices = where(
-                            (ModelData.v_array >= interval[0]) * 
-                            (ModelData.v_array <= interval[1])
-                            )
+    
+    ModelData.interval = interval
+    indices = where(
+                        (ModelData.v_array >= interval[0]) * 
+                        (ModelData.v_array <= interval[1])
+                        )
     
     ModelData.zero = ModelData.data[indices].sum(axis=0) * abs(ModelData.v_cdelt)
     X, Y = meshgrid(arange(header['NAXIS1']),arange(header['NAXIS2']))
