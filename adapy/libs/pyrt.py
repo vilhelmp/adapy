@@ -860,8 +860,13 @@ def find_intensity(fitsfile, interval = [], nsig = 3):
         sigma_1d = fwhm_1d * sigmafromfwhm
         
         interval = position_1d + array([-1, 1]) * nsig * sigma_1d
-    
-    ModelData.interval = interval
+        print("Integration interval determined by a 1D Gaussian fit"
+                "and +/- {0} sigma from peak position".format(nsig))
+        ModelData.interval = interval
+    else:
+        ModelData.interval = interval
+        print("Integration interval determined by input")
+        
     indices = where(
                         (ModelData.v_array >= interval[0]) * 
                         (ModelData.v_array <= interval[1])
