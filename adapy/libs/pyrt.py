@@ -1589,7 +1589,7 @@ class Ratran:
         with open(os.path.join(), 'w') as f:
             pickle.dump(vars(self.Input), f)
 
-    def run(self):
+    def run(self, nice = 0):
         # run ratran with the setup in the directory
         #
         # catch : ### WARNING
@@ -2274,7 +2274,7 @@ class Transphere:
             for ir in range(0,len(self.radii)):
                 f.write("%13.6E %13.6E %13.6E" % (self.radii[ir], self.rho_dust[ir], 0.e0)+'\n') # ,format='(3(E13.6,1X))'
     
-    def run(self, nice = 1):
+    def run(self, nice = 0):
         import subprocess
         from time import time, sleep
         import sys
