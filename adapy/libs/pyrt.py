@@ -1232,6 +1232,9 @@ class Ratran:
         # input parameters contains all the input needed to 
         # create this class again
         self.Input = Input
+        # if pixel size is smaller (in AU) than rin, print warning
+        #~ self.pixel
+        
         self.rin *= _cgs.AU # convert rin to cm
         # copy important parameters to the main class
         #~ self.r = self.Input.r
@@ -1607,10 +1610,14 @@ class Ratran:
                     f = open('amc.log', 'w')
                     f.close()
                     t1 = time()
-                    proc = subprocess.Popen(['amc', 'amc.inp'],
+                    if nice:
+                        proc = subprocess.Popen(['nice', 'amc', 'amc.inp'],
                                     stdout = subprocess.PIPE, 
                                     stderr = subprocess.STDOUT)
-    
+                    elif not nice:
+                        proc = subprocess.Popen(['amc', 'amc.inp'],
+                                    stdout = subprocess.PIPE, 
+                                    stderr = subprocess.STDOUT)
                     #~ sys.stdout.write('Iteration no : ')
                     #~ sys.stdout.flush() # flush output so we can write again
                     #~ amc_out = []
@@ -1675,7 +1682,12 @@ class Ratran:
                 f = open('sky.log', 'w')
                 f.close()
                 t1 = time()
-                proc = subprocess.Popen(['sky', 'sky.inp'],
+                if nice:
+                    proc = subprocess.Popen(['nice', 'sky', 'sky.inp'],
+                                    stdout = subprocess.PIPE, 
+                                    stderr = subprocess.STDOUT)
+                elif not nice:
+                    proc = subprocess.Popen(['sky', 'sky.inp'],
                                     stdout = subprocess.PIPE, 
                                     stderr = subprocess.STDOUT)
                 #~ sys.stdout.write('Iteration no : ')
@@ -2262,7 +2274,7 @@ class Transphere:
             for ir in range(0,len(self.radii)):
                 f.write("%13.6E %13.6E %13.6E" % (self.radii[ir], self.rho_dust[ir], 0.e0)+'\n') # ,format='(3(E13.6,1X))'
     
-    def run(self):
+    def run(self, nice = 1):
         import subprocess
         from time import time, sleep
         import sys
@@ -2276,7 +2288,12 @@ class Transphere:
         # the directory should exist
         with ChangeDirectory(self.directory): 
             t1 = time()
-            proc = subprocess.Popen(['transphere'], 
+            if nice:
+                proc = subprocess.Popen(['nice', 'transphere'], 
+                                    stdout = subprocess.PIPE, 
+                                    stderr = subprocess.STDOUT)
+            elif not nice:
+                proc = subprocess.Popen(['transphere'], 
                                     stdout = subprocess.PIPE, 
                                     stderr = subprocess.STDOUT)
             sys.stdout.write('Iteration no : ')
