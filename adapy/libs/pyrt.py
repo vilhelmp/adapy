@@ -1589,7 +1589,7 @@ class Ratran:
         with open(os.path.join(), 'w') as f:
             pickle.dump(vars(self.Input), f)
 
-    def run(self, nice = 0):
+    def run(self):
         # run ratran with the setup in the directory
         #
         # catch : ### WARNING
@@ -1610,12 +1610,7 @@ class Ratran:
                     f = open('amc.log', 'w')
                     f.close()
                     t1 = time()
-                    if nice:
-                        proc = subprocess.Popen(['nice', 'amc', 'amc.inp'],
-                                    stdout = subprocess.PIPE, 
-                                    stderr = subprocess.STDOUT)
-                    elif not nice:
-                        proc = subprocess.Popen(['amc', 'amc.inp'],
+                    proc = subprocess.Popen(['amc', 'amc.inp'],
                                     stdout = subprocess.PIPE, 
                                     stderr = subprocess.STDOUT)
                     #~ sys.stdout.write('Iteration no : ')
@@ -1682,12 +1677,7 @@ class Ratran:
                 f = open('sky.log', 'w')
                 f.close()
                 t1 = time()
-                if nice:
-                    proc = subprocess.Popen(['nice', 'sky', 'sky.inp'],
-                                    stdout = subprocess.PIPE, 
-                                    stderr = subprocess.STDOUT)
-                elif not nice:
-                    proc = subprocess.Popen(['sky', 'sky.inp'],
+                proc = subprocess.Popen(['sky', 'sky.inp'],
                                     stdout = subprocess.PIPE, 
                                     stderr = subprocess.STDOUT)
                 #~ sys.stdout.write('Iteration no : ')
