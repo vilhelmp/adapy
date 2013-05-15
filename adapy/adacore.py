@@ -1937,7 +1937,8 @@ class Uvfits:
         """
         from pyfits import open as pfopen
         from scipy import sqrt, pi, arctan2
-        from cgsconst import CC
+        import adapy
+        from adapy.libs import cgsconst
         f = pfopen(uvfitsfile)
 
         if f[0].header['NAXIS1'] != 0:
@@ -1968,9 +1969,9 @@ class Uvfits:
         self.v_klam = self.hdu.data.par(1) * freq * 1.e-3
         self.w_klam = self.hdu.data.par(2) * freq * 1.e-3
         # unit meters
-        self.u_m = self.hdu.data.par(0) * CC*1e-2
-        self.v_m = self.hdu.data.par(1) * CC*1e-2
-        self.w_m = self.hdu.data.par(2) * CC*1e-2
+        self.u_m = self.hdu.data.par(0) * cgsconst.CC*1e-2
+        self.v_m = self.hdu.data.par(1) * cgsconst.CC*1e-2
+        self.w_m = self.hdu.data.par(2) * cgsconst.CC*1e-2
         # uv distance
         self.uvdist_nsec= sqrt(self.u_nsec**2 +self.v_nsec**2)
         self.uvdist_klam = sqrt(self.u_klam**2 +self.v_klam**2)

@@ -886,7 +886,30 @@ def find_intensity(fitsfile, interval = [], nsig = 3):
     ModelData.intensity = pi * 2 * ModelData.amplitude_2d * ModelData.sigma_x * ModelData.sigma_y
     print('Integrated intensity : {0:.2f} Jy'.format(ModelData.intensity))
     return ModelData
-    
+
+class Ratran_Populations:
+	"""
+	Ratran populations class
+	reads in and performs analysis on the Ratran populations file.
+	i.e. AMC output
+	"""
+	def __init__(directory = '', popfile = 'populations.pop'):
+		
+		with open(popfile) as f:
+			line = f.readline()
+			self.comments = []
+			while not line.startswith('@'):
+				if line.startswith('#'):
+					self.comments.append(line)
+					line = f.readline()
+					pass
+				else:
+					keyval = line.strip('\n').split('=')
+					try:
+						setattr(self, keyval[0], float(keyval[1]))
+					except(ValueError):
+						setattr(self, keyval[0], keyval[1])
+			
 ######################################################################
 ### RADIATIVE TRANSFER / MODELING
 
