@@ -909,7 +909,8 @@ class Ratran_Populations:
 						setattr(self, keyval[0], float(keyval[1]))
 					except(ValueError):
 						setattr(self, keyval[0], keyval[1])
-			
+					line = f.readline()
+		
 ######################################################################
 ### RADIATIVE TRANSFER / MODELING
 
