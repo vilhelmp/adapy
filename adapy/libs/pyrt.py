@@ -888,32 +888,40 @@ def find_intensity(fitsfile, interval = [], nsig = 3):
     return ModelData
 
 class Ratran_Populations:
-	"""
-	Ratran populations class
-	reads in and performs analysis on the Ratran populations file.
-	i.e. AMC output
-	"""
-	def __init__(self, directory = '', popfile = 'populations.pop'):
-		from scipy import arange
-		with open(popfile) as f:
-			line = f.readline()
-			self.comments = []
-			while not line.startswith('@'):
-				if line.startswith('#'):
-					self.comments.append(line)
-					line = f.readline()
-					pass
-				else:
-					keyval = line.strip('\n').split('=')
-					try:
-						setattr(self, keyval[0].replace(':','_'), float(keyval[1]))
-					except(ValueError):
-						setattr(self, keyval[0].replace(':','_'), keyval[1])
-					line = f.readline()
-			self.columns = self.columns.split(',')
-			self.lines = f.readlines()
-			#[setattr(self, col, i) in zip(self.columns,arange(len(self.columns)-1))]
-			
+    """
+    Ratran populations class
+    reads in and performs analysis on the Ratran populations file.
+    i.e. AMC output
+    """
+    def __init__(self, directory = '', popfile = 'populations.pop'):
+        from scipy import arange
+        with open(popfile) as f:
+            line = f.readline()
+            self.comments = []
+            while not line.startswith('@'):
+                if line.startswith('#'):
+                    self.comments.append(line)
+                    line = f.readline()
+                    pass
+                else:
+                    keyval = line.strip('\n').split('=')
+                    try:
+                        setattr(self, keyval[0].replace(':','_'), float(keyval[1]))
+                    except(ValueError):
+                        setattr(self, keyval[0].replace(':','_'), keyval[1])
+                    line = f.readline()
+            self.columns = self.columns.split(',')
+            lines = f.readlines()
+            
+        lines = array([i.strip().split('   ') for i in lines], dtype='float')
+        lines = lines.transpose()
+        for colname, i in zip(self.columns, arange(len(self.columns))):
+            if colname == lp:
+                setattr(self, colname, lines[i:]) 
+            else:
+                setattr(self, colname, lines[i])
+        #[setattr(self, col, i) in zip(self.columns,arange(len(self.columns)-1))]
+            
 ######################################################################
 ### RADIATIVE TRANSFER / MODELING
 
@@ -1974,7 +1982,7 @@ class Transphere:
             #~ return inner_grid, outer_grid, radii
         else:
             # if we dont want refinement
-			radii = create_grid(self.rin, 
+            radii = create_grid(self.rin, 
                                 self.rout, 
                                 self.nshell,
                                 space = self.spacing, 
