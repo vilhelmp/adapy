@@ -911,7 +911,7 @@ class Ratran_Populations:
 						setattr(self, keyval[0].replace(':','_'), keyval[1])
 					line = f.readline()
 			self.columns = self.columns.split(',')
-			lines = f.readlines()
+			self.lines = f.readlines()
 			#[setattr(self, col, i) in zip(self.columns,arange(len(self.columns)-1))]
 			
 ######################################################################
