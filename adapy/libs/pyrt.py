@@ -894,7 +894,7 @@ class Ratran_Populations:
 	i.e. AMC output
 	"""
 	def __init__(self, directory = '', popfile = 'populations.pop'):
-		
+		from scipy import arange
 		with open(popfile) as f:
 			line = f.readline()
 			self.comments = []
@@ -910,7 +910,10 @@ class Ratran_Populations:
 					except(ValueError):
 						setattr(self, keyval[0], keyval[1])
 					line = f.readline()
-		
+			self.columns = self.columns.split(',')
+			lines = f.readlines()
+			#[setattr(self, col, i) in zip(self.columns,arange(len(self.columns)-1))]
+			
 ######################################################################
 ### RADIATIVE TRANSFER / MODELING
 
