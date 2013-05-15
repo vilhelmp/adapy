@@ -893,7 +893,7 @@ class Ratran_Populations:
 	reads in and performs analysis on the Ratran populations file.
 	i.e. AMC output
 	"""
-	def __init__(directory = '', popfile = 'populations.pop'):
+	def __init__(self, directory = '', popfile = 'populations.pop'):
 		
 		with open(popfile) as f:
 			line = f.readline()
