@@ -906,9 +906,9 @@ class Ratran_Populations:
 				else:
 					keyval = line.strip('\n').split('=')
 					try:
-						setattr(self, keyval[0], float(keyval[1]))
+						setattr(self, keyval[0].replace(':','_'), float(keyval[1]))
 					except(ValueError):
-						setattr(self, keyval[0], keyval[1])
+						setattr(self, keyval[0].replace(':','_'), keyval[1])
 					line = f.readline()
 			self.columns = self.columns.split(',')
 			lines = f.readlines()
