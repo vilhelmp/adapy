@@ -916,7 +916,7 @@ class Ratran_Populations:
         lines = array([i.strip().split('   ') for i in lines], dtype='float')
         lines = lines.transpose()
         for colname, i in zip(self.columns, arange(len(self.columns))):
-            if colname == lp:
+            if colname == 'lp':
                 setattr(self, colname, lines[i:]) 
             else:
                 setattr(self, colname, lines[i])
