@@ -894,7 +894,7 @@ class Ratran_Populations:
     i.e. AMC output
     """
     def __init__(self, directory = '', popfile = 'populations.pop'):
-        from scipy import arange
+        from scipy import arange, array
         with open(popfile) as f:
             line = f.readline()
             self.comments = []
