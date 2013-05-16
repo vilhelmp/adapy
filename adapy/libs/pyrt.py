@@ -79,6 +79,7 @@ import cgsconst as _cgs
 import os as _os
 import sys as _sys
 import subprocess as _subprocess
+import scipy as _scipy
 
 ########################################################################
 # GENERAL HELP FUNCTIONS (move to adavis_core)
@@ -887,6 +888,11 @@ def find_intensity(fitsfile, interval = [], nsig = 3):
     print('Integrated intensity : {0:.2f} Jy'.format(ModelData.intensity))
     return ModelData
 
+def temp_pop(n, g, nu):
+    numer = _cgs.HH * nu
+    denom = _cgs.KK * _scipy.log(n[1] * g[0] / (n[0] * g[1]))
+    return numer / denom
+
 class Ratran_Populations:
     """
     Ratran populations class
@@ -917,11 +923,57 @@ class Ratran_Populations:
         lines = lines.transpose()
         for colname, i in zip(self.columns, arange(len(self.columns))):
             if colname == 'lp':
+                # the lp are all the columns left,
+                # the number of columns amount to the numbers of 
+                # levels of that particulat molecule (see moldata file)
                 setattr(self, colname, lines[i:]) 
             else:
                 setattr(self, colname, lines[i])
+        self.r = (self.rb + self.ra) / 2.
         #[setattr(self, col, i) in zip(self.columns,arange(len(self.columns)-1))]
-            
+        
+    def plot_tex_trans(self, trans=[6, 5], gweight = [7., 7.], nu = 203.40752E9, pdf = 0):
+        """
+        TODO Make it fetch all necessary info from pop.molfile,
+        then just supply the 'trans' argument
+        perhaps like '3_1_3 - 2_2_0'?
+        """        
+        import matplotlib.pyplot as pl
+        if not pdf: 
+            pl.ion()
+        elif pdf:
+            pl.ioff()
+        trans = _scipy.array(trans)
+        print 'Plotting Tex from transition {0}, {1}'.format(trans[0], trans[1])
+        print ('WARNING, this function plots the 3_1_3 - 2_2_0 transition of H2-18O ' 
+                'by default. Please give the proper arguments.')
+        pl.close()
+        pl.semilogx(self.r/(_cgs.AU/100.), temp_pop(self.lp[trans-1], gweight, nu))
+        #x1, x2 = pl.xlim()
+        #pl.xlim([x1 * 0.98, x2 * 1.001])
+        #y1, y2 = pl.ylim()
+        #pl.ylim([x1 * 0.98, x2 * 1.001])
+        if pdf:
+            pl.savefig('{0}.pdf'.format('tex_trans'), bbox_inches = 0)
+        
+    def plot_pop(self, pdf = 0):
+        import matplotlib.pyplot as pl
+        if not pdf: 
+            pl.ion()
+        elif pdf:
+            pl.ioff()
+        pl.close()
+        [pl.semilogx(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(len(self.lp))]
+        x1, x2 = pl.xlim()
+        pl.xlim([x1 * 0.98, x2 * 1.001])
+        pl.ylim([-0.02, 1.02])
+        pl.xlabel('Radius [AU]')
+        pl.ylabel('Relative level population')
+        if pdf:
+            pl.savefig('{0}.pdf'.format('populations'), bbox_inches = 0)
+        
+        
+        
 ######################################################################
 ### RADIATIVE TRANSFER / MODELING
 
