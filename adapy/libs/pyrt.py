@@ -953,6 +953,8 @@ class Ratran_Populations:
         #pl.xlim([x1 * 0.98, x2 * 1.001])
         #y1, y2 = pl.ylim()
         #pl.ylim([x1 * 0.98, x2 * 1.001])
+        pl.xlabel('Radius [AU]')
+        pl.ylabel(r'T_{ex}')
         if pdf:
             pl.savefig('{0}.pdf'.format('tex_trans'), bbox_inches = 0)
         
@@ -963,7 +965,7 @@ class Ratran_Populations:
         elif pdf:
             pl.ioff()
         pl.close()
-        [pl.semilogx(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(len(self.lp))]
+        [pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(len(self.lp))]
         x1, x2 = pl.xlim()
         pl.xlim([x1 * 0.98, x2 * 1.001])
         pl.ylim([-0.02, 1.02])
