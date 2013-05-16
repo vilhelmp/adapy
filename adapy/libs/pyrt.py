@@ -965,7 +965,8 @@ class Ratran_Populations:
         elif pdf:
             pl.ioff()
         pl.close()
-        [pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(len(self.lp))]
+        #[pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(len(self.lp))]
+        [pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(3,9,1)]
         x1, x2 = pl.xlim()
         pl.xlim([x1 * 0.98, x2 * 1.001])
         pl.ylim([-0.02, 1.02])
