@@ -959,7 +959,7 @@ class Ratran_Populations:
             pl.savefig('{0}.pdf'.format('tex_trans'), bbox_inches = 0)
         
     def plot_pop(self, pdf = 0):
-         if not pdf: 
+        if not pdf: 
             pl.ion()
         elif pdf:
             pl.ioff()
