@@ -937,7 +937,7 @@ class Ratran_Populations:
         TODO Make it fetch all necessary info from pop.molfile,
         then just supply the 'trans' argument
         perhaps like '3_1_3 - 2_2_0'?
-        """        
+        """
         import matplotlib.pyplot as pl
         if not pdf: 
             pl.ion()
@@ -959,14 +959,13 @@ class Ratran_Populations:
             pl.savefig('{0}.pdf'.format('tex_trans'), bbox_inches = 0)
         
     def plot_pop(self, pdf = 0):
-        import matplotlib.pyplot as pl
-        if not pdf: 
+         if not pdf: 
             pl.ion()
         elif pdf:
             pl.ioff()
         pl.close()
-        #[pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(len(self.lp))]
-        [pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(3,9,1)]
+        [pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(len(self.lp))]
+        #[pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(3,9,1)]
         x1, x2 = pl.xlim()
         pl.xlim([x1 * 0.98, x2 * 1.001])
         pl.ylim([-0.02, 1.02])
@@ -975,7 +974,7 @@ class Ratran_Populations:
         if pdf:
             pl.savefig('{0}.pdf'.format('populations'), bbox_inches = 0)
         
-        
+
         
 ######################################################################
 ### RADIATIVE TRANSFER / MODELING
