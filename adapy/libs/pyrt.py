@@ -3,7 +3,7 @@
 #
 #  pyrt.py
 #
-#  Module to interface with RADEX, RATRAN and Transphere etc
+#  Module to interface with RADEX, RATRAN and Transphere..
 #
 #  Copyright 2012 Magnus Persson <http://vilhelm.nu>
 #
@@ -56,7 +56,7 @@ cgsconst.py - relevant cgs constants
 
 """
 #------------------------------------------------------------------------
-# TODO:
+# TODO restructure PYRT
 """
 TODO :
         Radex 
@@ -287,6 +287,139 @@ def plot_spectrum(freq, intensity, dpc = 0, jy = 0, pstyle = '', xlog = 1, ylog 
     if xlog == 1: pl.xscale('log')
     if ylog == 1: pl.yscale('log')
 
+
+def write_ratraninput(self):
+    # ugly hack, need to restructure the whole radiative transfer module
+    from scipy import log, log10, pi, array, arange
+    
+    
+    input_dir_path = _os.path.join(_os.getcwd(), self.directory)
+    # if the directory exists
+    if not make_dirs(input_dir_path): # will raise error if things go south (i.e., permissions not correct [I think...])
+        print('Directory exists, continuing.')
+    
+    V = 4 * pi * ((self.ra**3  - self.ra**3 )) / 3     # cm3
+    self.M = V * (self.nh + self.ne ) * _cgs.MUH2 * _cgs.MP # g = cm3 * g/cm3
+    self.M /= _cgs.MSUN                            # Msun
+    
+    # to get the column density, integrate over radius r1 to r_10k
+    #r_10k * 2 nh2_10k
+    
+    ################################################################
+    #  print info. -> move to __str__ method
+    #~ print ('M_10K   : {0:<7.2f} Msun\n'
+            #~ 'R_10K   : {1:<7.0f} AU\n'
+            #~ 'nH2_10K : {2:<7.1e} cm-3\n'
+            #~ 'Y       : {3:<7.0f}\n'
+            #~ 'T       : {4:<7.1f} K\n'.format(self.M.sum(),
+                                        #~ self.r_10k/_cgs.AU,
+                                        #~ self.nh2_10k,
+                                        #~ self.Y,
+                                        #~ self.temp_10k))
+    #~ print 'Constraining the envelope : ', self.r_constraint
+    #~ print ('nH2_r1000   : {0:<7.1e} cm-3\n'
+            #~ 'T_r1000     : {1:7.1f} K\n'.format(self.nh2_r1000,
+                                         #~ self.temp_r1000))
+    
+    print('printing input files')
+    
+    """
+    id    : shell number
+    ra,rb : inner & outer radius (m)
+    za,zb : lower & upper height (m) (2D only)
+    nh    : density (cm-3) of main collision partner (usually H2)
+    nm    : density (cm-3) of molecule
+    ne    : density (cm-3) of second collision partner (e.g. electrons)
+    tk    : kinetic temperature (K) 
+    td    : dust temperature (K)
+    te    : electron/second coll. partner temperature (K)
+    db    : 1/e half-width of line profile (Doppler b-parameter) (km s-1)
+    vr    : radial velocity (km s-1)
+    """
+    # the model file!
+    with open(_os.path.join(self.directory, self.modelfile),'w') as f:
+        f.write('# Ratran input file based on Transphere results'+'\n')
+        if self.skyonly: 
+            f.write('# ... intended for (SKY) continuum calculations only.'+'\n')
+        f.write("rmax={0:.5E}\n".format( self.rb[-1] ))       # rmax in METERS (convert from cm i.e. / 100)
+        f.write("ncell={0:}\n".format(len(self.rb)))
+        f.write("tcmb=2.735\n")
+        f.write("columns=id,ra,rb,nh,nm,ne,tk,td,te,db,vr\n")
+        f.write("gas:dust={0}\n".format(self.gas2dust))
+        if self.skyonly: 
+            f.write("kappa={0}\n".format(self.kappa))
+        f.write('@\n')
+        # r1/r2 in meter (convert from cm)
+        for ii in range(0, len(self.rb)):
+            test = ("{0:4} "                         #  1 id : shell number
+                    "{1:12.5E} "                     #  2 ra : inner radius (m)  
+                    "{2:12.5E} "                     #  3 rb : outer radius (m)
+                    "{3:12.5E} "                     #  4 nh : density (cm-3) of main coll. partner (usually H2)
+                    "{4:12.5E} "                     #  5 nm : density (cm-3) of molecule
+                    "{5:12.5E} "                     #  6 ne : density (cm-3) of second coll. partner (e.g. electrons)
+                    "{6:12.5E} "                     #  7 tk : kinetic temperature (K) 
+                    "{7:12.5E} "                     #  8 td : dust temperature (K)
+                    "{8:12.5E} "                     #  9 te : second coll. partner temperature (K)
+                    "{9:12.5E} "                     # 10 db : 1/e half-width of line profile (Doppler b-parameter) (km s-1)
+                    "{10:12.5E}\n")                  # 11 vr : radial velocity (km s-1)
+            # now print the whole shebang
+            f.write(test.format(ii + 1,              #  1 id : shell number
+                self.ra[ii],                         #  2 ra : inner radius (m)  
+                self.rb[ii],                         #  3 rb : outer radius (m)
+                self.nh[ii],                         #  4 nh : density (cm-3) of main coll. partner (usually p-H2)
+                self.nm[ii],                         #  5 nm : density (cm-3) of molecule
+                self.ne[ii],                         #  6 ne : density (cm-3) of second coll. partner (e.g, e^-, o-H2)
+                self.tk[ii],                         #  7 tk : kinetic temperature (K) 
+                self.td[ii],                         #  8 td : dust temperature (K)
+                self.te[ii],                         #  9 te : second coll. partner temperature (K)
+                self.db[ii],                         # 10 db : 1/e half-width of line profile (Doppler b-parameter) (km s-1)
+                round(self.vr[ii], 15))              # 11 vr : radial velocity (km s-1)
+                    )          
+                                
+                                
+                                
+            #~ f.write("%4i %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E %12.5E" % (ii+1, self.r1[ii]/100.0, self.r2[ii]/100.0, self.nh2int[ii], self.nh2int[ii]*self.abund_int[ii], self.tkint[ii], self.tdint[ii], self.db, self.vr[ii])+'\n')
+    # the AMC.inp file
+    if not self.skyonly:
+        if self.molfile == '':
+            sys.exit('Error: for AMC calculations the molecular datafile (molfile) needs to be set.')
+        with open(_os.path.join(self.directory, "amc.inp"),'w') as f:
+            f.write("source={0}\n".format(self.modelfile))
+            f.write("outfile=populations.pop\n")
+            f.write("molfile={0}\n".format(self.molfile))
+            f.write("snr={0}\n".format(self.snr))
+            f.write("velo=grid\n") 
+            # velo=grid if velocity vector is given in input model?
+            f.write("nphot={0}\n".format(self.nphot))
+            f.write("kappa={0}\n".format(self.kappa))
+            f.write("minpop={0:3.2E}\n".format(self.minpop))
+            f.write("seed=1971\n")
+            f.write("fixset={0:3.2E}\n".format(self.fixset))
+            f.write("go\n")
+            f.write("q\n")
+            f.write("\n")
+    
+    # the SKY.inp file
+    with open(_os.path.join(self.directory, "sky.inp"),'w') as f:
+        if self.skyonly:
+            f.write("source={0}\n".format(self.modelfile))
+        else:
+            f.write("source=populations.pop\n")                     # just use the AMC output file (always set to populations.pop above)
+        f.write("format={0}\n".format(self.outformat))
+        f.write("outfile="+self.outputfile+"\n")
+        f.write("trans={0}\n".format(self.trans))
+        f.write("pix={0},{1:f},{2},{3}\n".format(self.imsize, self.pixel, self.pxlradius, self.los))
+        if self.skyonly:
+            f.write("chan=1,1.0\n")
+        else:
+            f.write("chan={0},{1:f}\n".format(self.chans, self.chwidth))
+        f.write("distance={0}\n".format(self.dpc))
+        f.write("units={0}\n".format(self.unit))
+        f.write("go\n")
+        f.write("q\n")
+        f.write("\n")
+
+
 def read_ratraninput(modelfile = "transphere.mdl"):
     """
     Read the input model to Ratran and plots all parameters 
@@ -310,35 +443,64 @@ def read_ratraninput(modelfile = "transphere.mdl"):
     
     class Mdl: pass
     
+    #with open(modelfile, 'r') as f:
+    #    lines = f.read().split('\n')
+    #table_start_indicator = where(array(lines) == '@')[0][0]
+    ## get the header/preamble with the singel values
+    #header = lines[:table_start_indicator]
+    ## first get the comments in the header
+    #Mdl.comments = [i for i in header if i[0] == "#"]
+    ## second get the keyword - value pairs
+    #values = [i for i in header if i[0] != "#"]
+    #key_val = array([i.split('=') for i in values])
+    ## add a checker function for input?
+    ## put into class attributes
+    #for key, val in zip(key_val[:,0], key_val[:,1]):
+    #    if key in ['columns']:
+    #        Mdl.__dict__[key] = val.split(',')
+    #    elif key in ['ncell']:
+    #        Mdl.__dict__[key.replace(':','2')] = int(val)
+    #    else:
+    #        Mdl.__dict__[key.replace(':','2')] = float(val)
+    
     with open(modelfile, 'r') as f:
-        lines = f.read().split('\n')
-    table_start_indicator = where(array(lines) == '@')[0][0]
-    # get the header/preamble with the singel values
-    header = lines[:table_start_indicator]
-    # first get the comments in the header
-    Mdl.comments = [i for i in header if i[0] == "#"]
-    # second get the keyword - value pairs
-    values = [i for i in header if i[0] != "#"]
-    key_val = array([i.split('=') for i in values])
-    # add a checker function for input?
-    # put into class attributes
-    for key, val in zip(key_val[:,0], key_val[:,1]):
-        if key in ['columns']:
-            Mdl.__dict__[key] = val.split(',')
-        elif key in ['ncell']:
-            Mdl.__dict__[key.replace(':','2')] = int(val)
-        else:
-            Mdl.__dict__[key.replace(':','2')] = float(val)
+        line = f.readline()
+        Mdl.comments = []
+        while not line.startswith('@'):
+            if line.startswith('#'):
+                Mdl.comments.append(line)
+                line = f.readline()
+                pass
+            else:
+                keyval = line.strip('\n').split('=')
+                try:
+                    setattr(Mdl, keyval[0].replace(':','_'), float(keyval[1]))
+                except(ValueError):
+                    setattr(Mdl, keyval[0].replace(':','_'), keyval[1])
+                line = f.readline()
+        Mdl.columns = Mdl.columns.split(',')
+        lines = f.readlines()
+    
     # now get the whole data table
-    table = lines[table_start_indicator + 1:]
-    Mdl.table = array([i.split() for i in table][:-1]).astype('float')
+    #table = lines[table_start_indicator + 1:]
+    table = lines
+    Mdl.table = array([i.split() for i in table]).astype('float')
     Mdl.table = Mdl.table.transpose()
     # put each column in to its own attribute of the class
     for col,vals in zip(Mdl.columns, Mdl.table):
         Mdl.__dict__[col] = vals
     # convert to AUs
-    Mdl.ra = Mdl.ra * 100 / _cgs.AU # input in m, so times 100 and devide by cm/AU
-    Mdl.rb = Mdl.rb * 100 / _cgs.AU
+    Mdl.ra_au = Mdl.ra * 100 / _cgs.AU # input in m, so times 100 and devide by cm/AU
+    Mdl.rb_au = Mdl.rb * 100 / _cgs.AU
+    Mdl.r_au = (Mdl.ra_au + Mdl.rb_au) / 2.
+    
+    # convert to relative abundances
+    Mdl.nh[0] = 1.0
+    Mdl.ne[0] = 1.0
+    Mdl.nm_rel = Mdl.nm / (Mdl.nh + Mdl.ne)
+    Mdl.nh[0] = 0.0
+    Mdl.ne[0] = 0.0
+    Mdl.nm_rel[0] = 0.0
     return Mdl
 
 # FIXME, does not work tries to import old adavis module
@@ -392,7 +554,6 @@ def plot_ratraninput(directory = '', modelfile = "transphere.mdl"):
     #~ plots['ax{0}'.format(N-1)].set_xlabel('ra (AU)')
     fig.subplots_adjust(left=0.11, right= 0.97, bottom=0.11, top=0.96, wspace=0.43, hspace=0.15)
     return plots, fig
- 
  
 def create_molecular_abundance(temperature, 
                                 abund_type = 'jump', 
@@ -734,7 +895,6 @@ def run_ratran(r = 0.0, rho_dust = 0.0, temp = 0.0, db = 0.0, abund = 0.0, vr = 
         print ' SKY took : {0:2.2f} seconds'.format(time()-t1)
         os.system('alert \"SKY has finished running.\"')
 
-
 def save_ratran(Obj, filename = 'ratranmodel.pickle'):
     # take input object
     # and save it as a dictionary to filename in directory
@@ -893,7 +1053,7 @@ def temp_pop(n, g, nu):
     denom = _cgs.KK * _scipy.log(n[1] * g[0] / (n[0] * g[1]))
     return numer / denom
 
-class Ratran_Populations:
+class Ratran_File:
     """
     Ratran populations class
     reads in and performs analysis on the Ratran populations file.
@@ -974,8 +1134,9 @@ class Ratran_Populations:
         pl.ylabel('Relative level population')
         if pdf:
             pl.savefig('{0}.pdf'.format('populations'), bbox_inches = 0)
-        
 
+    def write_input(filename):
+        return 0
         
 ######################################################################
 ### RADIATIVE TRANSFER / MODELING
@@ -1604,9 +1765,9 @@ class Ratran:
                 f.write(test.format(ii + 1,               #  1 id : shell number
                     self.r1[ii] / 100.0,                  #  2 ra : inner radius (m)  
                     self.r2[ii] / 100.0,                  #  3 rb : outer radius (m)
-                    self.nh2int[ii] * self.para[ii],          #  4 nh : density (cm-3) of main coll. partner (usually p-H2)
+                    self.nh2int[ii] * self.para[ii],      #  4 nh : density (cm-3) of main coll. partner (usually p-H2)
                     self.nh2int[ii] * self.abund_int[ii], #  5 nm : density (cm-3) of molecule
-                    self.nh2int[ii] * self.ortho[ii],         #  6 ne : density (cm-3) of second coll. partner (e.g, e^-, o-H2)
+                    self.nh2int[ii] * self.ortho[ii],     #  6 ne : density (cm-3) of second coll. partner (e.g, e^-, o-H2)
                     self.tkint[ii],                       #  7 tk : kinetic temperature (K) 
                     self.tdint[ii],                       #  8 td : dust temperature (K)
                     self.teint[ii],                       #  9 te : second coll. partner temperature (K)
