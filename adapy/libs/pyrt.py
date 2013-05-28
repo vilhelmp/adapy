@@ -1092,7 +1092,7 @@ class Ratran_File:
         self.r = (self.rb + self.ra) / 2.
         #[setattr(self, col, i) in zip(self.columns,arange(len(self.columns)-1))]
         
-    def plot_tex_trans(self, trans=[6, 5], gweight = [7., 7.], nu = 203.40752E9, pdf = 0):
+    def plot_tex_trans(self, trans=[6, 5], gweight = [7., 7.], nu = 203.40752E9, pdf = 0, **kwargs):
         """
         TODO Make it fetch all necessary info from pop.molfile,
         then just supply the 'trans' argument
@@ -1108,7 +1108,7 @@ class Ratran_File:
         print ('WARNING, this function plots the 3_1_3 - 2_2_0 transition of H2-18O ' 
                 'by default. Please give the proper arguments.')
         pl.close()
-        pl.semilogx(self.r/(_cgs.AU/100.), temp_pop(self.lp[trans-1], gweight, nu))
+        pl.semilogx(self.r/(_cgs.AU/100.), temp_pop(self.lp[trans-1], gweight, nu), **kwargs)
         #x1, x2 = pl.xlim()
         #pl.xlim([x1 * 0.98, x2 * 1.001])
         #y1, y2 = pl.ylim()
@@ -1118,14 +1118,14 @@ class Ratran_File:
         if pdf:
             pl.savefig('{0}.pdf'.format('tex_trans'), bbox_inches = 0)
         
-    def plot_pop(self, pdf = 0):
+    def plot_pop(self, pdf = 0, **kwargs):
         import matplotlib.pyplot as pl
         if not pdf: 
             pl.ion()
         elif pdf:
             pl.ioff()
         pl.close()
-        [pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(len(self.lp))]
+        [pl.loglog(self.r/(_cgs.AU/100.),self.lp[i], **kwargs) for i in _scipy.arange(len(self.lp))]
         #[pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(3,9,1)]
         x1, x2 = pl.xlim()
         pl.xlim([x1 * 0.98, x2 * 1.001])
