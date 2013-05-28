@@ -393,7 +393,7 @@ def write_ratraninput(self):
             f.write("nphot={0}\n".format(self.nphot))
             f.write("kappa={0}\n".format(self.kappa))
             f.write("minpop={0:3.2E}\n".format(self.minpop))
-            f.write("seed=1971\n")
+            #~ f.write("seed=1971\n")       # NOT GOOD, avoid!
             f.write("fixset={0:3.2E}\n".format(self.fixset))
             f.write("go\n")
             f.write("q\n")
