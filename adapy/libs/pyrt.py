@@ -1068,7 +1068,7 @@ class Ratran_File:
     """
     Ratran populations class
     reads in and performs analysis on the Ratran populations file.
-    i.e. AMC output
+    i.e. AMC output or AMC model input
     """
     def __init__(self, directory = '', popfile = 'populations.pop'):
         from scipy import arange, array
@@ -1102,8 +1102,19 @@ class Ratran_File:
                 setattr(self, colname, lines[i])
         self.r = (self.rb + self.ra) / 2.
         #[setattr(self, col, i) in zip(self.columns,arange(len(self.columns)-1))]
+        self.molfile_exists = self.__dict__.has_key('molfile')
+        if molfilecheck:
+            f = open(self.molfile)
+            molref = f.read().split('\n')
+            f.close()
+            self.n_elevels = int(molref[5])
+            elevels_d = [i.split() for i in molref[7:7 + self.n_elevels]]
+            self.elev = list([dict([['level', int(i[0])], 
+                            ['energies', float(i[1])], 
+                            ['weight', float(i[2])], 
+                            ['j', str(i[3])]]) for i in elevels_d])
         
-    def plot_tex_trans(self, trans=[6, 5], gweight = [7., 7.], nu = 203.40752E9, pdf = 0, **kwargs):
+    def plot_tex_trans(self, trans=[6, 5], gweight = [7., 5.], nu = 203.40752E9, pdf = 0, **kwargs):
         """
         TODO Make it fetch all necessary info from pop.molfile,
         then just supply the 'trans' argument
@@ -1132,18 +1143,6 @@ class Ratran_File:
     def plot_pop(self, levels = 'all', pdf = 0, **kwargs):
         _pdfcheck(pdf)
         _plt.close()
-        molfilecheck = self.__dict__.has_key('molfile')
-        if molfilecheck:
-            f = open(self.molfile)
-            molref = f.read().split('\n')
-            f.close()
-            self.n_elevels = int(molref[5])
-            elevels_d = [i.split() for i in molref[7:7 + self.n_elevels]]
-            self.elev = list([dict([['level', int(i[0])], 
-                            ['energies', float(i[1])], 
-                            ['weight', float(i[2])], 
-                            ['j', str(i[3])]]) for i in elevels_d])
-
         if levels == 'all':
             [_plt.loglog(self.r/(_cgs.AU/100.),self.lp[i], **kwargs) for i in _scipy.arange(len(self.lp))]
         else:
@@ -1153,7 +1152,7 @@ class Ratran_File:
                 print ('This is the moldata levels, i.e. level 0_0_0, is 1 ')
                 return 0
             [_plt.loglog(self.r/(_cgs.AU/100.), self.lp[i], **kwargs) for i in levels]
-            if molfilecheck:
+            if self.molfile_exists:
                 _plt.legend(['lvl:{0}'.format(str(self.elev[i]['j'])) for i in levels])
             else:
                 _plt.legend(['lvl:{0}'.format(str(i)) for i in levels])
