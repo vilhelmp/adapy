@@ -1132,6 +1132,18 @@ class Ratran_File:
     def plot_pop(self, levels = 'all', pdf = 0, **kwargs):
         _pdfcheck(pdf)
         _plt.close()
+        molfilecheck = self.__dict__.has_key('molfile')
+        if molfilecheck:
+            f = open(self.molfile)
+            molref = f.read().split('\n')
+            f.close()
+            pop.n_elevels = int(molref[5])
+            elevels_d = [i.split() for i in molref[7:7 + pop.n_elevels]]
+            pop.elev = list([dict([['level', int(i[0])], 
+                            ['energies', float(i[1])], 
+                            ['weight', float(i[2])], 
+                            ['j', str(i[3])]]) for i in elevels_d])
+
         if levels == 'all':
             [_plt.loglog(self.r/(_cgs.AU/100.),self.lp[i], **kwargs) for i in _scipy.arange(len(self.lp))]
         else:
@@ -1141,7 +1153,10 @@ class Ratran_File:
                 print ('This is the moldata levels, i.e. level 0_0_0, is 1 ')
                 return 0
             [_plt.loglog(self.r/(_cgs.AU/100.), self.lp[i], **kwargs) for i in levels]
-            _plt.legend(['lvl:{0}'.format(str(i)) for i in levels])
+            if molfilecheck:
+                _plt.legend(['lvl:{0}'.format(str(pop.elev[i]['j'])) for i in levels])
+            else:
+                _plt.legend(['lvl:{0}'.format(str(i)) for i in levels])
         #[pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(3,9,1)]
         x1, x2 = _plt.xlim()
         _plt.xlim([x1 * 0.98, x2 * 1.001])
