@@ -1136,8 +1136,11 @@ class Ratran_File:
             [_plt.loglog(self.r/(_cgs.AU/100.),self.lp[i], **kwargs) for i in _scipy.arange(len(self.lp))]
         else:
             # Python : 0 based indexing
+            if (levels<1).any():
+                print ('This is the moldata levels, i.e. level 0_0_0, is 1 ')
+                return 0
             levels = _scipy.array(levels) - 1
-            [_plt.loglog(self.r/(_cgs.AU/100.),self.lp[i], **kwargs) for i in levels]
+            [_plt.loglog(self.r/(_cgs.AU/100.), self.lp[i], **kwargs) for i in levels]
         #[pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(3,9,1)]
         x1, x2 = _plt.xlim()
         _plt.xlim([x1 * 0.98, x2 * 1.001])
