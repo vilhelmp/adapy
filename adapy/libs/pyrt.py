@@ -1103,7 +1103,7 @@ class Ratran_File:
         self.r = (self.rb + self.ra) / 2.
         #[setattr(self, col, i) in zip(self.columns,arange(len(self.columns)-1))]
         self.molfile_exists = self.__dict__.has_key('molfile')
-        if molfile_exists:
+        if self.molfile_exists:
             f = open(self.molfile)
             molref = f.read().split('\n')
             f.close()
