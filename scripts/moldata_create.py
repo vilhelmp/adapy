@@ -14,7 +14,7 @@ moldatapath = '/home/magnusp/work/data/moldata/'
 
 
 # Para ('0') or Ortho ('1') water?
-ortho = '1'
+ortho = '0'
 # Only transitions with v = 0, i.e. only the rotational transitions
 # and not the vibrational ones.
 v0orv1 = '0'

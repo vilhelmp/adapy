@@ -80,6 +80,7 @@ import os as _os
 import sys as _sys
 import subprocess as _subprocess
 import scipy as _scipy
+from matplotlib import pyplot as _plt
 
 ########################################################################
 # GENERAL HELP FUNCTIONS (move to adavis_core)
@@ -1053,6 +1054,16 @@ def temp_pop(n, g, nu):
     denom = _cgs.KK * _scipy.log(n[1] * g[0] / (n[0] * g[1]))
     return numer / denom
 
+def _pdfcheck(pdf):
+        if not pdf: 
+            _plt.ion()
+        elif pdf:
+            _plt.ioff()
+
+def _pdfsave(pdf, pdfname, **kwargs):
+    if pdf:
+            _plt.savefig('{0}.pdf'.format(str(pdfname)), kwargs)
+
 class Ratran_File:
     """
     Ratran populations class
@@ -1118,22 +1129,22 @@ class Ratran_File:
         if pdf:
             pl.savefig('{0}.pdf'.format('tex_trans'), bbox_inches = 0)
         
-    def plot_pop(self, pdf = 0, **kwargs):
-        import matplotlib.pyplot as pl
-        if not pdf: 
-            pl.ion()
-        elif pdf:
-            pl.ioff()
-        pl.close()
-        [pl.loglog(self.r/(_cgs.AU/100.),self.lp[i], **kwargs) for i in _scipy.arange(len(self.lp))]
+    def plot_pop(self, levels = 'all', pdf = 0, **kwargs):
+        _pdfcheck(pdf)
+        _plt.close()
+        if levels == 'all':
+            [_plt.loglog(self.r/(_cgs.AU/100.),self.lp[i], **kwargs) for i in _scipy.arange(len(self.lp))]
+        else:
+            # Python : 0 based indexing
+            levels = _scipy.array(levels) - 1
+            [_plt.loglog(self.r/(_cgs.AU/100.),self.lp[i], **kwargs) for i in levels]
         #[pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(3,9,1)]
-        x1, x2 = pl.xlim()
-        pl.xlim([x1 * 0.98, x2 * 1.001])
-        pl.ylim([-0.02, 1.02])
-        pl.xlabel('Radius [AU]')
-        pl.ylabel('Relative level population')
-        if pdf:
-            pl.savefig('{0}.pdf'.format('populations'), bbox_inches = 0)
+        x1, x2 = _plt.xlim()
+        _plt.xlim([x1 * 0.98, x2 * 1.001])
+        _plt.ylim([-0.02, 1.02])
+        _plt.xlabel('Radius [AU]')
+        _plt.ylabel('Relative level population')
+        _pdfsave(pdf, 'populations', bbox_inches = 0)
 
     def write_input(filename):
         return 0
