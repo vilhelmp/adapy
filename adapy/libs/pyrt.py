@@ -1137,9 +1137,9 @@ class Ratran_File:
             f = open(self.molfile)
             molref = f.read().split('\n')
             f.close()
-            pop.n_elevels = int(molref[5])
-            elevels_d = [i.split() for i in molref[7:7 + pop.n_elevels]]
-            pop.elev = list([dict([['level', int(i[0])], 
+            self.n_elevels = int(molref[5])
+            elevels_d = [i.split() for i in molref[7:7 + self.n_elevels]]
+            self.elev = list([dict([['level', int(i[0])], 
                             ['energies', float(i[1])], 
                             ['weight', float(i[2])], 
                             ['j', str(i[3])]]) for i in elevels_d])
@@ -1154,7 +1154,7 @@ class Ratran_File:
                 return 0
             [_plt.loglog(self.r/(_cgs.AU/100.), self.lp[i], **kwargs) for i in levels]
             if molfilecheck:
-                _plt.legend(['lvl:{0}'.format(str(pop.elev[i]['j'])) for i in levels])
+                _plt.legend(['lvl:{0}'.format(str(self.elev[i]['j'])) for i in levels])
             else:
                 _plt.legend(['lvl:{0}'.format(str(i)) for i in levels])
         #[pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(3,9,1)]
