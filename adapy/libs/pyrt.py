@@ -1141,6 +1141,7 @@ class Ratran_File:
                 return 0
             levels = _scipy.array(levels) - 1
             [_plt.loglog(self.r/(_cgs.AU/100.), self.lp[i], **kwargs) for i in levels]
+            _plt.legend(['lvl:{0}'.format(str(i)) for i in levels])
         #[pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(3,9,1)]
         x1, x2 = _plt.xlim()
         _plt.xlim([x1 * 0.98, x2 * 1.001])
