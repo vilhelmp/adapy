@@ -1180,6 +1180,7 @@ class Ratran_File:
         #pl.xlim([x1 * 0.98, x2 * 1.001])
         #y1, y2 = pl.ylim()
         #pl.ylim([x1 * 0.98, x2 * 1.001])
+        _plt.legend(['{0[0] - {0[1]}}'.format(trans_str)])
         _plt.xlabel('Radius [AU]')
         _plt.ylabel(r'T_{ex}')
         if pdf:
