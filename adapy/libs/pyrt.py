@@ -1183,6 +1183,7 @@ class Ratran_File:
         _plt.legend(['{0[0]} - {0[1]}'.format(trans_str)])
         _plt.xlabel('Radius [AU]')
         _plt.ylabel(r'T_{ex}')
+        _plt.grid()
         if pdf:
             _plt.savefig('{0}.pdf'.format('tex_trans'), bbox_inches = 0)
         
@@ -1199,15 +1200,16 @@ class Ratran_File:
                 return 0
             [_plt.loglog(self.r/(_cgs.AU/100.), self.lp[i], **kwargs) for i in levels]
             if self.molfile_exists:
-                _plt.legend(['lvl:{0}'.format(str(self.elev[i]['j'])) for i in levels])
+                _plt.legend(['lvl:{0}'.format(str(self.elev[i]['j'])) for i in levels], loc=3)
             else:
-                _plt.legend(['lvl:{0}'.format(str(i)) for i in levels])
+                _plt.legend(['lvl:{0}'.format(str(i)) for i in levels], loc=3)
         #[pl.loglog(self.r/(_cgs.AU/100.),self.lp[i]) for i in _scipy.arange(3,9,1)]
         x1, x2 = _plt.xlim()
         _plt.xlim([x1 * 0.98, x2 * 1.001])
-        _plt.ylim([-0.02, 1.02])
+        _plt.ylim([-0.02, 10])
         _plt.xlabel('Radius [AU]')
         _plt.ylabel('Relative level population')
+        _plt.grid()
         _pdfsave(pdf, 'populations', bbox_inches = 0)
 
     def write_input(filename):
