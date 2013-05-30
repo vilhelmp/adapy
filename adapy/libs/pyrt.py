@@ -1120,6 +1120,7 @@ class Ratran_File:
     def print_levels(self):
         if self.elev:
             print ('ID \t J_Kp_Ko')
+            print ('--------------')
             for i in self.elev:
                 print ('{0} \t {1}'.format(i['level'], i['j'])) 
         else:
@@ -1159,9 +1160,22 @@ class Ratran_File:
         _pdfcheck(pdf)
         _plt.close()
         
-        temp_array = temp_pop([self.lp[trans[0]-1], self.lp[trans[1]-1]], gweight, nu)
+        fig = _plt.figure()
+        ax = fig.add_subplot(111)
+        y = temp_pop([self.lp[trans[0]-1], self.lp[trans[1]-1]], gweight, nu)
         
-        _plt.semilogx(self.r/(_cgs.AU/100.), temp_array, **kwargs)
+        # test
+        import matplotlib.transforms as transforms
+        x = self.r/(_cgs.AU/100.)
+        line , = ax.semilogx(x, y, marker = 'o', ms = 1, **kwargs)
+        # shift the object over 2 points, and down 2 points
+        dx, dy = 2/72., -2/72.
+        offset = transforms.ScaledTranslation(dx, dy,
+        fig.dpi_scale_trans)
+        shadow_transform = ax.transData + offset
+        ax.semilogx(x, y, lw = 3, color = 'gray',
+                    transform = shadow_transform,
+                    zorder = 0.5*line.get_zorder())
         #x1, x2 = pl.xlim()
         #pl.xlim([x1 * 0.98, x2 * 1.001])
         #y1, y2 = pl.ylim()
