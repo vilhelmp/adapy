@@ -1165,17 +1165,17 @@ class Ratran_File:
         y = temp_pop([self.lp[trans[0]-1], self.lp[trans[1]-1]], gweight, nu)
         
         # test
-        import matplotlib.transforms as transforms
+        #~ import matplotlib.transforms as transforms
         x = self.r/(_cgs.AU/100.)
         line , = ax.semilogx(x, y, marker = 'o', mew = 0, lw = 3, **kwargs)
         # shift the object over 2 points, and down 2 points
-        dx, dy = 3/72., -3/72.
-        offset = transforms.ScaledTranslation(dx, dy,
-        fig.dpi_scale_trans)
-        shadow_transform = ax.transData + offset
-        ax.semilogx(x, y, lw = 3, marker='o', mew = 0, color = 'gray',
-                    transform = shadow_transform,
-                    zorder = 0.5*line.get_zorder())
+        #~ dx, dy = 3/72., -3/72.
+        #~ offset = transforms.ScaledTranslation(dx, dy,
+        #~ fig.dpi_scale_trans)
+        #~ shadow_transform = ax.transData + offset
+        #~ ax.semilogx(x, y, lw = 3, marker='o', mew = 0, color = 'gray',
+                    #~ transform = shadow_transform,
+                    #~ zorder = 0.5*line.get_zorder())
         #x1, x2 = pl.xlim()
         #pl.xlim([x1 * 0.98, x2 * 1.001])
         #y1, y2 = pl.ylim()
