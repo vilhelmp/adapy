@@ -1173,7 +1173,7 @@ class Ratran_File:
         offset = transforms.ScaledTranslation(dx, dy,
         fig.dpi_scale_trans)
         shadow_transform = ax.transData + offset
-        ax.semilogx(x, y, lw = 3, color = 'gray',
+        ax.semilogx(x, y, lw = 3, marker='o', color = 'gray',
                     transform = shadow_transform,
                     zorder = 0.5*line.get_zorder())
         #x1, x2 = pl.xlim()
