@@ -1169,7 +1169,7 @@ class Ratran_File:
         x = self.r/(_cgs.AU/100.)
         line , = ax.semilogx(x, y, marker = 'o', mew = 0, lw = 3, **kwargs)
         # shift the object over 2 points, and down 2 points
-        dx, dy = 2/72., -2/72.
+        dx, dy = 3/72., -3/72.
         offset = transforms.ScaledTranslation(dx, dy,
         fig.dpi_scale_trans)
         shadow_transform = ax.transData + offset
