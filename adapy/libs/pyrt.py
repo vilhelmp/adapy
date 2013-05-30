@@ -1167,7 +1167,7 @@ class Ratran_File:
         # test
         import matplotlib.transforms as transforms
         x = self.r/(_cgs.AU/100.)
-        line , = ax.semilogx(x, y, marker = 'o', ms = 1, **kwargs)
+        line , = ax.semilogx(x, y, marker = 'o', lw = 3, **kwargs)
         # shift the object over 2 points, and down 2 points
         dx, dy = 2/72., -2/72.
         offset = transforms.ScaledTranslation(dx, dy,
