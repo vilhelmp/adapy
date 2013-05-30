@@ -1113,32 +1113,63 @@ class Ratran_File:
                             ['energies', float(i[1])], 
                             ['weight', float(i[2])], 
                             ['j', str(i[3])]]) for i in elevels_d])
-        
-    def plot_tex_trans(self, trans=[6, 5], gweight = [7., 5.], nu = 203.40752E9, pdf = 0, **kwargs):
+        else:
+            print('Warning : No molecular data file found.')
+            self.elev = 0
+    
+    def print_levels(self):
+        if self.elev:
+            print ('ID \t J_Kp_Ko')
+            for i in self.elev:
+                print ('{0} \t {1}'.format(i, self.elev[i]['j'])) 
+        else:
+            print('Need moldata file for this, update parameter'
+            'molfile')
+            return 0
+    
+    def plot_tex_trans(self, trans = [6, 5], gweight = 0, nu = 0, 
+                        pdf = 0, **kwargs):
         """
         TODO Make it fetch all necessary info from pop.molfile,
         then just supply the 'trans' argument
         perhaps like '3_1_3 - 2_2_0'?
         """
-        import matplotlib.pyplot as pl
-        if not pdf: 
-            pl.ion()
-        elif pdf:
-            pl.ioff()
-        trans = _scipy.array(trans)
-        print 'Plotting Tex from transition {0}, {1}'.format(trans[0], trans[1])
-        print ('WARNING, this function plots the 3_1_3 - 2_2_0 transition of H2-18O ' 
-                'by default. Please give the proper arguments.')
-        pl.close()
-        pl.semilogx(self.r/(_cgs.AU/100.), temp_pop(self.lp[trans-1], gweight, nu), **kwargs)
+        
+        #~ trans = _scipy.array(trans)
+        
+        #print 'Plotting Tex from transition {0}, {1}'.format(trans[0], trans[1])
+        #print ('WARNING, this function plots the 3_1_3 - 2_2_0 transition of H2-18O ' 
+        #        'by default. Please give the proper arguments.')
+        
+        if self.elev:
+            gweigt = [0, 0]
+            gweight = [self.elev[trans[0]-1]['weight'], self.elev[trans[1]-1]['weight']] 
+            nu = _cgs.CC*abs(self.elev[trans[0]-1]['energies'] - self.elev[trans[1]-1]['energies'])
+            trans_str = [self.elev[trans[0]-1]['j'], self.elev[trans[1]-1]['j']]
+        elif not self.elev:
+            print ('Warn: No moldata file (molfile) present/wrong path')
+            if not gweight:
+                print ('Err: No weight (gweight) input.')
+                return 0
+            if not nu:
+                print('Err: No frequency (nu) input')
+                return 0
+        print(''.format(trans,gweight))
+
+        _pdfcheck(pdf)
+        _plt.close()
+        
+        temp_array = temp_pop([self.lp[trans[0]-1], self.lp[trans[1]-1]], gweight, nu)
+        
+        _plt.semilogx(self.r/(_cgs.AU/100.), temp_array, **kwargs)
         #x1, x2 = pl.xlim()
         #pl.xlim([x1 * 0.98, x2 * 1.001])
         #y1, y2 = pl.ylim()
         #pl.ylim([x1 * 0.98, x2 * 1.001])
-        pl.xlabel('Radius [AU]')
-        pl.ylabel(r'T_{ex}')
+        _plt.xlabel('Radius [AU]')
+        _plt.ylabel(r'T_{ex}')
         if pdf:
-            pl.savefig('{0}.pdf'.format('tex_trans'), bbox_inches = 0)
+            _plt.savefig('{0}.pdf'.format('tex_trans'), bbox_inches = 0)
         
     def plot_pop(self, levels = 'all', pdf = 0, **kwargs):
         _pdfcheck(pdf)
