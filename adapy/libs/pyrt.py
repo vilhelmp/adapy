@@ -1191,14 +1191,19 @@ class Ratran_File:
         _pdfcheck(pdf)
         _plt.close()
         if levels == 'all':
-            [_plt.loglog(self.r/(_cgs.AU/100.),self.lp[i], **kwargs) for i in _scipy.arange(len(self.lp))]
+            [_plt.loglog(self.r/(_cgs.AU/100.),self.lp[i], 
+                        marker = 'o', 
+                        mew = 0, 
+                        lw = 2, 
+                        **kwargs) for i in _scipy.arange(len(self.lp))]
         else:
             # Python : 0 based indexing
             levels = _scipy.array(levels) - 1
             if (levels<0).any():
                 print ('This is the moldata levels, i.e. level 0_0_0, is 1 ')
                 return 0
-            [_plt.loglog(self.r/(_cgs.AU/100.), self.lp[i], **kwargs) for i in levels]
+            x = self.r/(_cgs.AU/100.)
+            [_plt.loglog(x, self.lp[i], **kwargs) for i in levels]
             if self.molfile_exists:
                 _plt.legend(['lvl:{0}'.format(str(self.elev[i]['j'])) for i in levels], loc=3)
             else:
