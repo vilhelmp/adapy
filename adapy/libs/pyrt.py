@@ -1190,8 +1190,9 @@ class Ratran_File:
     def plot_pop(self, levels = 'all', pdf = 0, **kwargs):
         _pdfcheck(pdf)
         _plt.close()
+        x = self.r/(_cgs.AU/100.)
         if levels == 'all':
-            [_plt.loglog(self.r/(_cgs.AU/100.),self.lp[i], 
+            [_plt.loglog(x,self.lp[i], 
                         marker = 'o', 
                         mew = 0, 
                         lw = 2, 
@@ -1202,8 +1203,12 @@ class Ratran_File:
             if (levels<0).any():
                 print ('This is the moldata levels, i.e. level 0_0_0, is 1 ')
                 return 0
-            x = self.r/(_cgs.AU/100.)
-            [_plt.loglog(x, self.lp[i], **kwargs) for i in levels]
+            
+            [_plt.loglog(x, self.lp[i], 
+                        marker = 'o', 
+                        mew = 0, 
+                        lw = 2, 
+                        **kwargs) for i in levels]
             if self.molfile_exists:
                 _plt.legend(['lvl:{0}'.format(str(self.elev[i]['j'])) for i in levels], loc=3)
             else:
