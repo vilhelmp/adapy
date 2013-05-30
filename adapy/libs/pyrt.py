@@ -1121,7 +1121,7 @@ class Ratran_File:
         if self.elev:
             print ('ID \t J_Kp_Ko')
             for i in self.elev:
-                print ('{0} \t {1}'.format(i, self.elev[i]['j'])) 
+                print ('{0} \t {1}'.format(i['level'], i['j'])) 
         else:
             print('Need moldata file for this, update parameter'
             'molfile')
