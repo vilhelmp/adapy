@@ -1090,7 +1090,7 @@ class Ratran_File:
             self.columns = self.columns.split(',')
             lines = f.readlines()
             
-        lines = array([i.strip().split('   ') for i in lines], dtype='float')
+        lines = array([i.strip().split() for i in lines], dtype='float')
         lines = lines.transpose()
         for colname, i in zip(self.columns, arange(len(self.columns))):
             if colname == 'lp':
