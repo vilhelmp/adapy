@@ -3381,12 +3381,12 @@ def plot_chmap (self,
         #~ grid[i].yaxis.set_minor_locator(minorLocator)
 
         #~ draw_fov(grid[i].axes, linedata)
-        if i in [0,1,2]:
-            print_vel(grid[i].axes, i,fc='#FFAAAA')
-        elif i in [12,13,14]:
-            print_vel(grid[i].axes, i,fc='0.8')
-        else:
-            print_vel(grid[i].axes, i)
+        #~ if i in [0,1,2]:
+            #~ print_vel(grid[i].axes, i,fc='#FFAAAA')
+        #~ elif i in [12,13,14]:
+            #~ print_vel(grid[i].axes, i,fc='0.8')
+        #~ else:
+        print_vel(grid[i].axes, i)
     #~ fig.text(0.95,0.14,r'SO$_2$', rotation=90)
     #~ fig.text(0.95,0.86,r'H$_2^{18}$O', rotation=90)
 
