@@ -1516,7 +1516,9 @@ class Fits:
             ##### have to add loading of frequency and calculate velocity
             # UGLY HACK BELOW, BEWARE!
             # need to be changed to a more flexible code...
-            hdr_values = [self.hdr[i] for i in self.hdr.keys()]
+            hdr_values = [self.hdr[i] for i in self.hdr.keys() if not i == 'HISTORY']
+            #~ self.hdr_values = hdr_values
+            #~ return None
             # need to match VELO, VELO-LSR, VELOCITY and VRAD
             _velname = [i for i in hdr_values if ("VELO" in str(i) or "VRAD" in str(i))]
             if _velname != []:
@@ -1589,8 +1591,11 @@ class Fits:
             print 'Velocity step \t: {0:2.4f} km/s'.format(self.v_cdeltkms)
             #
             # now if we want to have the spectral array as well to use
-            if self.hdr.has_key('RESTFREQ'):
-                self.restfreq = self.hdr['RESTFREQ']
+            #~ already on line 1480
+            #~ if self.hdr.has_key('RESTFREQ'):
+                #~ self.restfreq = self.hdr['RESTFREQ']
+            #~ elif self.hdr.has_key('RESTFRQ'):
+                #~ self.restfreq = self.hdr['RESTFRQ']
             #if self.hdr['NAXIS']==4 and  self.hdr['NAXIS4']==1:
             #    self.d = self.d[0]
             #
