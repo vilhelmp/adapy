@@ -3340,15 +3340,22 @@ def plot_chmap (self,
     if len(cpeak) == 3:
         mark = cpeak[2]
         xmark, ymark = cpeak[0:2]
+        plot_cpeak = 1
     elif len(cpeak) >4:
         xmark = cpeak[0:-1:2]
         ymark = cpeak[1:-1:2]
         mark = cpeak[-1]
+        plot_cpeak = 1
     else:
+        # no cpeaks given
         mark = '+k'
+        plot_cpeak = 0
+        print('Not plotting cpeaks, got error here before')
+        
     for i in range(N_channels):
-        # plot a cross at pointing centre
-        cross1 = grid[i].plot(xmark, ymark, mark, ms=6)#, mew=3, alpha=0.9)
+        # plot a cross at xmark, ymark
+        if plot_cpeak:
+            grid[i].plot(xmark, ymark, mark, ms=6)#, mew=3, alpha=0.9)
         #~ cross2 = ax2ax2.plot(xmark, ymark, mark, ms=6)#  mew=3, alpha=0.9)
         
         #~ plt = grid[i].plot(cpeak[0],cpeak[1],'r+', ms=3, mew=0.7, alpha=0.7)
