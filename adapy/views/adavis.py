@@ -3337,6 +3337,7 @@ def plot_chmap (self,
         grid.cbar_axes[0].set_xlabel(str(linedata.unit)+r'\,kms$^{-1}$')
         grid.cbar_axes[0].axis["top"].toggle(label=True, ticks=True, ticklabels=True)
     else:
+        print('input \'filled\' not understood, assuming False')
         grid = AxesGrid(fig, 111, # similar to subplot(111)
                 nrows_ncols = (ny, nx), # creates nyx6 grid of axes
                 axes_pad=0, # pad between axes in inch.
