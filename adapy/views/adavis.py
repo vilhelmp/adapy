@@ -3415,7 +3415,7 @@ def plot_chmap (self,
     fig.text(0.03,0.53,r'Dec offset ($^{\prime\prime}$)', rotation='vertical', va='center', ha='center')
     #fig.suptitle(linedata.obj)
     #pl.show()
-    return grid, nchan
+    return grid, N_channels
 
     """
     from showmoment the 3range procedure.
