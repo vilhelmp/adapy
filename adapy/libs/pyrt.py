@@ -1152,9 +1152,9 @@ class Ratran_File:
             if not gweight:
                 print ('Err: No weight (gweight) input.')
                 return 0
-            if not nu:
+            elif not nu:
                 print('Err: No frequency (nu) input')
-                return 0
+                return 0                
         print(''.format(trans,gweight))
 
         _pdfcheck(pdf)
@@ -1188,6 +1188,11 @@ class Ratran_File:
             _plt.savefig('{0}.pdf'.format('tex_trans'), bbox_inches = 0)
         
     def plot_pop(self, levels = 'all', pdf = 0, **kwargs):
+        if not self.elev:
+            print ('Warn: No moldata file (molfile) present/wrong path')
+            return 0
+        
+        
         _pdfcheck(pdf)
         _plt.close()
         x = self.r/(_cgs.AU/100.)

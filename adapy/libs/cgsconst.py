@@ -107,7 +107,10 @@ HH = Constant(constants.h * 1e7,  'erg.s',        desc = 'Planck\'s constant')
 GG = Constant(constants.G * 1e3,  'cm^3/(g.s^2)', desc = 'Gravitational constant')
 MP = Constant(constants.m_p * 1e3,      'g?',     desc = 'Mass of proton')
 ME = Constant(constants.m_e * 1e3,      'g?',     desc = 'Mass of electron')
-SS = Constant(constants.Stefan_Boltzmann * 1e3, 'erg/cm^3/K^4', desc = 'Stefan-Boltzmann constant')
+try:
+    SS = Constant(constants.Stefan_Boltzmann * 1e3, 'erg/cm^3/K^4', desc = 'Stefan-Boltzmann constant')
+except (AttributeError):
+    SS = Constant(constants.Stefan_Bolzmann * 1e3, 'erg/cm^3/K^4', desc = 'Stefan-Boltzmann constant')
 
 #~ EE  = Constant(constants.,      '?',            desc = 'Unit charge')
 #~ ST  = Constant(constants.,      'cm^2',         desc = 'Thomson cross-section')
