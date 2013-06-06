@@ -3290,7 +3290,7 @@ def plot_chmap (self,
     #~ rc('text', usetex=True)
     # ticksize
     #~ rc('xtick',**{'minor.size':2, 'major.size':4, 'major.pad': 3})
-    rc('ytick',**{'minor.size':2, 'major.size':4, 'major.pad': -20})
+    rc('ytick',**{'minor.size':2, 'major.size':4, 'major.pad': 3})
 
 
 
