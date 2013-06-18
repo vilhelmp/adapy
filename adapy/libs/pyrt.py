@@ -1531,7 +1531,7 @@ class Ratran:
         # and, if it exists, the output
         
         if ratran_environment_check():
-            continue
+            pass
         elif not ratran_environment_check():
             _sys.exit('Path error, need to define variables RATRAN in '
                         'your .bashrc or similar.')
