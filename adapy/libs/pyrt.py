@@ -92,8 +92,8 @@ def ratran_environment_check():
         ratran_path = False
     if ratran_path:
         ratran_bin = _os.path.join(ratran_path, 'bin')
-        RUN_AMC = os.path.join(ratran_bin, 'amc')
-        RUN_SKY = os.path.join(ratran_bin, 'sky')
+        RUN_AMC = _os.path.join(ratran_bin, 'amc')
+        RUN_SKY = _os.path.join(ratran_bin, 'sky')
         return True
     else:
         print('Create an environment variable called RATRAN, '
