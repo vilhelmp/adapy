@@ -94,10 +94,11 @@ def ratran_environment_check():
         ratran_bin = _os.path.join(ratran_path, 'bin')
         RUN_AMC = os.path.join(ratran_bin, 'amc')
         RUN_SKY = os.path.join(ratran_bin, 'sky')
+        return True
     else:
         print('Create an environment variable called RATRAN, '
         'otherwise the binaries cannot be found.')
-
+        return False
 
 
 ########################################################################
@@ -1529,6 +1530,12 @@ class Ratran:
         # if loadfile is input, drop everythin and just load the file 
         # and, if it exists, the output
         
+        if ratran_environment_check():
+            continue
+        elif not ratran_environment_check():
+            _sys.exit('Path error, need to define variables RATRAN in '
+                        'your .bashrc or similar.')
+            
         print ('Model created with the following parameters:')
         
         class Input: pass
