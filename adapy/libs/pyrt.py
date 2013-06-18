@@ -1615,6 +1615,15 @@ class Ratran:
         #~ self.vr = self.Input.vr
         
         #~ self.collapse_radius *= _cgs.AU # convert to cm
+        # come up with a nicer solution than this...
+        # check that none of the required arrays are not empty, or
+        # to short
+        if len(self.r)<5:
+            raise Exception('neeed array as r, rho_dust, abund and temp')
+        if len(self.rhodust)<5:
+            raise Exception('neeed array as r, rho_dust, abund and temp')
+        if len(self.temp)<5:
+            raise Exception('neeed array as r, rho_dust, abund and temp')
         
         if self.Tconstouter:
             i = where(self.temp < self.templim)
@@ -1647,15 +1656,7 @@ class Ratran:
                                 Tjump = self.Input.tjump, 
                                 Xs = self.Input.xs)
         #~ self.abund = self.Input.abund
-        # come up with a nicer solution than this...
-        # check that none of the required arrays are not empty, or
-        # to short
-        if len(self.r)<5:
-            raise Exception('neeed array as r, rho_dust, abund and temp')
-        if len(self.rhodust)<5:
-            raise Exception('neeed array as r, rho_dust, abund and temp')
-        if len(self.temp)<5:
-            raise Exception('neeed array as r, rho_dust, abund and temp')
+
         #
         # CHECK if directory exists
         input_dir_path = os.path.join(os.getcwd(), self.directory)
