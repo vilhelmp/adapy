@@ -81,6 +81,24 @@ import sys as _sys
 import subprocess as _subprocess
 import scipy as _scipy
 from matplotlib import pyplot as _plt
+########################################################################
+# Check environment variables for RATRAN, RADEX(!) and TRANSPEHRE
+
+def ratran_environment_check():
+    # check RATRAN
+    try:
+        ratran_path = _os.environ['RATRAN']
+    except (KeyError):
+        ratran_path = False
+    if ratran_path:
+        ratran_bin = _os.path.join(ratran_path, 'bin')
+        RUN_AMC = os.path.join(ratran_bin, 'amc')
+        RUN_SKY = os.path.join(ratran_bin, 'sky')
+    else:
+        print('Create an environment variable called RATRAN, '
+        'otherwise the binaries cannot be found.')
+
+
 
 ########################################################################
 # GENERAL HELP FUNCTIONS (move to adavis_core)
@@ -1953,7 +1971,7 @@ class Ratran:
                     f = open('amc.log', 'w')
                     f.close()
                     t1 = time()
-                    proc = subprocess.Popen(['amc', 'amc.inp'],
+                    proc = subprocess.Popen([RUN_AMC, 'amc.inp'],
                                     stdout = subprocess.PIPE, 
                                     stderr = subprocess.STDOUT)
                     #~ sys.stdout.write('Iteration no : ')
@@ -2020,7 +2038,7 @@ class Ratran:
                 f = open('sky.log', 'w')
                 f.close()
                 t1 = time()
-                proc = subprocess.Popen(['sky', 'sky.inp'],
+                proc = subprocess.Popen([RUN_SKY, 'sky.inp'],
                                     stdout = subprocess.PIPE, 
                                     stderr = subprocess.STDOUT)
                 #~ sys.stdout.write('Iteration no : ')

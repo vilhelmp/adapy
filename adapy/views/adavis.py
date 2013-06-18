@@ -3364,7 +3364,7 @@ def plot_chmap (self,
     else:
         # no cpeaks given
         mark = '+k'
-        plot_cpeak = 0
+        plot_cpeak = 1
         print('Not plotting cpeaks, got error here before')
         
     for i in range(N_channels):
@@ -3381,22 +3381,22 @@ def plot_chmap (self,
         #~ grid[i].yaxis.set_minor_locator(minorLocator)
 
         #~ draw_fov(grid[i].axes, linedata)
-        #~ if i in [0,1,2]:
-            #~ print_vel(grid[i].axes, i,fc='#FFAAAA')
-        #~ elif i in [12,13,14]:
-            #~ print_vel(grid[i].axes, i,fc='0.8')
-        #~ else:
-        print_vel(grid[i].axes, i)
-    #~ fig.text(0.95,0.14,r'SO$_2$', rotation=90)
-    #~ fig.text(0.95,0.86,r'H$_2^{18}$O', rotation=90)
+        if i in [0,1,2]:
+            print_vel(grid[i].axes, i,fc='#FFAAAA')
+        elif i in [12,13,14]:
+            print_vel(grid[i].axes, i,fc='0.8')
+        else:
+            print_vel(grid[i].axes, i)
+    fig.text(0.95,0.14,r'SO$_{\sf2}$', rotation=90)
+    fig.text(0.95,0.86,r'H$_{\sf2}^{\sf18}$O', rotation=90)
 
-    #~ grid[2].plot([21,-2], [-1.8,-1.3],'-', color='#FFAAAA', lw=3, alpha=0.7 ,clip_on=False)
-    #~ grid[2].plot([21,-2], [-1.8-1.7,-1.3-1.7],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    #~ grid[2].plot([11,-2], [-3.2,-2.9],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    #~ grid[5].plot([21,-2], [-3.6,-3.2],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    #~ grid[8].plot([21,-2], [-3.76,-2.53],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    #~ grid[11].plot([21,-2], [-2.16,-0.93],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
-    #~ grid[14].plot([21,-2], [-0.93,0.0],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    grid[2].plot([21,-2], [-1.8,-1.3],'-', color='#FFAAAA', lw=3, alpha=0.7 ,clip_on=False)
+    grid[2].plot([21,-2], [-1.8-1.7,-1.3-1.7],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    grid[2].plot([11,-2], [-3.2,-2.9],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    grid[5].plot([21,-2], [-3.6,-3.2],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    grid[8].plot([21,-2], [-3.76,-2.53],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    grid[11].plot([21,-2], [-2.16,-0.93],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
+    grid[14].plot([21,-2], [-0.93,0.0],'-', color='0.5', lw=3, alpha=0.7 ,clip_on=False)
     #~ grid[12].axhline(y=-2.64, xmin=0.1, xmax=1.4 ,clip_on=False )
 
     draw_beam(grid[0].axes, linedata, box=1)
