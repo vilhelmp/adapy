@@ -92,7 +92,9 @@ def ratran_environment_check():
         ratran_path = False
     if ratran_path:
         ratran_bin = _os.path.join(ratran_path, 'bin')
+        global RUN_AMC
         RUN_AMC = _os.path.join(ratran_bin, 'amc')
+        global RUN_SKY
         RUN_SKY = _os.path.join(ratran_bin, 'sky')
         return True
     else:
@@ -1618,6 +1620,7 @@ class Ratran:
         # come up with a nicer solution than this...
         # check that none of the required arrays are not empty, or
         # to short
+        # doesnt work for integers, which is default input...
         if len(self.r)<5:
             raise Exception('neeed array as r, rho_dust, abund and temp')
         if len(self.rhodust)<5:
