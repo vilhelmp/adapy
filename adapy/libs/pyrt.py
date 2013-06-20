@@ -580,28 +580,74 @@ def plot_ratraninput(directory = '', modelfile = "transphere.mdl"):
 def create_molecular_abundance(temperature, 
                                 abund_type = 'jump', 
                                 Tjump = 100, 
-                                Xs = [1E-4, 1E-9]):
+                                Xs = [1E-4, 1E-9],
+                                smooth = 0):
+    """
+    IMPORTANT:
+    - assumes there is only one point where T > 100 K
+    - and that this point has the highest cell number of all cells with
+     T > 100 K
+    """
     # calculates the molecular abundance from a predefined type and 
     # options
     # 'jump' abundance creates a jump from Xout to Xin 
     # where (temperature > Tjump)
     #
-    from scipy import where, ones
-    
+    # smooth : create jump that spans several 'smooth' numer of cells
+    # -> should be an even number...
+    #
+    from scipy import where, ones, diff, sign, array, arange, exp
     [Xin, Xout] = Xs
     # jump abundance
     if 'jump' in abund_type:
-        i = where(temperature >= Tjump)[0]
+        i100k = where(temperature >= Tjump)[0]
         mol_abundance = ones(len(temperature)) * Xout
-        mol_abundance[i] = Xin
+        mol_abundance[i100k] = Xin
+        if not smooth:
+            print('discontinuity')
+            # if it should be a discontinuity
+            abund_param = False
+        if smooth:
+            # first make sure it is an even number of cellls to 
+            # smooth over
+            if smooth % 2 == 0:
+                smooth += 1
+                print('Argument \'smooth\' needs to be an even number',
+                    'adding one.')
+            # use sigmoid function to connect the discontinuities        
+            # assumes that the abundance is constant before 
+            # and after jump
+            ijump = max(i100k)
+            cells_x = ijump + array([-1, 1]) *  smooth/2
+            Xs_diff = diff(Xs)                  # outer - inner
+            d = direction = sign(Xs_diff)[0]    # direction of function
+            B = height = abs(Xs_diff)[0]        # height of the sigmoid
+            A = constant = max(Xs)              # curve start?-> min value
+            x0 = center = ijump+0.5
+            a = width = abs(diff(cells_x)[0])/10. # the width needs
+                                # to be very small, should investigate
+                                # and express more analytically
+            sigmoid = lambda x: A + d * B / (1 + exp(-(x - x0) / a))
+            #~ y_interp = splineinterpolate1d(x, y, k=2)
+            #~ x = arange(cells_x[0],cells_x[1],1);
+            #~ y = 1.0 / (1 + exp(-x / 0.1))
+            
+            #~ for i  in arange(x[0], x[1], 1):
+                #~ mol_abundance[i] = y_interp(i)
+            #~ mol_abundance[:x[0]] = Xin
+            for i in arange(cells_x[0], cells_x[1],1):
+                mol_abundance[i] = sigmoid(i)
+            abund_param = dict(constant = A, direction = d, height = B, center = x0, width = a)
     # add more abundance types later on
     else:
         raise Exception('No abundance type given.')
     # send back the calculated abundance
-    return mol_abundance
+    
+    return mol_abundance, abund_param
+
 # temporary function
 # needs to be more modular
-def plot_envstruct(self, mol_abundance = '', mark100k = True):
+def plot_envstruct(self, mol_abundance = '', mark100k = True, **kawargs):
     if not hasattr(self, 'Envstruct'):
         raise Exception('you havent read in the transphere output')
     import matplotlib.pyplot as pl
@@ -613,12 +659,12 @@ def plot_envstruct(self, mol_abundance = '', mark100k = True):
     pl.grid()
     ax2 = ax1.twinx()
     # Density
-    p1 = ax1.loglog(self.Envstruct.r/_cgs.AU, self.n_h2, label='n_H2')
+    p1 = ax1.loglog(self.Envstruct.r/_cgs.AU, self.n_h2, label='n_H2', **kawargs)
     ax1.set_xlabel('Radius (AU)')
     #~ ax1.set_xscale('log')
     ax1.set_ylabel('Number Density (cm-3)')
     # Temperature
-    p2 = ax2.loglog(self.Envstruct.r/_cgs.AU, self.Envstruct.temp, color='r', label='Temp')
+    p2 = ax2.loglog(self.Envstruct.r/_cgs.AU, self.Envstruct.temp, color='r', label='Temp', **kawargs)
 
     ax2.yaxis.set_major_formatter(ScalarFormatter())
     
@@ -1497,6 +1543,7 @@ class Ratran:
         'db',                         0.0,        'km/s',    'float',   # 1/e half-width of line profile (Doppler b-parameter) (km s-1)
         'abundtype',               'jump',            '',      'str',   # Molecular abundance type ['jump', '?']
         'tjump',                    100.0,           'K',    'float',   # If 'jump' profile, at what T should the jump be
+        'smoothjump',                   0,         'pxl',      'int',
         #~ 'collapse_radius',         1000.0,          'AU',    'float',   # radii where the collapse has proceeded a*t where a is the sound speed and t time since collapse start, or it is where the knee is in the shu model
         'xs',                [1E-4, 1E-9],    'relative',     'list',   # If 'jump' profile, what is [inner, outer] relative abundance
         'vr',                         0.0,        'km/s',    'array',   # Radial velocity
@@ -1654,12 +1701,13 @@ class Ratran:
         
         # calculate the radial dependence of the molecular
         # abundance depends on what type of abundance type is choosen
-        self.abund =  create_molecular_abundance(self.temp, 
+        self.abund, self.abund_param =  create_molecular_abundance(self.temp, 
                                 abund_type = self.Input.abundtype, 
                                 Tjump = self.Input.tjump, 
-                                Xs = self.Input.xs)
+                                Xs = self.Input.xs,
+                                smooth = self.Input.smoothjump)
+        #~ return None
         #~ self.abund = self.Input.abund
-
         #
         # CHECK if directory exists
         input_dir_path = os.path.join(os.getcwd(), self.directory)
@@ -1766,7 +1814,37 @@ class Ratran:
         self.vr = self.vr[:ind]
         ################################################################
         # Refinement, for the refinement, easiest way is to redefine rx!
+        # isn't it weird to first create a grid in transphere, and then 
+        # another here?
+        # need to be able to create a refinement grid, so perhaps just 
+        # a handfull of cells outside of Tjump, and alot inside of it
         #
+        ### TODO : REFINEMENT
+        """
+        What needs to be done here:
+        - refinement around the Tjump, if smoothjump is True
+        - refinement inside of 100 K
+        -> several regions with different cell-density
+        """
+        
+        #~ from scipy import concatenate, logspace
+            #~ print('Creating grid with refinement.')
+            #~ inner_grid = create_grid(
+                        #~ self.rin, self.rref, self.nref,
+                        #~ space = self.spacing, end=True
+                                    #~ )
+            #~ outer_grid = create_grid(
+                        #~ self.rref, self.rout, self.nshell,
+                        #~ space = self.spacing, end=True
+                                    #~ )
+            #~ radii = concatenate([inner_grid[:-1], outer_grid])
+        
+        
+        #~ rx_inner = logspace(log10(self.r[0]), log10(self.r[-1]), num = self.ncell + 1, endpoint = True)
+        #~ rx_outer = logspace(log10(self.r[0]), log10(self.r[-1]), num = self.ncell + 1, endpoint = True)
+        #~ 
+        #~ rx = concatenate([rx_inner[:-1], rx_outer])
+        
         rx = logspace(log10(self.r[0]), log10(self.r[-1]), num = self.ncell + 1, endpoint = True)
         rx = np.insert(rx, 0, 0)
         self.r1 = rx[0:-1]
@@ -1908,12 +1986,12 @@ class Ratran:
                 f.write("outfile=populations.pop\n")
                 f.write("molfile={0}\n".format(self.molfile))
                 f.write("snr={0}\n".format(self.snr))
-                f.write("velo=grid\n") 
+                f.write("velo=grid\n")
                 # velo=grid if velocity vector is given in input model?
                 f.write("nphot={0}\n".format(self.nphot))
                 f.write("kappa={0}\n".format(self.kappa))
                 f.write("minpop={0:3.2E}\n".format(self.minpop))
-                f.write("seed=1971\n")
+                #~ f.write("seed=1971\n")
                 f.write("fixset={0:3.2E}\n".format(self.fixset))
                 f.write("go\n")
                 f.write("q\n")
