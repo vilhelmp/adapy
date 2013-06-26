@@ -1288,11 +1288,10 @@ def gauss2d_decon ((bmaj1, bmin1, theta1, bmaj2, bmin2, theta2), ang='rad'):
     Deconvolves one gaussian  with parameters bmaj1, bmin1, theta1 (major,
     minor, PA) with another (bmaj2,bmin2, theta2)
     all in FWHM and radians (if deg is wanted, set ang='deg')
-
-
+    
     uses:
     pi, cos, sin, arctan2, sqrt, min,
-
+    
     """
     from scipy import pi, cos, sin, arctan2, sqrt
     #

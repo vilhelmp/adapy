@@ -81,6 +81,11 @@ import sys as _sys
 import subprocess as _subprocess
 import scipy as _scipy
 from matplotlib import pyplot as _plt
+
+
+#nice line settings
+NiceLineSettings = dict(lw=1, ms=3, mew=0, marker='o')
+
 ########################################################################
 # Check environment variables for RATRAN, RADEX(!) and TRANSPEHRE
 
@@ -610,12 +615,12 @@ def create_molecular_abundance(temperature,
         if smooth:
             # first make sure it is an even number of cellls to 
             # smooth over
-            if smooth % 2 == 0:
+            if smooth % 2 != 0:
                 smooth += 1
                 print('Argument \'smooth\' needs to be an even number',
                     'adding one.')
             # use sigmoid function to connect the discontinuities        
-            # assumes that the abundance is constant before 
+            # assumes that the abundance is consta chmnt before 
             # and after jump
             ijump = max(i100k)
             cells_x = ijump + array([-1, 1]) *  smooth/2
@@ -664,7 +669,7 @@ def plot_envstruct(self, mol_abundance = '', mark100k = True, **kawargs):
     #~ ax1.set_xscale('log')
     ax1.set_ylabel('Number Density (cm-3)')
     # Temperature
-    p2 = ax2.loglog(self.Envstruct.r/_cgs.AU, self.Envstruct.temp, color='r', label='Temp', **kawargs)
+    p2 = ax2.loglog(self.Envstruct.r/_cgs.AU, self.Envstruct.temp, color='r', label='Temp', **NiceLineSettings)
 
     ax2.yaxis.set_major_formatter(ScalarFormatter())
     
@@ -680,7 +685,7 @@ def plot_envstruct(self, mol_abundance = '', mark100k = True, **kawargs):
         #ax3.set_ylim(-0.05E-7, 1.85E-7)
 
         #~ p3 = ax3.loglog(self.Envstruct.r/_cgs.AU, mol_abundance, 'g')
-        p3 = ax3.semilogx(self.Envstruct.r/_cgs.AU, mol_abundance, color='g', label='Mol Abund')
+        p3 = ax3.semilogx(self.Envstruct.r/_cgs.AU, mol_abundance, color='g', label='Mol Abund', **NiceLineSettings)
         ax3.spines["right"].set_position(("axes", 1.2))
         make_patch_spines_invisible(ax3)
         ax3.spines["right"].set_visible(True)
@@ -702,7 +707,7 @@ def plot_envstruct(self, mol_abundance = '', mark100k = True, **kawargs):
                 xy=(r_100k, t_100k), xycoords='data',
                 xytext=(-30, -100), textcoords='offset points', fontsize=12,
                 arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=-.2"))
-        ax2.plot([r_100k], [t_100k] , 'o',color='r', ms=4, mew=0)
+        #~ ax2.plot([r_100k], [t_100k] , 'o',color='r', ms=4, mew=0)
         #~ pl.legend('n_H2', 'Temp', 'Mol Abund')
     #~ else:
     ax1.xaxis.set_major_formatter(ScalarFormatter())
@@ -724,8 +729,6 @@ def plot_envstruct(self, mol_abundance = '', mark100k = True, **kawargs):
         ax1.legend([simArtist, anyArtist, molArtist],
                   ['Density', 'Temperature', 'Mol. abundance'])
     
-
-
 # test functions
 def cleanup_ratran():
     import os
@@ -1456,29 +1459,6 @@ class Radex:
         if not self.silent: print 'Done!'
 
 class Ratran:
-    """
-    ----------------------------------------------
-    Changelog:
-        *00/12/2012
-            tweaks to the input, so that the velocity grid works(?).
-        
-        *00/11/2012
-            full routine works
-        
-        *20/03/2012
-            radial profile grid function
-
-        *14/03/2012
-            class created
-    """
-    
-    # IDEA : if one wants to run several different molecules with the 
-    # same model?
-    # -> just run SKY once, and them AMC several times with different 
-    # parameters
-    # copy SKY to every folder where you run one molecule?
-    # or just have some file-naming scheme?
-    # 
     def __init__(self, **kwargs):
         """
         r = 0.0, 
@@ -1546,8 +1526,11 @@ class Ratran:
         'smoothjump',                   0,         'pxl',      'int',
         #~ 'collapse_radius',         1000.0,          'AU',    'float',   # radii where the collapse has proceeded a*t where a is the sound speed and t time since collapse start, or it is where the knee is in the shu model
         'xs',                [1E-4, 1E-9],    'relative',     'list',   # If 'jump' profile, what is [inner, outer] relative abundance
+        'rrefs',                      [0],          'AU',     'list',   # what intervals to boost the number of points
+        'npsref',                     [0],            '',     'list',   # how many points to create in each rrefs interval
+        'refspace',               ['log'],            '',     'list',   # what type spacing for the reference grid
         'vr',                         0.0,        'km/s',    'array',   # Radial velocity
-        'velocitydirection',     'None',            '',      'str',   # Velocity direction if vr given 'infall', 'outflow'
+        'velocitydirection',       'None',            '',      'str',   # Velocity direction if vr given 'infall', 'outflow'
         #'velocityfield',     lambda,              ,      'str',   # Velocity model 'shu_infall', 'db'
         'tdust',                      0.0,           'K',    'array',   # Dust temperature profile
         'outformat',               'fits',            '',      'str',   # output format, for SKY
@@ -1717,8 +1700,6 @@ class Ratran:
         
         save_ratran(self)
         
-        
-        
         # rewrite this part when changing to object oriented
         # now it is very hack-ish and non pythonic
         ################################################################
@@ -1826,34 +1807,133 @@ class Ratran:
         - refinement inside of 100 K
         -> several regions with different cell-density
         """
+        ### Step 1
+        # first create the rough overlying grid
+        # the grid is now in centi-meters
+        self.rx = logspace(log10(self.r[0]), log10(self.r[-1]), num = self.ncell + 1, endpoint = True)
+        self.rx_original = self.rx
         
-        #~ from scipy import concatenate, logspace
-            #~ print('Creating grid with refinement.')
-            #~ inner_grid = create_grid(
-                        #~ self.rin, self.rref, self.nref,
-                        #~ space = self.spacing, end=True
-                                    #~ )
-            #~ outer_grid = create_grid(
-                        #~ self.rref, self.rout, self.nshell,
-                        #~ space = self.spacing, end=True
-                                    #~ )
-            #~ radii = concatenate([inner_grid[:-1], outer_grid])
+        # get it to refine if we have a smooth abundance jump
+        #~ if self.Input.smoothjump:
+            #~ rrefs_input_radii = self.abund_param['center'] + array([-1, 1]) * .5 * self.Input.smoothjump # input radii
+            #~ rrefs_input_radii = rrefs_input_radii.round(0).astype('int')
+            #~ if len(self.Input.rrefs) == 1: # if it is empty
+                #~ self.Input.rrefs = rrefs_input_radii
+                #~ self.Input.npsref = [self.Input.smoothjump] # input how many points
+        ### Step 2
+        # then create each refinement grid
+        if len(self.Input.rrefs) > 1: # if refinement radius' have been input
+            from scipy import linspace, logspace, where, zeros, diff, log10
+            # convert the refinement radii to cm from AU
+            print('refinements!')
+            self.rrefs = [i * _cgs.AU for i in self.Input.rrefs] # now in cm
+            
+            if len(self.Input.refspace) != len(self.Input.rrefs)/2:
+                print('Warning, to few refspace supplied, '
+                        'not as many as rrefs, assuming the first/default '
+                        'is the same for all.')
+                self.refspace = [self.Input.rrefs[0] for i in range(len(self.Input.refspace))]
+            
+            # check if the intervals overlap
+            if (diff(self.rrefs)<0).any():
+                raise ValueError('The refinement intervals '
+                                'cannot overlap!')
+            
+            # pick out the start and stop intervals
+            r_grids = [] # list of radius grids to concatenate later
+            starts, stops = self.rrefs[0::2], self.rrefs[1::2]
+            self.npsref = self.Input.npsref
+            
+            # needed for when we replace the stuff in the radii array
+            gridlist = list(self.rx)
+            
+            print starts, stops
+            for start, stop, npoints, spacing in zip(starts, stops, self.npsref, self.Input.refspace):
+                # strict or loose boundaries?
+                # create linspace grids in each interval
+                # and merge into the large scale grid
+                
+                # is stop larger than end of grid?
+                endpoint_bool =  (stop >= self.rx[-1])
+                
+                # copy it so that we retain the original value 
+                # during the loop
+                gridstart, gridstop = start, stop
+                                
+                # if stop point further out that last grid point
+                # set it to the last grid point
+                if gridstop > self.rx[-1]: gridstop = self.rx[-1]
+                
+                # is the start point less than innermost grid point?
+                # set it to innermost gridpoint
+                if gridstart < self.rx[0]: gridstart = self.rx[0] 
+                
+                print('refinement from {0} to {1}'.format(gridstart,gridstop))
+                
+                # is the grid linear or log spaced?
+                if spacing.lower() in ['lin', 'linear', 'linspace']:
+                    # create that part of the grid and change rx accordingly
+                    r_grid = linspace(gridstart, gridstop, 
+                                        num = npoints, 
+                                        endpoint = endpoint_bool)
+                elif spacing.lower() in ['log', 'logarithm', 'logarithmic', 'logspace']:
+                    # create that part of the grid and change rx accordingly
+                    r_grid = logspace(log10(gridstart), log10(gridstop), 
+                                        num = npoints, 
+                                        endpoint = endpoint_bool)
+                    
+                # now we have ended up with a list of grids that
+                # we want to replace in the original grid
+                
+                #~ print rx
+                # index of start and stop
+                i_start = min(where(self.rx >= gridstart)[0])
+                i_stop = max(where(self.rx <= gridstop)[0])
+                #~ print(i_start, i_stop)
+                
+                # input into grid
+                gridlist[i_start : i_stop + 1] = list(r_grid)
+                
+                # NOTE : The rx < stop means that if stop roughly 
+                # equals rx[-1] then it might miss it an raise an error!
+                
+                #~ cell_replace = where((rx >= start) * (rx < stop))[0]
+                #~ cells_left = where((rx < start) * (rx => stop))[0]
+                #~ new_grid = zeros(len(cells_left) + npoints)
+            self.rx = array(gridlist)
+            #~ self.rx = self.rx
+            #~ # units should be in cm
+            #~ self.rrefs_cm = [i*_cgs.AU for i in self.Input.rrefs]
+        else:
+            print('no refinement!')
+        #~ return None
+        self.rx = np.insert(self.rx, 0, 0)
+        self.r1 = self.rx[0:-1]
+        self.r2 = self.rx[1:]
         
+        #~ from scipy import dstack
+        #~ self.rr = dstack((self.r1, self.r2)).ravel()
         
-        #~ rx_inner = logspace(log10(self.r[0]), log10(self.r[-1]), num = self.ncell + 1, endpoint = True)
-        #~ rx_outer = logspace(log10(self.r[0]), log10(self.r[-1]), num = self.ncell + 1, endpoint = True)
-        #~ 
-        #~ rx = concatenate([rx_inner[:-1], rx_outer])
-        
-        rx = logspace(log10(self.r[0]), log10(self.r[-1]), num = self.ncell + 1, endpoint = True)
-        rx = np.insert(rx, 0, 0)
-        self.r1 = rx[0:-1]
-        self.r2 = rx[1:]
         #~ r1=np.insert(r[0:-1],0,0)
         #~ r2=np.array(r)
+        self.rr = zeros(len(self.rx)-1, float)
+        #############
+        # TODO
+        # rr needs to be the the averaged radius in that cell!!
+        # 
+        # create rr array which is just the mean radius of each cell
         
-        self.rr = zeros(self.Input.ncell + 1, float)
-        self.rr[1:] = 10**( (np.log10(self.r1[1:]) + np.log10(self.r2[1:])) / 2.0 )
+        # assumes all spacings are logarithmic!!!
+        self.rr[1:] = 10**( (log10(self.r1[1:]) + log10(self.r2[1:])) / 2.0 )
+        
+        
+        ##### what if part needs to be interpolated linearly??
+        # this whole implementation is more complex than what it needs to be!
+        # need to rewrite this, so it is more my own code...
+        
+        # and the first cell has the same value as the first,
+        # so the interpolated values are just copied and identical 
+        # in cell 0 and 1 (except nh2int)
         self.rr[0] = self.rr[1]
         # Interpolate the values to 'ncell' cells
         self.nh2f = scipy.interpolate.interp1d(log10(self.r), log10(self.nh2))
