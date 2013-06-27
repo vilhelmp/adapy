@@ -1241,7 +1241,7 @@ class Ratran_File:
                     self.lp[trans[1]-1],
                     self.lp[trans[0]-1],
                     gweight[1],
-                    gweight[0] 
+                    gweight[0],
                     nu)
         
         # test
