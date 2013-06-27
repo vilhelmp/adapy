@@ -1217,7 +1217,7 @@ class Ratran_File:
             gweight = [self.elev[trans[0]-1]['weight'], self.elev[trans[1]-1]['weight']] 
             print('   Molecular weights : {0} {1}'.format(gweight[0], gweight[1]))
             nu = _cgs.CC*abs(self.elev[trans[0]-1]['energies'] - self.elev[trans[1]-1]['energies'])
-            print('   Frequencies : {0} {1}'.format(nu[0], nu[0]))
+            print('   Frequency : {0:3.2f}'.format(nu))
             trans_str = [self.elev[trans[0]-1]['j'], self.elev[trans[1]-1]['j']]
             print('   Transition : {0}, {1}'.format(trans_str[0],trans_str[0]))
         elif not self.elev:
