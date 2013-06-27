@@ -1119,9 +1119,9 @@ def find_intensity(fitsfile, interval = [], nsig = 3):
     print('Integrated intensity : {0:.2f} Jy'.format(ModelData.intensity))
     return ModelData
 
-def temp_pop(n, g, nu):
+def temp_pop(n1, n2, g1, g2, nu):
     numer = _cgs.HH * nu
-    denom = _cgs.KK * _scipy.log(n[1] * g[0] / (n[0] * g[1]))
+    denom = _cgs.KK * _scipy.log(n1 * g2 / (n2 * g1))
     return numer / denom
 
 def _pdfcheck(pdf):
@@ -1235,7 +1235,14 @@ class Ratran_File:
         
         fig = _plt.figure()
         ax = fig.add_subplot(111)
-        y = temp_pop([self.lp[trans[0]-1], self.lp[trans[1]-1]], gweight, nu)
+        # temp_pop(n1, n2, g1, g2, nu)
+        #~ y = temp_pop([self.lp[trans[0]-1], self.lp[trans[1]-1]], gweight, nu)
+        y = temp_pop(
+                    self.lp[trans[1]-1],
+                    self.lp[trans[0]-1],
+                    gweight[1],
+                    gweight[0] 
+                    nu)
         
         # test
         #~ import matplotlib.transforms as transforms
