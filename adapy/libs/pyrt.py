@@ -1213,10 +1213,13 @@ class Ratran_File:
         #        'by default. Please give the proper arguments.')
         
         if self.elev:
-            gweigt = [0, 0]
+            print ('Moldata file read in, extracting data')
             gweight = [self.elev[trans[0]-1]['weight'], self.elev[trans[1]-1]['weight']] 
+            print('   Molecular weights : {0} {1}'.format(gweight[0], gweight[1]))
             nu = _cgs.CC*abs(self.elev[trans[0]-1]['energies'] - self.elev[trans[1]-1]['energies'])
+            print('   Frequencies : {0} {1}'.format(nu[0], nu[0]))
             trans_str = [self.elev[trans[0]-1]['j'], self.elev[trans[1]-1]['j']]
+            print('   Transition : {0}, {1}'.format(trans_str[0],trans_str[0]))
         elif not self.elev:
             print ('Warn: No moldata file (molfile) present/wrong path')
             if not gweight:
