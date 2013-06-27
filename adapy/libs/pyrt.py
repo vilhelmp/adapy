@@ -1219,7 +1219,7 @@ class Ratran_File:
             nu = _cgs.CC*abs(self.elev[trans[0]-1]['energies'] - self.elev[trans[1]-1]['energies'])
             print('   Frequency : {0:3.2f}'.format(nu))
             trans_str = [self.elev[trans[0]-1]['j'], self.elev[trans[1]-1]['j']]
-            print('   Transition : {0}, {1}'.format(trans_str[0],trans_str[0]))
+            print('   Transition : {0}, {1}'.format(trans_str[0],trans_str[1]))
         elif not self.elev:
             print ('Warn: No moldata file (molfile) present/wrong path')
             if not gweight:
