@@ -248,7 +248,7 @@ Need :  o scipy (and numpy)
         #~ TWO_COL_FIG_WIDTH = TWO_COL_FIG_WIDTH_MM*INCHES_PER_MM
         #~ SIDE_CAPTION_FIG_WIDTH = SIDE_CAPTION_FIG_WIDTH_MM*INCHES_PER_MM
         #~ FIG_SIZE = [ONE_COL_FIG_WIDTH,ONE_COL_FIG_HEIGHT]
-from ._figsizes import AandA as _AandA # only to local namespace
+from .figsizes import AandA as _AandA # only to local namespace
 
 from ..adacore import *
 ########################################################################
@@ -3218,7 +3218,7 @@ def plot_chmap (self,
     # the rms used above changes with a factor of 1/sqrt(nsunm) for the
     # new channels in the channel map (since they are summed)
     nchansum = [1,nsum][nsum != False]
-    rms = sqrt(((noise[:,j1:j2,i1:i2])**2).mean()/nchansum)
+    rms = sqrt(((noise[:,j1:j2,i1:i2])**2).mean())
     #
     #
     if box == [0,0]:

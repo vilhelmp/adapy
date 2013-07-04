@@ -62,6 +62,9 @@ Need :  o scipy (and numpy)
 
 #What to do
 
+#TODO : Grab the color of the TD tag in each row. The color represents
+#       a certain ALMA band, store this as well.
+
 #TODO : Separate data handling and UI
 
 #TODO : Solve the parsing, the removal of tags... (huh?)
@@ -71,7 +74,7 @@ Need :  o scipy (and numpy)
 #        - available in cmd version?
 
 #IDEA : get the export-to-file directly from splatalogue?
-#        - initial testing indicates > does not work
+#        - initial testing indicates that it does not work
 
 #TODO : add so that one can enter the wavelength/wavenumber in m, cm / m-1, cm-1
 #       just translate to frequency after input 
@@ -232,7 +235,8 @@ def splatsearch(**arg):
     #
     #
     #           No frequency given, what then?
-    #           a looooot of hits returned, perhaps pause and ask if user wants to continue??
+    #           a looooot of hits returned, perhaps pause and ask if 
+    #           user wants to continue??
     #
     #
     #
@@ -686,123 +690,3 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
         raise ParError((f,fg,bg))
 
     return formatted_text
-
-####################################################################
-####                                                            ####
-####                 RUNNING FROM CMD LINE                      ####
-####                                                            ####
-####################################################################
-if __name__ == '__main__':
-    # statements that you want to be executed only when the
-    # module is executed from the command line
-    # (not when importing the code by an import statement)
-    # wee hooo...
-    try:
-        from optparse import OptionParser as op
-    except (ImportError):
-        print stylify('ImportError',fg='r')+' Make sure you have optparse installed.'
-
-    from sys import exit as sysexit
-
-    #version
-    ver = '1.0beta'
-
-    desc="""Script to quickly search the splatalogue compilation
-    Magnus Vilhelm Persson
-    magnusp@nbi.dk"""
-    usage = "Usage: %prog [options]"
-    epilog = """----------------------------------------------------------------------------
-General information :
-
-The script uses the modules 'urllib2' and 'ClientForm' to fetch,
-fill in and submit the search form from Splatalogue.net. Then the
-results are parsed and displayed. This script can be imported into
-existing python code. After import the function has parameters to
-send the results to the user as lists or a dictionary for
-integration into line identification code, calculations etc.
-
-Complete dependency list:
-SciPy, urllib2, ClientForm
-----------------------------------------------------------------------------"""
-
-    parser = op(usage=usage, description=desc, epilog=epilog, version="%prog " + str(ver))
-
-    # the options permitted
-    parser.add_option("-f", \
-        dest="f",
-        help="frequency range given as 'F1 F2', if -w flag given, F2 is the width around F1 to look for line. Mandatory." ,
-        metavar="<F1> <F2>",
-        nargs=2,
-        action="store")
-    parser.add_option("-w",
-        dest="w",
-        help="is the f2 parameter (given in -f) the frequency width?",
-        default=False,
-        action="store_true")
-    parser.add_option("-u",
-        dest="u",
-        metavar="<UNIT>",
-        help="frequency unit, GHz or MHz.",
-        action="store")
-    parser.add_option("-l",
-        dest="l",
-        metavar="<LIST1>,<LIST2>,...",
-        help="molecular line list database(s) to search. \
-        possible values : Lovas, SLAIM, JPL, CDMS, ToyaMA, OSU, Recomb, Lisa, RFI.",
-        action="store")
-    parser.add_option("-e",
-        dest="e",
-        metavar="<FROM> <TO> <TYPE>",
-        nargs=3,
-        help="Energy range, given as 'from to type' where E_type is one of EL_cm1, EU_cm1, EL_K, EU_K.",
-        action="store")
-    parser.add_option("-t",
-        dest="t",
-        metavar="<TRANSITION>",
-        help="Specify transition e.g. '1-0'.",
-        action="store")
-    parser.add_option("-i",
-        dest="i",
-        metavar="<LIMIT> <UNIT>",
-        nargs=2,
-        help="Line intensity lower limit, given as 'LIMIT UNIT' where UNIT is one of CDMS_JPL, Sijmu2, Aij",
-        action="store")
-
-    # time to parse
-    (opts, args) = parser.parse_args()
-
-    # create the search dictionary
-    params = {}
-
-    # one mandatory argument
-    if opts.f == None:
-        print stylify('\nError :',fg='r')+' No frequencies input.\n'
-        parser.print_help()
-        print ''
-        sysexit()
-    else:
-        f1,f2 = opts.f
-        if opts.w:
-            params['freq'] = float(f1)
-            params['dfreq'] = float(f2)
-        elif not opts.w:
-            params['freq'] = [float(f1),float(f2)]
-    if opts.u != None:
-        params['funit'] = opts.u
-    if opts.l != None:
-        l = (opts.l).split(',')
-        params['linelist'] = list(l)
-    if opts.e != None:
-        params['e_from'] = float(opts.e[0])
-        params['e_to'] = float(opts.e[1])
-        params['e_type'] = opts.e[2]
-    if opts.t != None:
-        params['transition'] = opts.t
-    if opts.i != None:
-        params['lill'] = [float(opts.i[0]), opts.i[1]]
-    #
-    params['display'] = True
-    params['send'] = False
-    # search!
-    splatsearch(**params)
-

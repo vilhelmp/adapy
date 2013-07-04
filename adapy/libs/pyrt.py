@@ -15,6 +15,7 @@
 #  This program is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+
 #  GNU General Public License for more details.
 #  
 #  You should have received a copy of the GNU General Public License
@@ -1120,6 +1121,10 @@ def find_intensity(fitsfile, interval = [], nsig = 3):
     return ModelData
 
 def temp_pop(n1, n2, g1, g2, nu):
+    """ 
+    Excitation temperature of transition from 2 to 1
+    """
+    
     numer = _cgs.HH * nu
     denom = _cgs.KK * _scipy.log(n1 * g2 / (n2 * g1))
     return numer / denom
@@ -1309,6 +1314,121 @@ class Ratran_File:
 
     def write_input(filename):
         return 0
+
+
+class Ratran_History:
+    def __init__(self, directory='', molfile=''):
+        if not directory:   # if no directory was given
+            directory = _os.getcwd()
+        
+        hisfiles = [i for i in _os.listdir(directory) if i[-3:] == 'his']
+        self.hisfiles = sorted(hisfiles)
+        
+        from scipy import loadtxt, zeros, array
+        tables = []
+        onetime = False
+        for f in self.hisfiles:    
+            with open(f) as text:
+                lines = text.readlines()
+                fname = text.name
+            print('Reading file : {0}'.format(f))
+            rawhdr = [c for c in lines if len(c)<100 and not c.startswith('@')]
+            preamble = [i.strip().split('=') for i in rawhdr if not i.startswith('#')]
+            while not onetime:
+                for keyval in preamble:
+                    try:
+                        setattr(self, keyval[0].replace(':','_'), float(keyval[1]))
+                    except(ValueError):
+                        setattr(self, keyval[0].replace(':','_'), keyval[1])
+                onetime = True
+                self.preamble = preamble
+                #~ self.molfile = rawhdr[]
+            dat = [c for c in lines if len(c)>100 and not c.startswith('@')]
+            # 'raw' table data
+            coldata = loadtxt(dat).transpose()
+            popfile = dict()
+            popfile.__setitem__('filename', str(fname))
+            # get the individual settings written in the header/preamble
+            [popfile.__setitem__(i[0], i[1]) for i in preamble]
+            # from the settings get the columns present
+            # the script assumes that the last column is level populations
+            columns = [i for i in popfile['columns'].split(',')]
+            [popfile.__setitem__(i, j) for (i,j) in zip(columns[:-1], coldata[:len(columns)-1])]
+            # convergence percentage
+            convergence = [i for i in rawhdr if i.startswith('#') and 'converged' in i]
+            convergence = convergence[0].strip().strip('#AMC:').strip('converged').strip('\% ')
+            popfile.__setitem__('convergence', float(convergence))
+            # get the level populations table
+            popfile.__setitem__('lp', coldata[len(columns)-1:].transpose())
+            # write the raw data and header to the dictionary as well
+            popfile.update(dict(header = rawhdr, rawdata = coldata))   
+            # append to list of population file info
+            tables.append(popfile)
+        self.pop_tables = tables
+        
+        if molfile: # if specific molfile given
+            self.molfile = molfile
+        
+        self.molfile_exists = self.__dict__.has_key('molfile')
+        if self.molfile_exists:
+            f = open(self.molfile)
+            molref = f.read().split('\n')
+            f.close()
+            self.n_elevels = int(molref[5])
+            elevels_d = [i.split() for i in molref[7:7 + self.n_elevels]]
+            self.elev = list([dict([['level', int(i[0])], 
+                            ['energies', float(i[1])], 
+                            ['weight', float(i[2])], 
+                            ['j', str(i[3])]]) for i in elevels_d])
+        
+    def plot_tex(self, trans = [12, 10], runjump = 10):    # specify which transition
+        from scipy import linspace, array
+        import matplotlib.pyplot as pl; pl.ion()
+        from matplotlib import cm
+        from adapy.libs import cgsconst as cgs
+
+        radii = (self.pop_tables[0]['ra'] + self.pop_tables[0]['rb'])/2. * 100 / _cgs.AU
+        class Tex: pass
+        
+        Tex.lp = array([[i['lp'][j-1] for j in levels] for i in self.pop_tables[::int(runjump)]]) # every 10th level of every 10th run
+        gup, gdown = [self.elev[trans[0]-1]['weight'], self.elev[trans[1]-1]['weight']] 
+        print('   Molecular weights : {0} {1}'.format(gweight[0], gweight[1]))
+        nu = _cgs.CC*abs(self.elev[trans[0]-1]['energies'] - self.elev[trans[1]-1]['energies'])
+        print('   Frequency : {0:3.3f} E09 GHz'.format(nu*1e-9))
+        trans_str = [self.elev[trans[0]-1]['j'], self.elev[trans[1]-1]['j']]
+        print('   Transition : {0}, {1}'.format(trans_str[0],trans_str[1]))
+        #~ excitationtemp = [temp_pop(ldown, lup, gdown, gup, nu) for ]
+        
+        #~ [pl.loglog(radii , j.transpose(),color=str(c), lw=1, marker='o', ms=2, mew=0) for (j,c) in zip(excitationtemp, linspace(0.7,0,len(excitationtemp)))]
+
+    def plot_pop(self, levels = [], runjump = 10, leveljump = 10):
+        """ 
+        Function to plot the populations level for 
+        every 'runjump' iteration and every 'leveljump' population level
+        """
+        from scipy import linspace, log10, logspace, array
+        import matplotlib.pyplot as pl; pl.ion()
+        from matplotlib import cm
+        #~ from adapy.libs import cgsconst as cgs
+
+        radii = (self.pop_tables[0]['ra'] + self.pop_tables[0]['rb'])/2. * 100 / _cgs.AU
+        tables_select = self.pop_tables[::10]
+        if not levels:
+            lp = [i['lp'][::int(leveljump)] for i in self.pop_tables[::int(runjump)]] # every 'leveljump' level of every 'runjump' run
+        #~ lp_num = 
+        
+        # plot each iteration separately, each with increasing darkness of grey
+            pl.loglog(radii , self.pop_tables[-1]['lp'][::int(leveljump)].transpose(),color='g', lw=1.5, marker='o', ms=3, mew=0)
+        if levels:
+            lp = array([[i['lp'][j-1] for j in levels] for i in self.pop_tables[::int(runjump)]])
+            pl.loglog(radii , self.pop_tables[-1]['lp'][array(levels)-1].transpose(),color='g', lw=1.5, marker='o', ms=3, mew=0)
+        # allways plot last history item, in green and the others in dashed grey scale
+        #~ pl.loglog(radii , self.pop_tables[-1]['lp'][::int(leveljump)].transpose(),color='g', lw=1, marker='o', ms=2, mew=0)
+        # should plot the resulting 
+        [pl.loglog(radii , j.transpose(), color=str(c), lw=1, ls=':', marker='o', ms=3, mew=0) for (j,c) in zip(lp, linspace(1, 0, len(lp)))]
+        
+        
+        
         
 ######################################################################
 ### RADIATIVE TRANSFER / MODELING

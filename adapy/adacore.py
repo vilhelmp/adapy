@@ -921,7 +921,7 @@ def fit_gauss1d((X,Y),
     from numpy import exp, array, log, alen, where, arange
     # hstack, zeros, sqrt, diag
     #~ from mpfit import mpfit
-    from adapy.mpfit import mpfit
+    from adapy.fitting.mpfit import mpfit
     #from sys import exit as sysexit
     if verbose:
         print 'Fitting Gaussians, checking input parameters'
