@@ -505,9 +505,23 @@ def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
     #rc('xtick',**{'minor.size':3, 'major.size':7})
     #rc('ytick',**{'minor.size':3, 'major.size':7})
     # linewidths
-    rc('axes', linewidth=0.45)
+    #~ rc('axes', linewidth=0.45)
+    rc('axes', linewidth=0.8)
+    #~ rc('patch', linewidth=0.45)
     rc('patch', linewidth=0.45)
-    rc('lines', linewidth=0.45, markeredgewidth=0.45)
+    #~ rc('lines', linewidth=0.45, markeredgewidth=0.45)
+    rc('lines', linewidth=0.8, markeredgewidth=0.45)
+    
+    rc('xtick.major', size = 4)
+    rc('xtick.major',width = 0.8)
+    rc('xtick.minor',size = 2)
+    rc('xtick.minor', width = 0.8)
+    
+    rc('ytick.major', size = 4)
+    rc('ytick.major',width = 0.8)
+    rc('ytick.minor',size = 2)
+    rc('ytick.minor', width = 0.8)
+    
 def steppify(arr, isX = False, interval = 0):
     """
     Converts an array to double-length for step plotting

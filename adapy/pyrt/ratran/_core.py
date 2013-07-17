@@ -158,8 +158,12 @@ class Transition(object):
             #~ _tex_transition(n1, n2, g1, g2, nu):
             
             self.tex = []
+        
         def _calc_tau(self):
             self.tau = []
+        
+        def _calc_radiation_field(self):
+            pass
 
 def _tex_transition(n1, n2, g1, g2, nu):
     """ 
@@ -1230,6 +1234,13 @@ class Output(object):
     def plot_structure(self):
         pass
     
+    
+    def plot_populations(self, levels = [], runjump = 10, leveljump = 10):
+        pass
+    
+    def plot_tau():
+        pass
+        
     ## for history populations
     # copy pasted below, go through and make better
     def plot_his_populations(self, levels = [], runjump = 10, leveljump = 10):
@@ -1317,5 +1328,12 @@ class Output(object):
         #~ return tex, lp
         #~ for runlp in tex:
             #~ for 
-        
+    def plot_his_tau(self): pass
+    
+    def plot_his_radiation(self): pass
+
+
+
+
+
 
