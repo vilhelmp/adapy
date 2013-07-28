@@ -1,4 +1,7 @@
 
+import os as _os
+
+
 class Read:
     def __init__(self, path_to_file):
         from scipy import arange
@@ -11,9 +14,9 @@ class Read:
         #~ i = 0
         #~ while molref[i] != '!LEVEL + ENERGIES(cm^-1) + WEIGHT + J, Ka, Kc':
         for i in arange(len(molref)):
-            if molref[i] == '!LEVEL + ENERGIES(cm^-1) + WEIGHT + J, Ka, Kc':
+            if '!LEVEL + ENERGIES'.lower() in str(molref[i]).lower():
                 ilvl = i + 1
-            elif molref[i] == '!TRANS + UP + LOW + EINSTEINA(s^-1) + FREQ(GHz) + E_u(K)':
+            elif '!TRANS + UP + LOW + EINSTEINA'.lower() in str(molref[i]).lower():
                 rtlvl = i + 1
             
             # get the variables
@@ -52,10 +55,9 @@ class Read:
                         ['up', int(i[1])],
                         ['llev', self.get_lvl(i[2])],
                         ['down', int(i[2])],
-                        ['Aul', float(i[3])],
+                        ['aul', float(i[3])],
                         ['freq', float(i[4])*1e9],
                         ['eu', float(i[5])]]) for i in radtrans_d])
-        
         
     def get_lvl(self, level, tex = False):
         if not tex:
@@ -63,3 +65,42 @@ class Read:
         if tex:
             lvl = self.elev[int(level)-1]['j'].split('_')
             return ('${0[0]}_{{{0[1]},{0[2]}}}$'.format(lvl))
+
+    def get_partition(self, 
+            part_file_directory = '/home/magnusp/work/data/partition/', 
+            part_file = ''):
+        #
+        from scipy.optimize import leastsq as _ls
+        from scipy import loadtxt as _loadtxt
+        
+        molecule = self.molecule
+        
+        # if no filename has been input directly
+        if not part_file:
+            part_file = [i for i in _os.listdir(part_file_directory) if i.strip('.dat') in molecule.lower()][0]
+        
+        # now load the file
+        try:
+            t,q = _loadtxt(_os.path.join(part_file_directory, part_file))
+        except :
+            print('partition file could not be loaded')
+            import sys as _sys
+            _sys.exit('partition file could not be loaded')       
+        
+        # define the fitting function
+        # in this case [a * T**b]
+        fitfunc = lambda p,t: q - (p[0]*t**p[1])
+        # initial guess...
+        p0 = [0.05,1.5] 
+        
+        # now least square fitting
+        p_fit = _ls(fitfunc, p0, args=(t))[0]
+        
+        # create the function to get the partition function value for 
+        # given temperature
+        self.qrot = lambda x: p_fit[0] * x**p_fit[1]
+        
+    def get_transition(self, transition):
+        
+        pass
+

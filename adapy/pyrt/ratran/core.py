@@ -14,8 +14,16 @@ from ...libs import cgsconst as _cgs
 from ... import moldata as _moldata
 from ...tools import get_colors as _gc
 
+#~ from ...views import set_rc
+#~ _pl.rcParams['text.usetex'] = True
+#~ _pl.rcParams['savefig.dpi'] = 300
+#~ _pl.rcParams['figure.dpi'] = 150
+_pl.rcParams['figure.facecolor'] = 'w'
+_pl.rcParams['font.size'] = 10
+#~ set_rc()
+
 # perhaps put help functions in separate file?
-# help.py, extra.py, 
+# help.py, extra.py,
 
 ### Help functions
 def bplanck(nu,T):
@@ -36,17 +44,17 @@ def find_intensity(fitsfile, interval = [], nsig = 3):
     from pyfits import getdata, getheader
     from adapy.adacore import gaussfit2d
     pl.ion()
-    class ModelData: pass
+    class SkyModel: pass
 
     data = getdata(fitsfile)
-    ModelData.continuum = data[0]
+    SkyModel.continuum = data[0]
     #~ data -= data[0] # remove continuum
-    ModelData.data = data - ModelData.continuum
+    SkyModel.data = data - SkyModel.continuum
     header = getheader(fitsfile)
     
     # get some of the stuff from the header
-    ModelData.bunit = header['BUNIT']
-    ModelData.restfreq = header['RESTFREQ']
+    SkyModel.bunit = header['BUNIT']
+    SkyModel.restfreq = header['RESTFREQ']
     
     # create the velocity array, just for fun
     v_cdelt = header['CDELT3']*1e-3     # in km/s
@@ -56,20 +64,20 @@ def find_intensity(fitsfile, interval = [], nsig = 3):
     
     v_array = arange(v_naxis) - v_crpix
     v_array *= v_cdelt
-    ModelData.v_array = v_array + v_crval
-    ModelData.v_cdelt = v_cdelt         # in km/s
+    SkyModel.v_array = v_array + v_crval
+    SkyModel.v_cdelt = v_cdelt         # in km/s
     
     
-    ModelData.ra_cdelt = header['CDELT1']*3600
-    ModelData.dec_cdelt = header['CDELT2']*3600
-    ModelData.ra_array = ((arange(header['NAXIS1']) - header['CRPIX1']) * header['CDELT1']*3600) + header['CRVAL1']
-    ModelData.dec_array = ((arange(header['NAXIS2']) - header['CRPIX2']) * header['CDELT2']*3600) + header['CRVAL2']
+    SkyModel.ra_cdelt = header['CDELT1']*3600
+    SkyModel.dec_cdelt = header['CDELT2']*3600
+    SkyModel.ra_array = ((arange(header['NAXIS1']) - header['CRPIX1']) * header['CDELT1']*3600) + header['CRVAL1']
+    SkyModel.dec_array = ((arange(header['NAXIS2']) - header['CRPIX2']) * header['CDELT2']*3600) + header['CRVAL2']
     
     # assume model peak in center
-    z, y ,x = ModelData.data.shape
-    ModelData.spectrum = ModelData.data[:, y/2, x/2]
+    z, y ,x = SkyModel.data.shape
+    SkyModel.spectrum = SkyModel.data[:, y/2, x/2]
     
-    if len(ModelData.data.shape) < 3: # needs to be a cube for analysis to work
+    if len(SkyModel.data.shape) < 3: # needs to be a cube for analysis to work
         print("Wrong data shape of input fits file")
         return 0
     if interval == []: # if no interval given, need to do it interactively
@@ -78,31 +86,31 @@ def find_intensity(fitsfile, interval = [], nsig = 3):
         #~ from matplotlib.widgets import Cursor
         #~ fig = pl.figure()
         #~ ax = fig.add_subplot(111) 
-        #~ ax.plot(ModelData.v_array, ModelData.spectrum)
+        #~ ax.plot(SkyModel.v_array, SkyModel.spectrum)
         #~ cursor = Cursor(ax, color='red', linewidth=2 )
         #~ print('Click on lower limit')
         #~ x_low  = ginput()[0][0]
         #~ print('Click on upper limit')
         #~ x_high  = ginput()[0][0]
         #~ fig.close()
-        #~ ModelData.mom0 = 
+        #~ SkyModel.mom0 = 
         # simple guesses/assumptions, 
         # perhaps extend to calculate moment0/1 for the position
         # and width of the distribution?
-        datamax = ModelData.spectrum.max()
+        datamax = SkyModel.spectrum.max()
         # where is the max?
-        ii = where(ModelData.spectrum.max()==ModelData.spectrum)[0] 
-        width_estimate = (ModelData.v_array.max() - ModelData.v_array.min()) * 0.2
+        ii = where(SkyModel.spectrum.max() == SkyModel.spectrum)[0] 
+        width_estimate = (SkyModel.v_array.max() - SkyModel.v_array.min()) * 0.2
         # fit a 1D Gaussian
-        results_1d = gaussfit((ModelData.v_array, ModelData.spectrum), 
+        results_1d = gaussfit((SkyModel.v_array, SkyModel.spectrum), 
                             params=(
                                     datamax,
-                                    ModelData.v_array[ii], 
+                                    SkyModel.v_array[ii], 
                                     width_estimate
                                     ),
                             verbose=0
                             )[0]
-        ModelData.results_1d = results_1d
+        SkyModel.results_1d = results_1d
         amplitude_1d = results_1d[2]
         position_1d = results_1d[1]
         fwhm_1d = results_1d[2]
@@ -112,30 +120,30 @@ def find_intensity(fitsfile, interval = [], nsig = 3):
         interval = position_1d + array([-1, 1]) * nsig * sigma_1d
         print("Integration interval : 1D Gaussian fit"
                 " (+/- {0} sigma)".format(nsig))
-        ModelData.interval = interval
+        SkyModel.interval = interval
     else:
-        ModelData.interval = interval
+        SkyModel.interval = interval
         print("Integration interval : input")
         
     indices = where(
-                        (ModelData.v_array >= interval[0]) * 
-                        (ModelData.v_array <= interval[1])
+                        (SkyModel.v_array >= interval[0]) * 
+                        (SkyModel.v_array <= interval[1])
                         )
     
-    ModelData.zero = ModelData.data[indices].sum(axis=0) * abs(ModelData.v_cdelt)
+    SkyModel.zero = SkyModel.data[indices].sum(axis=0) * abs(ModelData.v_cdelt)
     X, Y = meshgrid(arange(header['NAXIS1']),arange(header['NAXIS2']))
     #~ results_2d = gaussfit2d((X, Y, ModelData.zero), params=(0.0, (0.1, 64, 64, 2, 2, 0)))[0]
-    results_2d = gaussfit2d((X, Y, ModelData.zero), fitheight=0)[0]
+    results_2d = gaussfit2d((X, Y, SkyModel.zero), fitheight=0)[0]
     # Volume (integral) of the Gaussian
     # V = 2 pi Amp sigma1 sigma2
-    ModelData.amplitude_2d = results_2d[0]
-    ModelData.sigma_x = results_2d[3]
-    ModelData.sigma_y = results_2d[4]
-    ModelData.results_2d = results_2d
+    SkyModel.amplitude_2d = results_2d[0]
+    SkyModel.sigma_x = results_2d[3]
+    SkyModel.sigma_y = results_2d[4]
+    SkyModel.results_2d = results_2d
     
-    ModelData.intensity = pi * 2 * ModelData.amplitude_2d * ModelData.sigma_x * ModelData.sigma_y
-    print('Integrated intensity : {0:.2f} Jy'.format(ModelData.intensity))
-    return ModelData
+    SkyModel.intensity = pi * 2 * SkyModel.amplitude_2d * SkyModel.sigma_x * SkyModel.sigma_y
+    print('Integrated intensity : {0:.2f} Jy'.format(SkyModel.intensity))
+    return SkyModel
 
 class Transition(object):
     def __init__(self, levels=[12, 10]):
@@ -1053,12 +1061,21 @@ def temp_pop(n1, n2, g1, g2, nu):
     denom = _cgs.KK * _scipy.log(n1 * g2 / (n2 * g1))
     return numer / denom
 
+def calc_nu(N, Q, gu, Eu, T):
+    """
+    Calculate the column density of the upper energy level
+    assuming LTE 
+    """
+    part1 = N / Q * gu
+    part1 = _scipy.exp(-Eu / (_cgs.KK * T))
+    return part1 * part2
+    
 def calc_tau(Nu, Aul, freq, width, Eu, T):
     """
     Calculate the optical depth (tau) for given parameters
     from Goldsmith and Langer (1999)
     """
-    part1 = Nu * _cgs.CC**3 * Aul / (8 * _scipy.pi freq**3) 
+    part1 = Nu * _cgs.CC**3 * Aul / (8 * _scipy.pi * freq**3 * width) 
     part2 = (_scipy.exp(Eu/T) - 1)
     return part1 * part2
 
@@ -1102,12 +1119,6 @@ class Output(object):
         ### Check molfile,
         if self._check_molfile(molfile):
             self.Moldata  = _moldata.Read(self.molfile)
-        
-        #~ try:
-            #~ self.Moldata  = _moldata.Read(self.molfile)
-        #~ except (IOError): # if not there, just continue, thos functions
-                          #~ # can not be run then
-            #~ pass
     
     #### checking functions
     def _check_directory(self, directory):
@@ -1249,15 +1260,72 @@ class Output(object):
     def plot_structure(self):
         pass
     
-    
     def plot_populations(self, levels = [], runjump = 10, leveljump = 10):
         pass
     
-    def plot_tau(trans = [12, 10]):
-        Nu = nh2 * (rb - ra) * X * lp
+    def plot_tau(self, trans = [12, 10], width = 1.0E4):
+        # ra, rb in m, convert to cm
+        # width in cm/s
+        itup, itdown = trans[0] - 1, trans[1] - 1
+        try:
+            transIndex = [i['trans'] for i in self.Moldata.radtrans if i['up'] == 12 and i['down'] == 10][0]
+        except (IndexError):
+            print('No such transition for molecule : {0}'.format(self.Moldata.molecule))
+            print('Check your moldata file at : {0}'.format(self.Moldata.molfile))
+            return False
+        transIndex -= 1
         
-    ## for history populations
-    # copy pasted below, go through and make better
+        # First, get the opacity from the model outpupt
+        class Tau: pass
+        self.Tau = Tau
+        # the density of the upper energy level
+        # from the model data
+        self.Tau.Nu = Nu = (self.Pop.rb - self.Pop.ra) * 100.0 * self.Pop.nm * self.Pop.lp[transIndex]
+        self.Tau.Au = Aul = self.Moldata.radtrans[transIndex]['aul']
+        self.Tau.freq = freq = self.Moldata.radtrans[transIndex]['freq']
+        self.Tau.Eu = Eu = self.Moldata.radtrans[transIndex]['eu']
+        self.Tau.T = T = self.Pop.tk
+        # now calculate the opacity
+        self.Tau.tau = tau = calc_tau(Nu, Aul, freq, width, Eu, T)
+        
+        radii = (self.Pop.ra + self.Pop.rb)/2. * 100 / _cgs.AU
+        
+        # plotting
+        _pl.ion()
+        #~ fig = _pl.figure(num=1, figsize=(3.5,3))
+        fig = _pl.figure(num=1)
+        ax = fig.add_subplot(111)
+        ax.loglog(radii , tau, label=r' - '.join([self.Moldata.get_lvl(i, tex = 1) for i in trans]), color=_gc(1).next(), lw=2, marker='o', ms=3, mew=0)
+
+        
+        
+        # Second, the calculate the opacity if it is pure LTE conditions
+        
+        try:
+            # first initialise the get_partition method
+            # to get the partition function values
+            # at all temperatures
+            self.Moldata.get_partition()
+            plot_lte = True
+        except:
+            print ('cannot get the partition function values.')
+            plot_lte = False
+            
+        if plot_lte:
+            # Nu  = nm * (rb - ra) * gu / Qrot(T) * exp(-Eu/T)
+            nm = self.Pop.nm
+            ra = self.Pop.ra * 100 # in cm
+            rb = self.Pop.rb * 100 # in cm
+            gu = self.Moldata.elev[itup]['weight']
+            qrot = self.Moldata.qrot(T)
+            self.Tau.Nu_lte = Nu_lte = nm * (rb - ra) * gu / qrot * _scipy.exp(-Eu/T)
+            self.Tau.tau_lte = tau_lte = calc_tau(Nu_lte, Aul, freq, width, Eu, T)
+            _pl.loglog(radii, tau_lte, label=r' LTE', color='#008822', lw=2, marker='o', ms=3, mew=0)
+        ax.set_xlabel('Radius [AU]')
+        ax.set_ylabel(r'$\tau$')
+        ax.legend()
+        ax.grid()
+    
     def plot_populations(self, levels = [], runjump = 10, leveljump = 10):
         """ 
         Function to plot the populations level for 
@@ -1312,9 +1380,10 @@ class Output(object):
         _pl.ion()
         #~ from matplotlib import cm
         #~ from adapy.libs import cgsconst as cgs
+        
+        radii = (self.Pop.ra + self.Pop.rb)/2. * 100 / _cgs.AU
         if hasattr(self, 'Pop_his') and history:
             ### get the populations for the levels from the different runs 
-            radii = (self.Pop_his.pop_tables[0]['ra'] + self.Pop_his.pop_tables[0]['rb'])/2. * 100 / _cgs.AU
             runs = array([i for i in self.Pop_his.pop_tables[::int(runjump)]]) # every 10th run
             lp = [[j['lp'][i-1] for i in trans] for j in runs]
         
@@ -1337,20 +1406,14 @@ class Output(object):
         ### get the final tex curve
         tex_final = temp_pop(self.Pop.lp[trans[1]-1], self.Pop.lp[trans[0]-1], gweights[1], gweights[0], nu)
         _pl.loglog(radii , tex_final, label=r' - '.join([self.Moldata.get_lvl(i, tex = 1) for i in trans]), color=_gc(1).next(), lw=2, marker='o', ms=5, mew=0)
+        
+        _pl.loglog([radii[-1], radii[-1]], [0, 1], )
+        
         _pl.legend()
         _pl.grid()
         #~ tex = [[temp_pop(ldown, lup, gweights[1], gweights[0], nu) for (ldown, lup) in zip(run[1], run[0])] for (run) in lp]
         #~ return tex, lp
         #~ for runlp in tex:
             #~ for 
-    def plot_tau(self): 
-        
-        pass
     
     def plot_radiation(self): pass
-
-
-
-
-
-
