@@ -104,3 +104,30 @@ class Read:
         
         pass
 
+class Transition(object):
+    def __init__(self, levels=[12, 10]):
+        """
+        - input population levels
+        
+        - calculate tex for transition
+        
+        - get tau
+        
+        -> put in moldata calculations?
+        
+        """
+        # store everything necessary for calculations
+        
+        def _calc_level_pop(self, tex):
+            self.level_pop = []
+        def _calc_tex(self):
+            
+            #~ _tex_transition(n1, n2, g1, g2, nu):
+            
+            self.tex = []
+        
+        def _calc_tau(self):
+            self.tau = []
+        
+        def _calc_radiation_field(self):
+            pass

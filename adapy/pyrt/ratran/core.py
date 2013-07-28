@@ -26,14 +26,14 @@ _pl.rcParams['font.size'] = 10
 # help.py, extra.py,
 
 ### Help functions
-def bplanck(nu,T):
-    """ 
-    Returns the Spectral Radiance (Planck curve)
+def bplanck(nu, T):
+    """
+        Returns the Spectral Radiance (Planck curve)
     """
     from scipy import exp, constants
     try:
-        x = _cgs.HH*nu/(_cgs.KK*T)
-        bpl = (2.0*_cgs.HH*nu**3/_cgs.CC**2)/(exp(x)-1.0)
+        x = _cgs.HH * nu / (_cgs.KK * T)
+        bpl = (2.0 * _cgs.HH * nu**3 / _cgs.CC**2) / (exp(x)-1.0)
         return bpl
     except (ZeroDivisionError):
         return 0
@@ -144,34 +144,6 @@ def find_intensity(fitsfile, interval = [], nsig = 3):
     SkyModel.intensity = pi * 2 * SkyModel.amplitude_2d * SkyModel.sigma_x * SkyModel.sigma_y
     print('Integrated intensity : {0:.2f} Jy'.format(SkyModel.intensity))
     return SkyModel
-
-class Transition(object):
-    def __init__(self, levels=[12, 10]):
-        """
-        - input population levels
-        
-        - calculate tex for transition
-        
-        - get tau
-        
-        -> put in moldata calculations?
-        
-        """
-        # store everything necessary for calculations
-        
-        def _calc_level_pop(self, tex):
-            self.level_pop = []
-        def _calc_tex(self):
-            
-            #~ _tex_transition(n1, n2, g1, g2, nu):
-            
-            self.tex = []
-        
-        def _calc_tau(self):
-            self.tau = []
-        
-        def _calc_radiation_field(self):
-            pass
 
 def _tex_transition(n1, n2, g1, g2, nu):
     """ 
@@ -1400,20 +1372,29 @@ class Output(object):
             for levels in lp:
                 t = temp_pop(levels[1], levels[0], gweights[1], gweights[0], nu)
                 tex.append(t)
-            [_pl.loglog(radii , j, color=str(c), lw=1, marker='o', ms=4, mew=0) for (j,c) in zip(tex, linspace(0.7,0,len(tex)))]
-        
-        
+            [_pl.loglog(radii, j, color=str(c), lw=1, marker='o', ms=4, mew=0)
+                for (j, c) in zip(tex, linspace(0.7, 0, len(tex)))]
+        #
+        #
         ### get the final tex curve
-        tex_final = temp_pop(self.Pop.lp[trans[1]-1], self.Pop.lp[trans[0]-1], gweights[1], gweights[0], nu)
-        _pl.loglog(radii , tex_final, label=r' - '.join([self.Moldata.get_lvl(i, tex = 1) for i in trans]), color=_gc(1).next(), lw=2, marker='o', ms=5, mew=0)
-        
+        tex_final = temp_pop(self.Pop.lp[trans[1]-1], self.Pop.lp[trans[0]-1],
+                             gweights[1], gweights[0], nu)
+        str_transitions = [self.Moldata.get_lvl(i, tex=1) for i in trans]
+        _pl.loglog(radii, tex_final, label=r' - '.join(str_transitions),
+                   color=_gc(1).next(), lw=2, marker='o', ms=5, mew=0)
+        #
         _pl.loglog([radii[-1], radii[-1]], [0, 1], )
-        
+        #
         _pl.legend()
         _pl.grid()
-        #~ tex = [[temp_pop(ldown, lup, gweights[1], gweights[0], nu) for (ldown, lup) in zip(run[1], run[0])] for (run) in lp]
+        # tex for all transitions? why do that...
+        # perhaps be able to supply several pairs of
+        # transitions but not more
+        #~ tex = [[temp_pop(ldown, lup, gweights[1], gweights[0], nu) for
+            #~ (ldown, lup) in zip(run[1], run[0])] for (run) in lp]
         #~ return tex, lp
         #~ for runlp in tex:
-            #~ for 
-    
-    def plot_radiation(self): pass
+            #~ for
+
+    def plot_radiation(self):
+        pass
