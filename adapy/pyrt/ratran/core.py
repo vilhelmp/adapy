@@ -8,6 +8,7 @@ import subprocess as _subprocess
 # python extra modules
 import scipy as _scipy
 from matplotlib import pyplot as _pl
+from matplotlib.transforms import blended_transform_factory as _btf
 
 # adapy internal imports
 from ...libs import cgsconst as _cgs
@@ -1024,13 +1025,13 @@ def load_transphere(directory = '', filename = 'transpheremodel.pickle'):
     # IDEA : add so that it loads the output(?) as well?
     return Obj
 
-def temp_pop(n1, n2, g1, g2, nu):
+def temp_pop(nl, nu, gl, gu, eu):
     """ 
     Calculate the excitation temperature of transition from 2 to 1
     """
     
-    numer = _cgs.HH * nu
-    denom = _cgs.KK * _scipy.log(n1 * g2 / (n2 * g1))
+    numer = eu
+    denom = _scipy.log(nl * gu / (nu * gl))
     return numer / denom
 
 def calc_nu(N, Q, gu, Eu, T):
@@ -1051,12 +1052,27 @@ def calc_tau(Nu, Aul, freq, width, Eu, T):
     part2 = (_scipy.exp(Eu/T) - 1)
     return part1 * part2
 
+def calc_radiation(nu, nl, freq, gu, gl):
+
+    part1 = 2 * _cgs.HH * freq**3 / _cgs.CC**2
+    part2 = nl * gu / (nu * gl)
+    sv = part1 * 1 / (part2 - 1)
+    return sv
+
+def get_transindex(Obj, trans):
+    try:
+        transIndex = [i['trans'] for i in Obj.Moldata.radtrans if i['up'] == trans[0] and i['down'] == trans[1]][0]
+    except (IndexError):
+        print('No such transition for molecule : {0}'.format(self.Moldata.molecule))
+        print('Check your moldata file at : {0}'.format(self.Moldata.molfile))
+        return False
+    transIndex -= 1
+    return transIndex
+
 # END OLD HELP FUNCTIONS
 ########################################################################
 
-
 class Input(object):pass
-
 
 class Output(object):
     def __init__(self, popfile = '', directory = '', molfile = ''):
@@ -1175,6 +1191,7 @@ class Output(object):
             else:
                 setattr(Pop, colname, lines[i])
         self.r = (Pop.rb + Pop.ra) / 2.
+        self.r_au = (Pop.rb + Pop.ra) / 2. * 100 / _cgs.AU
         #[setattr(self, col, i) in zip(self.columns,arange(len(self.columns)-1))]
         self.Pop = Pop
         
@@ -1231,36 +1248,38 @@ class Output(object):
     ## for final populations
     def plot_structure(self):
         pass
-    
-    def plot_populations(self, levels = [], runjump = 10, leveljump = 10):
-        pass
-    
+        
     def plot_tau(self, trans = [12, 10], width = 1.0E4):
+        """
+        Plot opacity/optical depth (tau) and the optical depth in LTe
+        of each cell
+        """
+
+        radii = self.r_au
+        
         # ra, rb in m, convert to cm
         # width in cm/s
         itup, itdown = trans[0] - 1, trans[1] - 1
-        try:
-            transIndex = [i['trans'] for i in self.Moldata.radtrans if i['up'] == 12 and i['down'] == 10][0]
-        except (IndexError):
-            print('No such transition for molecule : {0}'.format(self.Moldata.molecule))
-            print('Check your moldata file at : {0}'.format(self.Moldata.molfile))
-            return False
-        transIndex -= 1
+
+        transIndex = get_transindex(self, trans)
         
         # First, get the opacity from the model outpupt
         class Tau: pass
         self.Tau = Tau
         # the density of the upper energy level
         # from the model data
-        self.Tau.Nu = Nu = (self.Pop.rb - self.Pop.ra) * 100.0 * self.Pop.nm * self.Pop.lp[transIndex]
+        self.Tau.Nu = Nu = (self.Pop.rb - self.Pop.ra) * 100.0 * self.Pop.nm * self.Pop.lp[itup]
         self.Tau.Au = Aul = self.Moldata.radtrans[transIndex]['aul']
         self.Tau.freq = freq = self.Moldata.radtrans[transIndex]['freq']
         self.Tau.Eu = Eu = self.Moldata.radtrans[transIndex]['eu']
         self.Tau.T = T = self.Pop.tk
         # now calculate the opacity
-        self.Tau.tau = tau = calc_tau(Nu, Aul, freq, width, Eu, T)
+        tau = calc_tau(Nu, Aul, freq, width, Eu, T)
+        #~ inull = _scipy.where(tau == 0)
+        #~ tau[inull] = 1E-15
+        self.Tau.tau = tau
         
-        radii = (self.Pop.ra + self.Pop.rb)/2. * 100 / _cgs.AU
+        
         
         # plotting
         _pl.ion()
@@ -1269,7 +1288,6 @@ class Output(object):
         ax = fig.add_subplot(111)
         ax.loglog(radii , tau, label=r' - '.join([self.Moldata.get_lvl(i, tex = 1) for i in trans]), color=_gc(1).next(), lw=2, marker='o', ms=3, mew=0)
 
-        
         
         # Second, the calculate the opacity if it is pure LTE conditions
         
@@ -1291,8 +1309,20 @@ class Output(object):
             gu = self.Moldata.elev[itup]['weight']
             qrot = self.Moldata.qrot(T)
             self.Tau.Nu_lte = Nu_lte = nm * (rb - ra) * gu / qrot * _scipy.exp(-Eu/T)
-            self.Tau.tau_lte = tau_lte = calc_tau(Nu_lte, Aul, freq, width, Eu, T)
+            tau_lte = calc_tau(Nu_lte, Aul, freq, width, Eu, T)
+            #~ inull = _scipy.where(tau_lte == 0)
+            #~ tau_lte[inull] = 1E-15
+            self.Tau.tau_lte = tau_lte
+            # plot it
             _pl.loglog(radii, tau_lte, label=r' LTE', color='#008822', lw=2, marker='o', ms=3, mew=0)
+
+        # plot end of model
+        trans1 = _btf(ax.transData, ax.transAxes)
+        linesetting = dict(color=_gc(1).next(), transform=trans1, lw=1,
+                           ls='dashed')
+        ax.loglog([radii[-1], radii[-1]], [0, 1], **linesetting)
+        ax.loglog([radii[0], radii[0]], [0, 1],**linesetting )
+        # labels, legend and grid
         ax.set_xlabel('Radius [AU]')
         ax.set_ylabel(r'$\tau$')
         ax.legend()
@@ -1310,36 +1340,23 @@ class Output(object):
         from matplotlib import cm
         #~ from adapy.libs import cgsconst as cgs
 
-        radii = (self.Pop_his.pop_tables[0]['ra'] + self.Pop_his.pop_tables[0]['rb'])/2. * 100 / _cgs.AU
-        tables_select = self.Pop_his.pop_tables[::10]
-        
-        
-        # plot with import colorsys, and then colorsys.hsl_to_rgb
-        # h : hue = color (0 = red, 120 = green, 240 = blue)
-        # s : saturation = hardness of color (0 = grey, 1 = full color)
-        # l : light = brightness (0 = black, 1 = white, 0.5 = full color)
-        # hsv = hue, saturation, value(brightness)
-        
-        
+        radii = self.r_au
+               
+        lenlvls = len(self.Pop.lp)
         if not levels:
-            lp = [i['lp'][::int(leveljump)] for i in self.Pop_his.pop_tables[::int(runjump)]] # every 'leveljump' level of every 'runjump' run
-            # plot all iterations
-            [[_pl.loglog(radii , i, color=str(c), lw=1, ls=':', marker='o', ms=3, mew=0) for i in j] for (j,c) in zip(lp, linspace(1, 0.4, len(lp)))]
-            # plot the last iteration
-            #~ [pl.loglog(radii , i, color='k', lw=1.5, marker='o', ms=3, mew=0) for i in self.Pop_his.pop_tables[-1]['lp'][::int(leveljump)]]
-        if levels:
+            levels = _scipy.arange(1, lenlvls+1, leveljump)
+        #
+        if hasattr(self, 'Pop_his'):
+            tables_select = self.Pop_his.pop_tables[::10]
             lp = array([[i['lp'][j-1] for j in levels] for i in self.Pop_his.pop_tables[::int(runjump)]])
             # plot all iterations
             [[_pl.loglog(radii , i, color=str(c), lw=1, ls=':', marker='o', ms=3, mew=0) for i in j] for (j,c) in zip(lp, linspace(0.7, 0.2, len(lp)))]
-            # plot the last iteration
-            #~ [pl.loglog(radii , i, color='k', lw=1.5, marker='o', ms=3, mew=0) for i in self.Pop_his.pop_tables[-1]['lp'][array(levels)-1]]
-        # allways plot last history item, in green and the others in dashed grey scale
-        #~ pl.loglog(radii , self.pop_tables[-1]['lp'][::int(leveljump)].transpose(),color='g', lw=1, marker='o', ms=2, mew=0)
+        #
         # should plot the resulting 
         # a bit to complicated list comprehension... reformat to better
         # programming style...
         [_pl.loglog(radii , self.Pop.lp[i], label=self.Moldata.get_lvl(i+1, tex = 1), color=c, lw=1.5, marker='o', ms=3, mew=0) for (i,c) in zip(array(levels)-1, _gc(len(levels)))]
-        _pl.legend()
+        _pl.legend(loc=3, numpoints=1, ncol=len(levels)/8+1)
         _pl.grid()
         
     def plot_tex(self, trans = [12, 10], runjump = 10, history = True):    # specify which transition
@@ -1362,7 +1379,10 @@ class Output(object):
         ### 
         gweights = [self.Moldata.elev[trans[0]-1]['weight'], self.Moldata.elev[trans[1]-1]['weight']] 
         print('   Molecular weights : upper {0[0]}  lower {0[1]}'.format(gweights))
-        nu = _cgs.CC*abs(self.Moldata.elev[trans[0]-1]['energies'] - self.Moldata.elev[trans[1]-1]['energies'])
+        #~ nu = _cgs.CC*abs(self.Moldata.elev[trans[0]-1]['energies'] - self.Moldata.elev[trans[1]-1]['energies'])
+        transIndex = get_transindex(self, trans)
+        eu =  self.Moldata.radtrans[transIndex]['eu']
+        nu = self.Moldata.radtrans[transIndex]['freq']
         print('   Frequency : {0:3.3f} E09 GHz'.format(nu*1e-9))
         trans_str = [self.Moldata.get_lvl(i) for i in trans]
         #trans_str = [self.elev[trans[0] ,.elev[trans[1]-1]['j']]
@@ -1370,23 +1390,24 @@ class Output(object):
         if hasattr(self, 'Pop_his') and history:
             tex = []
             for levels in lp:
-                t = temp_pop(levels[1], levels[0], gweights[1], gweights[0], nu)
+                t = temp_pop(levels[1], levels[0], gweights[1], gweights[0], eu)
                 tex.append(t)
             [_pl.loglog(radii, j, color=str(c), lw=1, marker='o', ms=4, mew=0)
                 for (j, c) in zip(tex, linspace(0.7, 0, len(tex)))]
         #
-        #
         ### get the final tex curve
         tex_final = temp_pop(self.Pop.lp[trans[1]-1], self.Pop.lp[trans[0]-1],
-                             gweights[1], gweights[0], nu)
+                             gweights[1], gweights[0], eu)
         str_transitions = [self.Moldata.get_lvl(i, tex=1) for i in trans]
         _pl.loglog(radii, tex_final, label=r' - '.join(str_transitions),
                    color=_gc(1).next(), lw=2, marker='o', ms=5, mew=0)
         #
-        _pl.loglog([radii[-1], radii[-1]], [0, 1], )
-        #
         _pl.legend()
         _pl.grid()
+
+        print(' Return the calculated Tex')
+        return tex_final
+        
         # tex for all transitions? why do that...
         # perhaps be able to supply several pairs of
         # transitions but not more
@@ -1396,5 +1417,44 @@ class Output(object):
         #~ for runlp in tex:
             #~ for
 
-    def plot_radiation(self):
-        pass
+    def plot_radiation(self, trans=[12,10]):
+        """
+            Plot the radiation field in each cell
+            and the LTE radiation field
+        """
+        nu = self.Pop.lp[trans[0]-1]
+        nl = self.Pop.lp[trans[1]-1]
+        gu = self.Moldata.elev[trans[0]-1]['weight']
+        gl = self.Moldata.elev[trans[1]-1]['weight']
+        
+        itup, itdown = trans[0] - 1, trans[1] - 1
+        try:
+            transIndex = [i['trans'] for i in self.Moldata.radtrans if i['up'] == trans[0] and i['down'] == trans[1]][0]
+        except (IndexError):
+            print('No such transition for molecule : {0}'.format(self.Moldata.molecule))
+            print('Check your moldata file at : {0}'.format(self.Moldata.molfile))
+            return False
+        transIndex -= 1
+        
+        freq = self.Moldata.radtrans[transIndex]['freq']
+        
+        
+        snu = calc_radiation(nu, nl, freq, gu, gl)
+        radii = self.r_au
+        _pl.ion()
+        #~ fig = _pl.figure(num=1, figsize=(3.5,3))
+        fig = _pl.figure(num=1)
+        ax = fig.add_subplot(111)
+        _pl.loglog(radii, snu, color='#008822', lw=2, marker='o', ms=3, mew=0)
+
+        # plot end of model
+        trans1 = _btf(ax.transData, ax.transAxes)
+        linesetting = dict(color=_gc(1).next(), transform=trans1, lw=1,
+                           ls='dashed')
+        ax.loglog([radii[-1], radii[-1]], [0, 1], **linesetting)
+        ax.loglog([radii[0], radii[0]], [0, 1],**linesetting )
+        # labels, legend and grid
+        ax.set_xlabel('Radius [AU]')
+        ax.set_ylabel(r'S$_\nu$')
+        #~ ax.legend()
+        ax.grid()

@@ -1315,7 +1315,6 @@ class Ratran_File:
     def write_input(filename):
         return 0
 
-
 class Ratran_History:
     def __init__(self, directory='', molfile=''):
         if not directory:   # if no directory was given
@@ -1426,10 +1425,7 @@ class Ratran_History:
         #~ pl.loglog(radii , self.pop_tables[-1]['lp'][::int(leveljump)].transpose(),color='g', lw=1, marker='o', ms=2, mew=0)
         # should plot the resulting 
         [pl.loglog(radii , j.transpose(), color=str(c), lw=1, ls=':', marker='o', ms=3, mew=0) for (j,c) in zip(lp, linspace(1, 0, len(lp)))]
-        
-        
-        
-        
+
 ######################################################################
 ### RADIATIVE TRANSFER / MODELING
 
