@@ -2150,6 +2150,7 @@ class Ratran:
             f.write("tcmb=2.735\n")
             f.write("columns=id,ra,rb,nh,nm,ne,tk,td,te,db,vr\n")
             f.write("gas:dust={0}\n".format(self.gas2dust))
+            f.write("trace=on")
             if self.skyonly: 
                 f.write("kappa={0}\n".format(self.kappa))
             f.write('@\n')
