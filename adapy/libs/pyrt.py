@@ -2150,7 +2150,6 @@ class Ratran:
             f.write("tcmb=2.735\n")
             f.write("columns=id,ra,rb,nh,nm,ne,tk,td,te,db,vr\n")
             f.write("gas:dust={0}\n".format(self.gas2dust))
-            f.write("trace=on")
             if self.skyonly: 
                 f.write("kappa={0}\n".format(self.kappa))
             f.write('@\n')
@@ -2200,6 +2199,7 @@ class Ratran:
                 f.write("minpop={0:3.2E}\n".format(self.minpop))
                 #~ f.write("seed=1971\n")
                 f.write("fixset={0:3.2E}\n".format(self.fixset))
+                f.write("trace=on\n")
                 f.write("go\n")
                 f.write("q\n")
                 f.write("\n")
