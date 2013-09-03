@@ -1832,13 +1832,14 @@ class Ratran:
             else:                
                 self.db = self.db[_index:]
             self.vr = self.vr[_index:]
+        
         if self.rout > 0 and self.rout>self.rin:
             _index = min(where(self.r>self.rout)[0])
             print _index
             self.r = self.r[:_index]
             #~ print self.r
             self.temp = self.temp[:_index]
-            self.tdust = self.tdust[:_index:]
+            self.tdust = self.tdust[:_index]
             self.rhodust = self.rhodust[:_index]
             
             if type(self.db) == type(1.0):
@@ -1846,6 +1847,7 @@ class Ratran:
             else:                
                 self.db = self.db[_index:]
             self.vr = self.vr[_index:]
+        
         # calculate the radial dependence of the molecular
         # abundance depends on what type of abundance type is choosen
         self.abund, self.abund_param =  create_molecular_abundance(self.temp, 
