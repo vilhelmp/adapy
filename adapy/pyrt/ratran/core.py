@@ -1316,7 +1316,7 @@ class Output(object):
                 try:
                     Sky.trans = Sky.trans.split(',')
                 except (AttributeError):
-                    pass
+                    Sky.trans = [Sky.trans]
                 Sky.trans = [int(i) for i in Sky.trans]
         self.Sky = Sky
 
