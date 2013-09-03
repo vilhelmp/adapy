@@ -1313,7 +1313,10 @@ class Output(object):
                 Sky.chan = Sky.chan.split(',')
                 Sky.chan = [float(i) for i in Sky.chan]
             if hasattr(Sky,'trans'):
-                Sky.trans = Sky.trans.split(',')
+                try:
+                    Sky.trans = Sky.trans.split(',')
+                except (AttributeError):
+                    pass
                 Sky.trans = [int(i) for i in Sky.trans]
         self.Sky = Sky
 
