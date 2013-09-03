@@ -1787,7 +1787,7 @@ class Ratran:
         #~ self.pixel
         
         self.rin *= _cgs.AU # convert rin to cm
-        self.rout *= _cgs.AU # convert rin to cm
+        self.rout *= _cgs.AU # convert rout to cm
         # copy important parameters to the main class
         #~ self.r = self.Input.r
         #~ self.rhodust = self.Input.rhodust
@@ -1821,7 +1821,7 @@ class Ratran:
         
         if self.rin > 0:
             _index = max(where(self.r<self.rin)[0])
-            print _index
+            #~ print _index
             self.r = self.r[_index:]
             #~ print self.r
             self.temp = self.temp[_index:]
@@ -1834,9 +1834,9 @@ class Ratran:
                 self.db = self.db[_index:]
             self.vr = self.vr[_index:]
         
-        if self.rout > 0 and self.rout>self.rin:
+        if self.rout > 0:
             _index = min(where(self.r>self.rout)[0])
-            print _index
+            #~ print _index
             self.r = self.r[:_index]
             #~ print self.r
             self.temp = self.temp[:_index]
@@ -1846,8 +1846,8 @@ class Ratran:
             if type(self.db) == type(1.0):
                 pass
             else:                
-                self.db = self.db[_index:]
-            self.vr = self.vr[_index:]
+                self.db = self.db[:_index]
+            self.vr = self.vr[:_index]
         
         # calculate the radial dependence of the molecular
         # abundance depends on what type of abundance type is choosen
