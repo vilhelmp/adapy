@@ -1787,6 +1787,7 @@ class Ratran:
         #~ self.pixel
         
         self.rin *= _cgs.AU # convert rin to cm
+        self.rout *= _cgs.AU # convert rin to cm
         # copy important parameters to the main class
         #~ self.r = self.Input.r
         #~ self.rhodust = self.Input.rhodust
