@@ -170,6 +170,9 @@ def _pdfsave(pdf, pdfname, **kwargs):
 def read_molfile(filepath, output='dictionary'):
     return True
 
+
+def convolve():
+    pass
 ########################################################################
 # OLD HELP FUNCTIONS
 
@@ -1096,10 +1099,20 @@ class Output(object):
         ### Parse popfile input
         self._check_popfile(popfile)
         ### create the full path to the popfile
-        self.path_to_popfile = _os.path.join(self.directory, self.popfile)
+        self.path_popfile = _os.path.join(self.directory, self.popfile)
         ### Read the population output from Ratran
         self._read_population_output()
-        
+        ### Read the AMC input file
+        self.path_amc_input_file  = _os.path.join(self.directory, 'amc.inp')
+        if _os.path.isfile(self.path_amc_input_file):
+            self._read_amc_input()
+        ### Read the SKY input file
+        self.path_sky_input_file  = _os.path.join(self.directory, 'sky.inp')
+        if _os.path.isfile(self.path_sky_input_file):
+            self._read_sky_input()
+            ### Check fits output
+            if self._check_fits:
+                self._read_fits()
         ##### If there are no history files present, don't load anything.
         ### Check if history files present in directory
         if self._check_history_files(): # if so, read them
@@ -1109,7 +1122,7 @@ class Output(object):
         ### Check molfile,
         if self._check_molfile(molfile):
             self.Moldata  = _moldata.Read(self.molfile)
-    
+
     #### checking functions
     def _check_directory(self, directory):
         if directory:   # if directory input
@@ -1132,9 +1145,9 @@ class Output(object):
             if not _os.path.isfile(molfile):
                 print('Molfile does not exists/wrong path.')
                 return False
-            #~ self.Moldata  = _moldata.Read(molfile)
-            self.molfile = molfile
-            return True
+            else:
+                self.molfile = molfile
+                return True
         elif self.Pop.__dict__.has_key('molfile'): 
             # moldata file in popfile
             print self.Pop.molfile
@@ -1156,15 +1169,19 @@ class Output(object):
         else:
             return True
     
+    def _check_fits(self):
+        if not hasattr(self, 'Sky'):
+            return False
+        else:
+            return self.Sky.output
+
     #### reading functions    
     def _read_population_output(self):
         from scipy import arange, array
         #~ if not directory:   # if no directory was given
             #~ directory = _os.getcwd()
-        
         class Pop(object): pass
-                
-        with open(self.path_to_popfile) as f:
+        with open(self.path_popfile) as f:
             line = f.readline()
             Pop.comments = []
             while not line.startswith('@'):
@@ -1246,6 +1263,63 @@ class Output(object):
         Pop_his.pop_tables = tables
         self.Pop_his = Pop_his
 
+    def _read_amc_input(self):
+        class Amc:
+            pass
+        with open(self.path_amc_input_file) as f:
+            line = f.readline()
+            Amc.comments = []
+            while line != 'go\n':
+                print line
+                if line.startswith('#'):
+                    Amc.comments.append(line)
+                    line = f.readline()
+                    pass
+                else:
+                    keyval = line.strip('\n').split('=')
+                    try:
+                        setattr(Amc, keyval[0].replace(':','_'), float(keyval[1]))
+                    except(ValueError):
+                        setattr(Amc, keyval[0].replace(':','_'), keyval[1])
+                    line = f.readline()
+            if hasattr(Amc,'kappa'):
+                Amc.kappa = Amc.kappa.split(',')
+        self.Amc = Amc
+
+    def _read_sky_input(self):
+        ## kind of duplicate of _read_amc_input, share and shorten?
+        class Sky:
+            pass
+        with open(self.path_sky_input_file) as f:
+            line = f.readline()
+            Sky.comments = []
+            while line != 'go\n':
+                print line
+                if line.startswith('#'):
+                    Sky.comments.append(line)
+                    line = f.readline()
+                    pass
+                else:
+                    keyval = line.strip('\n').split('=')
+                    try:
+                        setattr(Sky, keyval[0].replace(':','_'), float(keyval[1]))
+                    except(ValueError):
+                        setattr(Sky, keyval[0].replace(':','_'), keyval[1])
+                    line = f.readline()
+            # direct approach, ok for these three
+            if hasattr(Sky,'pix'):
+                Sky.pix = Sky.pix.split(',')
+            if hasattr(Sky,'chan'):
+                Sky.chan = Sky.chan.split(',')
+                Sky.chan = [float(i) for i in Sky.chan]
+            if hasattr(Sky,'trans'):
+                Sky.trans = Sky.trans.split(',')
+                Sky.trans = [int(i) for i in Sky.trans]
+        self.Sky = Sky
+
+    def _read_fits(self):
+        print('Tjo')
+    
     #### plotting functions
     ## for final populations
     def plot_structure(self):

@@ -149,6 +149,29 @@ class ChangeDirectory:
     #~ import subprocess
     #~ subprocess.call("ls")
 
+def parse_seconds(sec, send = False):
+    from datetime import datetime, timedelta
+    sec = timedelta(seconds=sec)
+    d = datetime(1,1,1) + sec
+    class mytime: pass
+    mytime.d = d.day - 1
+    mytime.h = d.hour
+    mytime.m = d.minute
+    mytime.s = d.second
+    mytime.totalh = mytime.d * 24 + mytime.h
+    
+    if not send:
+        if mytime.d > 0:
+            msg = 'D:{0.d} H:{0.h} M:{0.m} S:{0.s} (i.e {1} H)'
+            print(msg.format(mytime, mytime.totalh))
+        elif mytime.h > 0:
+            print('H:{0.h} M:{0.m} S:{0.s}'.format(mytime))
+        elif mytime.m > 0:
+            print('M:{0.m} S:{0.s}'.format(mytime))
+        else:
+            print('S:{0.s}'.format(mytime))
+    else:
+        return mytime
 
 ########################################################################
 # MODELING HELP FUNCTIONS
@@ -314,6 +337,7 @@ def plot_spectrum(freq, intensity, dpc = 0, jy = 0, pstyle = '', xlog = 1, ylog 
 
     if xlog == 1: pl.xscale('log')
     if ylog == 1: pl.yscale('log')
+
 
 
 def write_ratraninput(self):
@@ -1642,6 +1666,7 @@ class Ratran:
         params = [
         'r',                            0,          'cm',    'array',   # Radial points
         'rin',                          0,          'AU',    'float',   # Inner radius
+        'rout',                         0,          'AU',    'float',   # Outer radius (where to cut off)
         'rhodust',                      0,       'g/cm3',    'array',   # Dust density
         'molfile',      'ph2-18o-ph2.dat',            '',      'str',   # Name of moldata file
         'modelfile',     'transphere.mdl',            '',      'str',   # Name of model input file
@@ -1807,7 +1832,20 @@ class Ratran:
             else:                
                 self.db = self.db[_index:]
             self.vr = self.vr[_index:]
-        
+        if self.rout > 0 and self.rout>self.rin:
+            _index = min(where(self.r>self.rout)[0])
+            print _index
+            self.r = self.r[:_index]
+            #~ print self.r
+            self.temp = self.temp[:_index]
+            self.tdust = self.tdust[:_index:]
+            self.rhodust = self.rhodust[:_index]
+            
+            if type(self.db) == type(1.0):
+                pass
+            else:                
+                self.db = self.db[_index:]
+            self.vr = self.vr[_index:]
         # calculate the radial dependence of the molecular
         # abundance depends on what type of abundance type is choosen
         self.abund, self.abund_param =  create_molecular_abundance(self.temp, 
