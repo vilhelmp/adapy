@@ -395,6 +395,33 @@ def parse_tick_font (font):
 ########################################################################
 # PLOTTING HELP FUNCTIONS
 # to adavis.py
+
+
+from mpl_toolkits.axes_grid1.anchored_artists import AnchoredOffsetbox, Ellipse, AuxTransformBox
+
+class AnchoredEllipse(AnchoredOffsetbox):
+    def __init__(self, transform, width, height, angle, loc, fc='b', ec='k', lw=1,
+                 pad=0.1, borderpad=0.1, prop=None, frameon=True, **kwargs):
+        """
+        Draw an ellipse the size in data coordinate of the give axes.
+
+        pad, borderpad in fraction of the legend font size (or prop)
+        """
+        self._box = AuxTransformBox(transform)
+        self.ellipse = Ellipse((0,0), width, height, angle,
+                facecolor= fc, edgecolor=ec, linewidth=lw)
+        self._box.add_artist(self.ellipse)
+
+        AnchoredOffsetbox.__init__(self, loc, pad=pad, borderpad=borderpad,
+                                   child=self._box,
+                                   prop=prop,
+                                   frameon=frameon, **kwargs)
+
+
+
+
+
+
 def draw_fov(ax, data):
     """
     Function to draw the field of view into the
@@ -426,7 +453,7 @@ def draw_beam(ax, data, loc=3, bpad=0.2, ppad=0.15, box=True):
     function that draws the beam
     the attributes data.bmin, .bmaj and .bpa must exist in the data class
     """
-    from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
+    #~ from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
     #from scipy import pi
     # the PA is calculated from N to E, but the plotting is relating the
     # minor axis to E-W line so just add -1*
@@ -437,9 +464,39 @@ def draw_beam(ax, data, loc=3, bpad=0.2, ppad=0.15, box=True):
                             loc=loc,\
                             pad=ppad,\
                             borderpad=bpad,\
-                            frameon=box)
+                            frameon=box,
+                            fc='#449955',
+                            ec='None',
+                            lw=0)
 
     ax.add_artist(ae)
+
+
+#~ def draw_beam(ax, bmin, bmaj, bpa, loc=3, bpad=0.2, ppad=0.15, box=False):
+    #~ """
+    #~ function that draws the beam
+    #~ the attributes data.bmin, .bmaj and .bpa must exist in the data class
+    #~ """
+    #~ from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
+    #~ #from scipy import pi
+    #~ # the PA is calculated from N to E, but the plotting is relating the
+    #~ # minor axis to E-W line so just add -1*
+    #~ ae = AnchoredEllipse(transform=ax.transData,\
+                            #~ width=bmin,\
+                            #~ height=bmaj,\
+                            #~ angle=-1*bpa,\
+                            #~ loc=loc,\
+                            #~ pad=ppad,\
+                            #~ borderpad=bpad,\
+                            #~ frameon=box,
+                            #~ fc='#227733',
+                            #~ ec='k',
+                            #~ lw=0.5)
+#~ 
+    #~ ax.add_artist(ae)
+
+
+
 def draw_highlight_box(ax, xpos, xwidth):
     """
     adds a highlight box that spans whole y-axes space and specified data
@@ -487,7 +544,7 @@ def put_line_indicator(ax, velocity, spect, xpos, text_string, \
     transform = ax.transData)
 def set_rc(font={'family':'serif', 'serif': ['Times New Roman'],
         'size':10},
-        quality=[300, 150], latex=True, **kwargs):
+        quality=[600, 150], latex=True, **kwargs):
     from matplotlib import rc
     ################################
     # setting global rc properties #
