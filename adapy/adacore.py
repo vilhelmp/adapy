@@ -177,6 +177,7 @@ TODO : P-V diagram - rotatable
          o Able to update from Q and Tex values
 
 """
+
 ########################################################################
 # USEFUL STRINGS
 KMS = u"km\u00b7s\u207b\u00b9"
