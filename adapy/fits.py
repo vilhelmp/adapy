@@ -143,8 +143,7 @@ class Fits:
             try:
                 self.restfreq = Unit(self.hdr['RESTFRQ'],'Hz' ) # in Hertz
             except KeyError:
-                print ('No frequency information.')
-
+                print ('No frequency information.'
 
         if self.hdr['NAXIS']==4 and self.d.shape[0:2] == (1,1):
             self.datatype = ('IMAGE',2)
@@ -162,6 +161,7 @@ class Fits:
         #
         # spectral image cube (extra axis for frequency/velocity)
         elif self.hdr['NAXIS']==3 and self.hdr['NAXIS1']>1 and self.hdr['NAXIS2']>1 and self.hdr['NAXIS3']==1:
+            # _load_IMAGE_data()
             self.datatype = ('IMAGE',2)
             # extra if the continuum image has the freq and width
             self.freq = self.hdr['CRVAL3']
@@ -169,6 +169,7 @@ class Fits:
         # a spectra! the 3rd axis is longer than 1
         elif self.hdr['NAXIS']>=3 and self.hdr['NAXIS3']>1:
             # spectral cube
+            # _load_CUBE_data()
             # only support for velo-lsr in 3rd axis
             self.datatype = ('CUBE',3)
             # load the third axis
@@ -265,6 +266,7 @@ class Fits:
             # SD pointing spectra
             # single dish
         elif self.hdr['NAXIS']>1 and self.hdr['NAXIS2']==1 and self.hdr['NAXIS3']==1:
+            # _load_SD_data(self)
             self.datatype = ('SDSPECT',1)
             self.v_cdelt = self.hdr['DELTAV']
             self.v_cdeltkms = self.hdr['DELTAV']/float(1e3)
@@ -321,9 +323,13 @@ class Fits:
         # DEC
         decax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'DEC' in self.hdr[x]][0][-1:])
         self.dec_cdelt = self.hdr['CDELT'+decax]*3600 # arcs
-        self.dec_npix = self.hdr['NAXIS'+decax]
+        #TODO make npix dynamically determined, so if we cut in the image
+        # it updates it, and the crpix
+        self.dec_npix = self.hdr['NAXIS'+decax] 
         self.y_npix = self.hdr['NAXIS'+decax]
+        #TODO crpix has to be updated when cutting in the image!
         self.dec_crpix = self.hdr['CRPIX'+decax]-1
+        
         self.dec_crval = self.hdr['CRVAL'+decax]
         # RA
         raax = str([x for x in self.hdr.keys() if x[:-1]=='CTYPE' and 'RA' in self.hdr[x]][0][-1:])
@@ -340,6 +346,8 @@ class Fits:
             #~ left, right = xcoords[0],xcoords[-1]
             #~ bottom, top = ycoords[0],ycoords[-1]
             #~ extent=(left,right,bottom,top)
+            #TODO make the extent keyword update dynamically with how
+            # many pixels that are there...
             X = array([0,self.ra_npix-1]) # self.*_npix-1 because we're
             Y = array([0,self.dec_npix-1]) # slicing the python-way
             left,right = (X-self.ra_crpix)*self.ra_cdelt
@@ -354,9 +362,9 @@ class Fits:
             #~ print bottom,top
         try:
             # convert Beam size from degrees to asecs
-            self.bmaj = self.hdr['BMAJ']*3600
-            self.bmin = self.hdr['BMIN']*3600
-            self.bpa = self.hdr['BPA']
+            self.bmaj = Unit(self.hdr['BMAJ']*3600, 'asecs')
+            self.bmin = Unit(self.hdr['BMIN']*3600, 'asecs')
+            self.bpa = Unit(self.hdr['BPA'], 'degrees?')
         except KeyError, ex:
             msg='Header keywords (bmaj,bmin,bpa) incomplete and not loaded.'
             print(msg)
@@ -570,7 +578,12 @@ class Fits:
     def change_dist (self, dist):
         self.dist = dist # unit of pc
 
-
+    def box_cut(self,region=[-10,10,-10,10]):
+        pass
+        
+    def extract_spectrum(self, region=[0,0,0,0]):
+        pass
+    def create_moments(self, )
 
 # UV-FITS DATA CLASS
 class Uvfits:
