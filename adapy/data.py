@@ -1,4 +1,11 @@
 
+from .helpers import *
+
+
+########################################################################
+# USEFUL STRINGS
+KMS = u"km\u00b7s\u207b\u00b9"
+
 
 
 # MOMENTS DATA CLASS
@@ -98,7 +105,7 @@ class Moments:
 class Spectrum:
     """ Class doc """
     ### not shure if it is allowed to use "FITS" as input here.
-    # perhaps need some other input name
+    # perhaps need some other input name -> its ok!
     def __init__ (self, Fits, **args):
         """
         Class initialiser
