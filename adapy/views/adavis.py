@@ -264,6 +264,7 @@ def print_warning(s):
     msg1 = stylify('WARNING:',f='b',fg='r')
     msg2 = stylify(' '+s,f='b',fg='k')
     sys.stderr.write(msg1 + msg2 +'\n')
+    
 def print_error(s):
     # Dont know if this works as intended
     import sys
@@ -271,6 +272,7 @@ def print_error(s):
     msg2 = stylify(' '+s,f='b',fg='k')
     sys.stderr.write(msg1 + msg2)
     sys.exit()
+    
 def stylify (s='Test text', f='n', fg='r', bg='d'):
     """
     Stylify text - change format, forground color and background color.

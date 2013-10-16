@@ -1,7 +1,7 @@
 
 from .helpers import *
-
-
+from .libs.date import jd2gd
+import scipy as _sp
 
 ########################################################################
 # USEFUL STRINGS
@@ -583,7 +583,7 @@ class Fits:
     
 
 # UV-FITS DATA CLASS
-class Uvfits:
+class Uvfits(object):
     """
     Reads uv-fits data...
 
@@ -633,65 +633,180 @@ class Uvfits:
             print "error: cannot open uv data HDU."
         self.hdr = self.hdu.header
         self.data = self.hdu.data
-        #f.close() # is this really needed for pyfits file objects?
+        freq = self.hdu.header['CRVAL4'] #TODO        
+        #TODO : Read in velocity and frequency array if present
         """
         The standard unit is to give UU and VV in seconds (??!?)
         So we have to convert to whatever we want.
         """
         # unit nano seconds
-        self.u_nsec = self.hdu.data.par(0) * 1.e+9
-        self.v_nsec = self.hdu.data.par(1) * 1.e+9
-        self.w_nsec = self.hdu.data.par(2) * 1.e+9
+        self.u_nsec = self.data.par('UU') * 1.e+9
+        self.v_nsec = self.data.par('VV') * 1.e+9
+        self.w_nsec = self.data.par('WW') * 1.e+9
         # unit kilo-lambda
         #CC_cm = a.CC*1e2 # light speed in cm/s
-        freq = self.hdu.header['CRVAL4'] #TODO
         #lmd = lsp / freq
         # u_klam = uu * CC_cm / (CC_cm/freq)
-        self.u_klam = self.hdu.data.par(0) * freq * 1.e-3
-        self.v_klam = self.hdu.data.par(1) * freq * 1.e-3
-        self.w_klam = self.hdu.data.par(2) * freq * 1.e-3
+        self.u_klam = self.data.par('UU') * freq * 1.e-3
+        self.v_klam = self.data.par('VV') * freq * 1.e-3
+        self.w_klam = self.data.par('WW') * freq * 1.e-3
         # unit meters
-        self.u_m = self.hdu.data.par(0) * cgsconst.CC*1e-2
-        self.v_m = self.hdu.data.par(1) * cgsconst.CC*1e-2
-        self.w_m = self.hdu.data.par(2) * cgsconst.CC*1e-2
+        self.u_m = self.data.par('UU') * cgsconst.CC * 1e-2
+        self.v_m = self.data.par('VV') * cgsconst.CC * 1e-2
+        self.w_m = self.data.par('WW') * cgsconst.CC * 1e-2
         # uv distance
-        self.uvdist_nsec= sqrt(self.u_nsec**2 +self.v_nsec**2)
-        self.uvdist_klam = sqrt(self.u_klam**2 +self.v_klam**2)
-        self.uvdist_m = sqrt(self.u_m**2 +self.v_m**2)
+        self.uvdist_nsec= sqrt(self.u_nsec**2 +self.v_nsec**2 + self.w_nsec**2)
+        self.uvdist_klam = sqrt(self.u_klam**2 +self.v_klam**2  + self.w_klam**2)
+        self.uvdist_m = sqrt(self.u_m**2 +self.v_m**2 + self.w_m**2)
+        # baseline and date
+        self.baseline = self.hdu.data.par('BASELINE')
+        self.jdate = self.hdu.data.par('DATE')
+
+        self.date = _sp.array([jd2gd(i) for i in self.jdate])
+
+        self.date0 = self.date.transpose()
+        fields = ['year', 'month', 'day', 'hour', 'minute', 'sec']
+        self.date1 = {key:value for key,value in zip(fields, self.date0)}
+        import datetime
+        # convert to datetime objects
+        # LOSES the sub-second resolution
+        self.date2 = [datetime.datetime(int(i[0]), int(i[1]), int(i[2]), int(i[3]), int(i[4]), int(i[5])) for i in self.date]
+        # get number of tracks
+        # TODO : rough hack, separate track if diff day is >1
+        tmp = _sp.where(_sp.diff(_sp.unique(self.jdate.round(0)))>1)[0]
+        self.ntracks = len(tmp)+1
         # visibility data set (COMPLEX)
-        visi_index = len(self.hdu.data.parnames)
+        visi_index = len(self.data.parnames)
         if self.hdu.header['NAXIS']  == 7:
-            self.visdata = self.hdu.data.par(visi_index)[:,0,0,0,0,0,:]
+            self.visdata = self.data.par(visi_index)[:,0,0,0,0,0,:]
         #~ self.visdata = self.hdu.data.data[:,0,0,0,0,0,:]
         elif self.hdu.header['NAXIS']  == 6:
-            self.visdata = self.hdu.data.par(visi_index)[:,0,0,0,0,:]
+            self.visdata = self.data.par(visi_index)[:,0,0,0,0,:]
         # load the re, im and weight arrays
         self.re = self.visdata[:,0]
         self.im = self.visdata[:,1]
-        self.weight = self.visdata[:,2]
+        self.wt = self.visdata[:,2]
         # now calculate the amplitude and phase
-        self.amplitude = sqrt(self.re**2 + self.im**2)
-        self.phase = arctan2(self.im, self.re) / pi * 180.
+        self.amp = sqrt(self.re**2 + self.im**2)
+        self.pha = arctan2(self.im, self.re) / pi * 180.
         # following 1.0e6 is just for GILDAS, change if needed
         print('NB : Error calculated from weights assuming GILDAS '
-        'data(i.e. frequencies in MHz).')
-        self.error = 1/sqrt(self.weight*1.0e6)
-    def avgamp(self, avg):
+        'data (i.e. frequencies in MHz).')
+        self.error = 1/sqrt(self.wt*1.0e6)
+
+    def load_model(self, modelfile):
+        self.Model = Uvfits(modelfile)
+
+    def bin_data(self, binsize=10):
         """
-        averages amplitude over 'avg' number of uvdist units
-        perhaps just 'average', and average everything..?
+        Function to bin data
+        
         """
-        return (0,0)
+        class Binned:
+            pass
+        if self.__dict__.has_key('Model'):
+            # If model is loaded, bin that as well
+            # to the same bins
+            pass
+
+        uvmin = self.uvdist_klam.min()
+        uvmax = self.uvdist_klam.max()
+        
+        # Define the bins
+        nbin = int( (uvmax-uvmin)/binsize)+5
+        arr_bins = _sp.arange(nbin)
+        arr_bins = binsize * arr_bins
+        arr_bins1 = 0.5*(arr_bins[1:]+arr_bins[:-1])
+        
+        print 'Bin Size: {0}, {1}, {2}'.format(binsize, arr_bins.min(), arr_bins.max())
+        """
+        uvdistance was in meters but lambda in self.lam  was in cgs
+        uvdist / lambda should give 10000 lambda
+        """
+        uvdist = self.uvdist_klam
+        print 'UV Dist: {0:.1f} - {1:.1f} klam'.format(uvmin, uvmax)
+        #Get the uvdist
+        uvampdat = _sp.zeros([nbin-1,3,3])  # bins for real, img, amp with n points, mean, dispersion
+        expt = _sp.zeros(nbin-1)            # Expected value for no signal
+        sn = _sp.zeros(nbin-1)              # signal to noise
+        for ibin in range(nbin-1):
+            minbin = arr_bins[ibin]
+            maxbin = arr_bins[ibin]+binsize
+            
+            isubs = ( (uvdist < maxbin) == (uvdist >= minbin) ).nonzero()[0]
+            npoints = len(isubs)
+            if npoints > 0:
+                # real
+                reals = self.re[isubs]
+                wts = self.wt[isubs]
+                
+                # Get rid of the negative weights
+                wtsubs = (wts >= 0.0).nonzero()[0]
+                wts = wts[wtsubs]
+                reals = reals[wtsubs]
+                npts = int(len(wtsubs))
+
+                # points in each interval(?)
+                uvampdat[ibin,0,0] = int(len(wtsubs))
+                #uvampdat[ibin,0,1] = (wts*reals).sum()/(wts.sum())
+                #uvampdat[ibin,0,2] = (wts*(reals -uvampdat[ibin,0,1])**(2.0)).sum()/(wts.sum())
+                # mean real value
+                uvampdat[ibin,0,1] = (reals).sum()/(npoints)
+                # ?
+                uvampdat[ibin,0,2] = _sp.sqrt(( (reals*reals).sum() - (npoints*uvampdat[ibin,0,1]*uvampdat[ibin,0,1]))/(npoints-1))
+                
+                #/ sqrt(len(wtsubs))
+                
+                # Imaginary
+                reals = self.im[isubs]
+                #~ reals = reals[wtsubs]
+                
+                uvampdat[ibin,1,0] = int(len(wtsubs))
+                #uvampdat[ibin,1,1] = (wts*reals).sum()/(wts.sum())
+                #uvampdat[ibin,1,2] = (wts*(reals - uvampdat[ibin,1,1])**(2.0)).sum()/(wts.sum())
+                uvampdat[ibin,1,1] = (reals).sum()/(npoints)
+                uvampdat[ibin,1,2] = _sp.sqrt(( (reals*reals).sum() - (npoints*uvampdat[ibin,1,1]*uvampdat[ibin,1,1]))/(npoints-1))
+                
+                # amplitudes
+                reals = self.amp[isubs]
+                #~ reals = reals[wtsubs]
+
+                # take real and imaginary part, calculate amplitude
+                uvampdat[ibin,2,0] = int(len(wtsubs))
+                x = uvampdat[ibin,0,1]
+                xerr = uvampdat[ibin,0,2]
+                y = uvampdat[ibin,1,1]
+                yerr = uvampdat[ibin,1,2]
+                temp_amp = _sp.sqrt(x*x+y*y)
+                uvampdat[ibin,2,1] = temp_amp
+                sigtot = (x*xerr/(temp_amp))**(2.0) + (y*yerr/(temp_amp))**(2.0)
+                uvampdat[ibin,2,2] =  _sp.sqrt(sigtot/(npts-2))
+                
+                if uvampdat[ibin,2,2] > 0.0:
+                    sn[ibin] = temp_amp/uvampdat[ibin,2,2]
+                else:
+                    sn[ibin] = 0.0
+                    
+                expt[ibin] = (_sp.sqrt(_sp.pi/2.0))*uvampdat[ibin,2,2]
+                
+                #~ fout.write('%5.4f %5.4f %2.3E %2.3E %5.2f %2.3E %d\n'%(minbin, maxbin, uvampdat[ibin,2,1],uvampdat[ibin,2,2], sn[ibin], expt[ibin], uvampdat[ibin,2,0]))
+                
+            else:
+                #~ fout.write('%5.4f %5.4f %2.3E %2.3E %5.2f %2.3E %d\n'%(minbin, maxbin, uvampdat[ibin,2,1],uvampdat[ibin,2,2], sn[ibin], expt[ibin], uvampdat[ibin,2,0]))
+                pass
+                
+        #~ fout.close()
+                
+        return {'nbin':nbin, 'bins':arr_bins1,'uvamp':uvampdat, 'expt':expt}
+
     def __str__():
         return 'Not implemented yet.'
 
 
 
-class LoadFits:
+class LoadFits(object):
     def __init__():
         pass
-
-
 
     def __str__():
         print '\n','='*40

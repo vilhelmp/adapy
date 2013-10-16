@@ -24,12 +24,13 @@ v0orv1 = '0'
 # if jpldata is the new files, with 'o' or 'p' appended, then this check is
 # not necessary, if so set 'docheck' to False
 # if you use the combined file, set to True
-docheck = False
+docheck = True
 
 # either:
 #~ jpldata = 'c020003.cat' # combined o/p H2-18O file from JPL molecular catalog 
 # or:
-jpldata = ['c020003p.cat', 'c020003o.cat'][int(ortho)] # H2-18O file from JPL molecular catalog 
+#~ jpldata = ['c020003p.cat', 'c020003o.cat'][int(ortho)] # H2-18O file from JPL molecular catalog 
+jpldata = ['c020003.cat', 'c020003.cat'][int(ortho)] # H2-18O file from JPL molecular catalog 
 # from:
 # http://spec.jpl.nasa.gov/ftp/pub/catalog/catdir.html
 # http://spec.jpl.nasa.gov/ftp/pub/catalog/c020003.cat # combined ortho/para
@@ -41,7 +42,7 @@ moldatareference = ['ph2o-h2@daniel.dat' , 'oh2o-h2@daniel.dat'][int(ortho)]
 # http://home.strw.leidenuniv.nl/~moldata/H2O.html
 
 # name of the new moldata file
-newmoldatafile = ['ph2-18o-h2.dat', 'oh2-18o-h2.dat'][int(ortho)]
+newmoldatafile = ['ph2-18o-h2_131014.dat', 'oh2-18o-h2_131014.dat'][int(ortho)]
 # gets written to 'moldatapath'
 
 
@@ -93,7 +94,9 @@ Catalog.freq = array([float(i[1:13])*1E6 for i in data if v0or1check(i[73:75].st
 Catalog.ufreq = array([float(i[13:21])*1E6 for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])    # 8   (2) in Hz from MHz
 Catalog.linestrength = array([float(i[21:29]) for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)]) # 8   (3)
 Catalog.df = array([int(i[29:31]) for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])             # 2   (4)
+# this energy level is the energy relative to the ground state energy level
 Catalog.elevel = array([float(i[31:41]) for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])       # 10  (5)
+
 Catalog.gup = array([int(i[41:44]) for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])            # 3   (6)
 Catalog.tag = array([int(i[44:51]) for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])            # 7   (7)
 Catalog.gid = array([int(i[51:55]) for i in data if v0or1check(i[73:75].strip(), v0orv1, doit=docheck)])            # 4   (8)
@@ -223,10 +226,17 @@ for i in arange(Moldata.n_rtrans):
         # UNIT check:
         # [el] K + (m2 kg/s) * s-1 / (J/K) =
         # [el] K + K = K
+        #
+        # linestrength is in units of mm2 MHz at 300 K
+        # Aij = It(300K) * nu**2 * (Qrs / gup) * ( exp(-Elow/T) - exp(-Eup/T) )**(-1) * 2.7964 * 10**(-16)
+        # 
+        # from http://spec.jpl.nasa.gov/ftp/pub/catalog/doc/catintro.pdf
+        # Section 3
         It = 10**(Catalog.linestrength[test_result(i)])
         f = exp(-NewMoldata.el[i]/300.) - exp(-NewMoldata.eu[i]/300.)
         constant = 2.7964E-16 # in s-1
-        NewMoldata.A[i] = constant * (NewMoldata.freq[i]*1E-6)**2 * It * Q300 /(Catalog.gup[i] * f)
+        # freq in Hz, so convert to MHz
+        NewMoldata.A[i] = It * (NewMoldata.freq[i]*1E-6)**2  * Q300 / Catalog.gup[i] * f**-1 * constant
         # Calculate the Einstein A coefficient with Equation 9 from
         # Pickett et al. (1998) "Submillimeter, millimeter and microwave spectral line catalog"
         # where freq should be in MHz

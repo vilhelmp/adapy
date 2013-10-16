@@ -786,6 +786,7 @@ def get_indices (arr,vals,disp=False):
         print '\nFirst: %d,\n Last: %d\n Nchan: %d\n' % (first, last, n)
     return channels
 
+
 #
 # Help functions for fitting
 # 1D
