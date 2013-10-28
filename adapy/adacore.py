@@ -1022,9 +1022,11 @@ def fit_gauss1d((X,Y),
     #
     def errfunc(x,y,err=None):
         if err == None:
-            def f(p,fjac=None): return [0,(y-fitfunc(x,p))]
+            def f(p,fjac=None):
+                return [0,(y-fitfunc(x,p))]
         else:
-            def f(p,fjac=None): return [0,(y-fitfunc(x,p))/err]
+            def f(p,fjac=None):
+                return [0,(y-fitfunc(x,p))/err]
         return f
     # return([status, (y-model)/err]
     # define the parameter dictionary

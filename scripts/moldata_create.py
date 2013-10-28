@@ -14,7 +14,7 @@ moldatapath = '/home/magnusp/work/data/moldata/'
 
 
 # Para ('0') or Ortho ('1') water?
-ortho = '0'
+ortho = '1'
 # Only transitions with v = 0, i.e. only the rotational transitions
 # and not the vibrational ones.
 v0orv1 = '0'
@@ -42,25 +42,25 @@ moldatareference = ['ph2o-h2@daniel.dat' , 'oh2o-h2@daniel.dat'][int(ortho)]
 # http://home.strw.leidenuniv.nl/~moldata/H2O.html
 
 # name of the new moldata file
-newmoldatafile = ['ph2-18o-h2_131014.dat', 'oh2-18o-h2_131014.dat'][int(ortho)]
+newmoldatafile = ['ph2-18o-h2.dat', 'oh2-18o-h2.dat'][int(ortho)]
 # gets written to 'moldatapath'
 
 
 
 # Q300 value
 
-# either: (for the combined file)
-#~ Q300 = 179.639 # ('old') value for the partition function at 300 K
+# either: 
+Q300 = 179.639 # ('old') value for the partition function at 300 K
                # for H2-18O (for ortho-para combo) 
                # i.e. not the new values from May 2011 by Brian Druin @ JPL 
                # [only para water], we did not trust them
 # from http://www.cv.nrao.edu/php/splat/species_metadata_displayer.php?species_id=620
 
-# or: (for the ortho/para files)
-pQ300 = 44.8740 # 'new' value for para H2-18O 
-oQ300 = 150.8666 # 'new' value for ortho H2-18O
+# or: (for the ortho/para files?)
+#~ pQ300 = 44.8740     # 'new' value for para H2-18O 
+#~ oQ300 = 150.8666    # 'new' value for ortho H2-18O
 
-Q300 = [pQ300, oQ300][int(ortho)]
+#~ Q300 = [pQ300, oQ300][int(ortho)]
 
 ########################################################################
 ########################################################################
@@ -228,6 +228,7 @@ for i in arange(Moldata.n_rtrans):
         # [el] K + K = K
         #
         # linestrength is in units of mm2 MHz at 300 K
+        # is this really correct????
         # Aij = It(300K) * nu**2 * (Qrs / gup) * ( exp(-Elow/T) - exp(-Eup/T) )**(-1) * 2.7964 * 10**(-16)
         # 
         # from http://spec.jpl.nasa.gov/ftp/pub/catalog/doc/catintro.pdf
@@ -236,7 +237,7 @@ for i in arange(Moldata.n_rtrans):
         f = exp(-NewMoldata.el[i]/300.) - exp(-NewMoldata.eu[i]/300.)
         constant = 2.7964E-16 # in s-1
         # freq in Hz, so convert to MHz
-        NewMoldata.A[i] = It * (NewMoldata.freq[i]*1E-6)**2  * Q300 / Catalog.gup[i] * f**-1 * constant
+        NewMoldata.A[i] = It * (NewMoldata.freq[i]*1E-6)**2  * Q300 / Catalog.gup[test_result(i)] * f**-1 * constant
         # Calculate the Einstein A coefficient with Equation 9 from
         # Pickett et al. (1998) "Submillimeter, millimeter and microwave spectral line catalog"
         # where freq should be in MHz

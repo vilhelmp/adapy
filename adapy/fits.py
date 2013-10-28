@@ -2,6 +2,8 @@
 from .helpers import *
 from .libs.date import jd2gd
 import scipy as _sp
+from datetime import datetime as _dt
+
 
 ########################################################################
 # USEFUL STRINGS
@@ -430,6 +432,7 @@ class Fits:
         return '\n ADAVIS - Fitsfile Object \n'
     def parse_pxlcoord (self, x, y):
         """ Function doc """
+        #TODO : use pywcs to parse
         xoffset = (x-self.ra_crpix)*self.ra_cdelt
         yoffset = (y-self.dec_crpix)*self.dec_cdelt
         return xoffset, yoffset
@@ -473,6 +476,7 @@ class Fits:
         *2011/10/03 incorporated into the Fits class
 
         """
+        #TODO : use pywcs to parse
         from scipy import ceil, floor, array
         from sys import exit as sysexit
         if len(region)==4:
@@ -626,14 +630,19 @@ class Uvfits(object):
         if f[0].header['NAXIS1'] != 0:
             print "error: this file may not be a UV FITS."
             raise FileError('File format error.')
-        f.info()
+        #~ f.info()
         try:
             self.hdu = f[0]
         except:
             print "error: cannot open uv data HDU."
         self.hdr = self.hdu.header
         self.data = self.hdu.data
-        freq = self.hdu.header['CRVAL4'] #TODO        
+        if self.hdr['NAXIS4'] > 1:
+            self.datatype = ('CUBE', 3)
+        else:
+            self.datatype = ('IMAGE', 2)
+        
+        freq = self.hdu.header['CRVAL4'] #TODO
         #TODO : Read in velocity and frequency array if present
         """
         The standard unit is to give UU and VV in seconds (??!?)
@@ -643,13 +652,17 @@ class Uvfits(object):
         self.u_nsec = self.data.par('UU') * 1.e+9
         self.v_nsec = self.data.par('VV') * 1.e+9
         self.w_nsec = self.data.par('WW') * 1.e+9
-        # unit kilo-lambda
         #CC_cm = a.CC*1e2 # light speed in cm/s
         #lmd = lsp / freq
         # u_klam = uu * CC_cm / (CC_cm/freq)
-        self.u_klam = self.data.par('UU') * freq * 1.e-3
-        self.v_klam = self.data.par('VV') * freq * 1.e-3
-        self.w_klam = self.data.par('WW') * freq * 1.e-3
+        # unit kilo lamda
+        self.u_lam = self.data.par('UU') * freq
+        self.v_lam = self.data.par('VV') * freq
+        self.w_lam = self.data.par('WW') * freq
+        # unit lamda
+        self.u_klam = self.data.par('UU') * freq * 1e-3
+        self.v_klam = self.data.par('VV') * freq * 1e-3
+        self.w_klam = self.data.par('WW') * freq * 1e-3
         # unit meters
         self.u_m = self.data.par('UU') * cgsconst.CC * 1e-2
         self.v_m = self.data.par('VV') * cgsconst.CC * 1e-2
@@ -658,24 +671,25 @@ class Uvfits(object):
         self.uvdist_nsec= sqrt(self.u_nsec**2 +self.v_nsec**2 + self.w_nsec**2)
         self.uvdist_klam = sqrt(self.u_klam**2 +self.v_klam**2  + self.w_klam**2)
         self.uvdist_m = sqrt(self.u_m**2 +self.v_m**2 + self.w_m**2)
-        # baseline and date
+
+        # BASELINE
         self.baseline = self.hdu.data.par('BASELINE')
+        # DATES
         self.jdate = self.hdu.data.par('DATE')
-
         self.date = _sp.array([jd2gd(i) for i in self.jdate])
-
         self.date0 = self.date.transpose()
         fields = ['year', 'month', 'day', 'hour', 'minute', 'sec']
         self.date1 = {key:value for key,value in zip(fields, self.date0)}
-        import datetime
         # convert to datetime objects
         # LOSES the sub-second resolution
-        self.date2 = [datetime.datetime(int(i[0]), int(i[1]), int(i[2]), int(i[3]), int(i[4]), int(i[5])) for i in self.date]
+        self.date2 = [_dt(int(i[0]), int(i[1]), int(i[2]), int(i[3]), int(i[4]), int(i[5])) for i in self.date]
+        
         # get number of tracks
         # TODO : rough hack, separate track if diff day is >1
         tmp = _sp.where(_sp.diff(_sp.unique(self.jdate.round(0)))>1)[0]
         self.ntracks = len(tmp)+1
-        # visibility data set (COMPLEX)
+        
+        # COMPLEX VISIBILITY
         visi_index = len(self.data.parnames)
         if self.hdu.header['NAXIS']  == 7:
             self.visdata = self.data.par(visi_index)[:,0,0,0,0,0,:]
@@ -686,29 +700,39 @@ class Uvfits(object):
         self.re = self.visdata[:,0]
         self.im = self.visdata[:,1]
         self.wt = self.visdata[:,2]
-        # now calculate the amplitude and phase
+        
+        # AMPLITUDE
         self.amp = sqrt(self.re**2 + self.im**2)
-        self.pha = arctan2(self.im, self.re) / pi * 180.
+        # PHASE
+        self.pha = arctan2(self.im, self.re)
+        self.pha_deg = self.pha / pi * 180.
+        # ERROR / SIGMA
+        #TODO : check
         # following 1.0e6 is just for GILDAS, change if needed
-        print('NB : Error calculated from weights assuming GILDAS '
-        'data (i.e. frequencies in MHz).')
-        self.error = 1/sqrt(self.wt*1.0e6)
+        #~ print('NB : Error calculated from weights assuming GILDAS '
+        #~ 'data (i.e. frequencies in MHz).')
+        #~ self.sigma = 1/sqrt(self.wt*1.0e6)
+        # Daniels way of calculating sigma
+        # test this first
+        self.sigma = _sp.sqrt(0.5/self.wt/float(self.amp.shape[0]))
 
     def load_model(self, modelfile):
         self.Model = Uvfits(modelfile)
 
-    def bin_data(self, binsize=10):
+    def bin_data_DMC(self, binsize=10):
         """
         Function to bin data
         
         """
-        class Binned:
+        class BinnedDMC:
             pass
+
+        # Bin model
         if self.__dict__.has_key('Model'):
             # If model is loaded, bin that as well
             # to the same bins
             pass
-
+        
         uvmin = self.uvdist_klam.min()
         uvmax = self.uvdist_klam.max()
         
@@ -719,17 +743,18 @@ class Uvfits(object):
         arr_bins1 = 0.5*(arr_bins[1:]+arr_bins[:-1])
         
         print 'Bin Size: {0}, {1}, {2}'.format(binsize, arr_bins.min(), arr_bins.max())
-        """
-        uvdistance was in meters but lambda in self.lam  was in cgs
-        uvdist / lambda should give 10000 lambda
-        """
+        # in klamda
         uvdist = self.uvdist_klam
         print 'UV Dist: {0:.1f} - {1:.1f} klam'.format(uvmin, uvmax)
-        #Get the uvdist
+        
+        # prepare the data structures to store result in
         uvampdat = _sp.zeros([nbin-1,3,3])  # bins for real, img, amp with n points, mean, dispersion
         expt = _sp.zeros(nbin-1)            # Expected value for no signal
         sn = _sp.zeros(nbin-1)              # signal to noise
+
         for ibin in range(nbin-1):
+            # ibin - index of current working bin
+            # to store stuff in the prepared arrays
             minbin = arr_bins[ibin]
             maxbin = arr_bins[ibin]+binsize
             
@@ -797,10 +822,93 @@ class Uvfits(object):
                 
         #~ fout.close()
                 
-        return {'nbin':nbin, 'bins':arr_bins1,'uvamp':uvampdat, 'expt':expt}
+        BinnedDMC.nbin = nbin
+        BinnedDMC.bins = arr_bins1
+        BinnedDMC.uvamp = uvampdat
+        BinnedDMC.expt = expt
+        self.BinnedDMC = BinnedDMC
+
+    def bin_data(self, binsize=10):
+        """
+        Function to bin UV data
+        needs : uvdist_klam
+                re, im, wt, amp
+        TODO: move core calcs to separate function for reuse
+        """
+        class Binned:
+            pass
+
+        # Bin model
+        #~ if self.__dict__.has_key('Model'):
+            # If model is loaded, bin that as well
+            # to the same bins
+            #~ pass
+        
+        ##### CORE CALC START #####
+        uvmin = self.uvdist_klam.min()
+        uvmax = self.uvdist_klam.max()
+        # Define the bins. Changed this to
+        arr_bins = _sp.arange(_sp.floor(uvmin),
+            _sp.ceil(uvmax)+binsize/2.,
+            binsize)
+        # this way we dont start were we dont have any points
+        # mid-points of the bins
+        arr_bins1 = 0.5*(arr_bins[1:]+arr_bins[:-1])
+        #~ bins = range(nbin-1)
+        uvdist = self.uvdist_klam
+        minbin = arr_bins[:-1]
+        maxbin = arr_bins[1:]
+        minmax = zip(minbin, maxbin)
+        # only choose data with positive weigths
+        pos_wt = self.wt>= 0.0
+        def filter_points(i,j):
+            # find the indices of data within the limits and
+            # with positive weigths
+            # i:lower boundary, j:upper boundary
+            return ( (uvdist>=i) * (uvdist<j) * pos_wt).nonzero()[0]
+        isubs = [filter_points(i,j) for i,j in minmax]
+        npoints = _sp.array([len(i) for i in isubs])       # points in each interval
+        # Real and Imaginary data binning
+        data = _sp.array([self.re, self.im])
+        data_mean = _sp.array([data[:,i].mean(axis=1) for i in isubs])
+        data_var = _sp.array([data[:,i].var(axis=1, ddof=1) for i in isubs])
+        # Amplitude binning
+        amp_mean = _sp.sqrt( (data_mean**2).sum(axis=1) )
+        amp_tmp = amp_mean.reshape((len(amp_mean), 1))
+        #TODO : var calculated wrong!!
+        amp_var = _sp.sqrt(
+            ( ( data_mean * data_var / amp_tmp )**2).sum(axis=1)
+            / ( npoints - 2 ) )
+        # Signal to Noise (SNR)
+        # _sp.divide gives 0 when dividing by 0
+        snr = _sp.divide( amp_mean, amp_var )
+        # expectation value when no signal
+        expt = _sp.sqrt( _sp.pi / 2. ) * amp_var
+        
+        ##### CORE CALC END #####
+
+        # store in class        
+        #~ Binned.nbin = nbin
+        Binned.npoints = npoints
+        Binned.bins = arr_bins1
+        Binned.amp = amp_mean
+        Binned.amp_var = amp_var
+        Binned.data = data_mean
+        Binned.data_var = data_var
+        Binned.snr = snr
+        Binned.expt = expt
+        # store in main class
+        self.Binned = Binned
+
+    def shift(self, offset):
+        phas = -1.0*( ((self.u_klam)*
+               (offset[0]/206264.806)) + ((self.v_klam)*
+                                          (offset[1]/206264.806)))*2.0*pi
+        self.re = (self.re*_sp.cos(phas)) - (self.im*_sp.sin(phas))
+        self.im =(self.re*_sp.sin(phas)) + (self.im*_sp.cos(phas))
 
     def __str__():
-        return 'Not implemented yet.'
+        return 'Not implemented yet...'
 
 
 
