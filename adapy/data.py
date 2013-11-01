@@ -545,20 +545,22 @@ class Spectrum:
             # mfreq, mfreqerr, res_qns (10), ures_qns, cdmsjpl_I, Smu2, Sij,
             # log10Aij, lovasAST_I, ELcm, ELK, EUcm, EUK, u_degen, \
             # mol_tag, QNr, llist
-            result = spl.splatsearch(
+            result = spl.search(
                         freq=frequency_pairs[i],
-                        send=1,
-                        display=1,
                         linelist=['jpl','cdms'])
                         #e_to=1000)
             if args['writetofile']:
                 with open(args['writetofile'],'a') as f:
                     f.write('\n# Line no. {0}\n'.format(i+1))
             if result!=None:
-                species, freq = result[1],result[3]
+                species, freq = results['species'],result[]
                 smu2, eu = result[13], result[20]
                 uresqnr = result[10]
                 llist = result[24]
+                #~ species, freq = result[1],result[3]
+                #~ smu2, eu = result[13], result[20]
+                #~ uresqnr = result[10]
+                #~ llist = result[24]
                 for j in arange(len(freq)):
                     list_of_species.append(species[j])
                     list_of_frequencies.append(freq[j])
