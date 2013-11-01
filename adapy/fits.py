@@ -589,16 +589,13 @@ class Fits:
 # UV-FITS DATA CLASS
 class Uvfits(object):
     """
-    Reads uv-fits data...
-
-
-
+    Read uv-fits data
     --------------------------------------------------------------------
     Normal structure of UV-fits data:
 
     Header : same as for normal fits
 
-    Data : Gropu data
+    Data : Group data
 
     --------------------------------------------------------------------
 
@@ -607,12 +604,12 @@ class Uvfits(object):
             "restfreq" or as a "crvalX"
 
     TODO :  UV fit method
-    TODO : __init__ method, print information about:
+    TODO : __str__ method, information about:
                 - Phase center
                 - No correlations
                 - No baselines
                 - No antennas
-                - Telescope
+                - Telescope (if present)
     """
     def __init__(self, uvfitsfile, telescope=None, vsys=0, distance=0):
         """
@@ -701,7 +698,7 @@ class Uvfits(object):
         self.im = self.visdata[:,1]
         self.wt = self.visdata[:,2]
         
-        # AMPLITUDE
+        # AMPLITUDE 
         self.amp = sqrt(self.re**2 + self.im**2)
         # PHASE
         self.pha = arctan2(self.im, self.re)
@@ -714,12 +711,13 @@ class Uvfits(object):
         #~ self.sigma = 1/sqrt(self.wt*1.0e6)
         # Daniels way of calculating sigma
         # test this first
-        self.sigma = _sp.sqrt(0.5/self.wt/float(self.amp.shape[0]))
+        self.sigma = _sp.sqrt(0.5 / ( self.wt * float(self.amp.shape[0]) ) )
+        #np.sqrt( 0.5/self.wt/float(self.amp.shape[0]) )
 
     def load_model(self, modelfile):
         self.Model = Uvfits(modelfile)
 
-    def bin_data_DMC(self, binsize=10):
+    def bin_data_DMC(self,ruv=None, binsize=10):
         """
         Function to bin data
         
@@ -732,95 +730,70 @@ class Uvfits(object):
             # If model is loaded, bin that as well
             # to the same bins
             pass
-        
-        uvmin = self.uvdist_klam.min()
-        uvmax = self.uvdist_klam.max()
-        
+        if ruv is None:
+            uvdist = ruv
+        else:
+            uvdist = self.uvdist_klam
+    
+        uvmin = uvdist.min()
+        uvmax = uvdist.max()
         # Define the bins
         nbin = int( (uvmax-uvmin)/binsize)+5
         arr_bins = _sp.arange(nbin)
         arr_bins = binsize * arr_bins
         arr_bins1 = 0.5*(arr_bins[1:]+arr_bins[:-1])
-        
         print 'Bin Size: {0}, {1}, {2}'.format(binsize, arr_bins.min(), arr_bins.max())
         # in klamda
-        uvdist = self.uvdist_klam
         print 'UV Dist: {0:.1f} - {1:.1f} klam'.format(uvmin, uvmax)
-        
         # prepare the data structures to store result in
         uvampdat = _sp.zeros([nbin-1,3,3])  # bins for real, img, amp with n points, mean, dispersion
         expt = _sp.zeros(nbin-1)            # Expected value for no signal
         sn = _sp.zeros(nbin-1)              # signal to noise
-
         for ibin in range(nbin-1):
             # ibin - index of current working bin
             # to store stuff in the prepared arrays
             minbin = arr_bins[ibin]
             maxbin = arr_bins[ibin]+binsize
-            
             isubs = ( (uvdist < maxbin) == (uvdist >= minbin) ).nonzero()[0]
             npoints = len(isubs)
             if npoints > 0:
                 # real
                 reals = self.re[isubs]
                 wts = self.wt[isubs]
-                
                 # Get rid of the negative weights
                 wtsubs = (wts >= 0.0).nonzero()[0]
                 wts = wts[wtsubs]
                 reals = reals[wtsubs]
                 npts = int(len(wtsubs))
-
                 # points in each interval(?)
                 uvampdat[ibin,0,0] = int(len(wtsubs))
-                #uvampdat[ibin,0,1] = (wts*reals).sum()/(wts.sum())
-                #uvampdat[ibin,0,2] = (wts*(reals -uvampdat[ibin,0,1])**(2.0)).sum()/(wts.sum())
                 # mean real value
                 uvampdat[ibin,0,1] = (reals).sum()/(npoints)
-                # ?
                 uvampdat[ibin,0,2] = _sp.sqrt(( (reals*reals).sum() - (npoints*uvampdat[ibin,0,1]*uvampdat[ibin,0,1]))/(npoints-1))
-                
-                #/ sqrt(len(wtsubs))
-                
                 # Imaginary
                 reals = self.im[isubs]
-                #~ reals = reals[wtsubs]
-                
                 uvampdat[ibin,1,0] = int(len(wtsubs))
-                #uvampdat[ibin,1,1] = (wts*reals).sum()/(wts.sum())
-                #uvampdat[ibin,1,2] = (wts*(reals - uvampdat[ibin,1,1])**(2.0)).sum()/(wts.sum())
                 uvampdat[ibin,1,1] = (reals).sum()/(npoints)
                 uvampdat[ibin,1,2] = _sp.sqrt(( (reals*reals).sum() - (npoints*uvampdat[ibin,1,1]*uvampdat[ibin,1,1]))/(npoints-1))
-                
                 # amplitudes
                 reals = self.amp[isubs]
-                #~ reals = reals[wtsubs]
-
                 # take real and imaginary part, calculate amplitude
                 uvampdat[ibin,2,0] = int(len(wtsubs))
                 x = uvampdat[ibin,0,1]
                 xerr = uvampdat[ibin,0,2]
                 y = uvampdat[ibin,1,1]
                 yerr = uvampdat[ibin,1,2]
-                temp_amp = _sp.sqrt(x*x+y*y)
+                temp_amp = _sp.sqrt(x*x + y*y)
                 uvampdat[ibin,2,1] = temp_amp
                 sigtot = (x*xerr/(temp_amp))**(2.0) + (y*yerr/(temp_amp))**(2.0)
                 uvampdat[ibin,2,2] =  _sp.sqrt(sigtot/(npts-2))
-                
                 if uvampdat[ibin,2,2] > 0.0:
                     sn[ibin] = temp_amp/uvampdat[ibin,2,2]
                 else:
                     sn[ibin] = 0.0
-                    
                 expt[ibin] = (_sp.sqrt(_sp.pi/2.0))*uvampdat[ibin,2,2]
-                
-                #~ fout.write('%5.4f %5.4f %2.3E %2.3E %5.2f %2.3E %d\n'%(minbin, maxbin, uvampdat[ibin,2,1],uvampdat[ibin,2,2], sn[ibin], expt[ibin], uvampdat[ibin,2,0]))
-                
             else:
-                #~ fout.write('%5.4f %5.4f %2.3E %2.3E %5.2f %2.3E %d\n'%(minbin, maxbin, uvampdat[ibin,2,1],uvampdat[ibin,2,2], sn[ibin], expt[ibin], uvampdat[ibin,2,0]))
                 pass
-                
-        #~ fout.close()
                 
         BinnedDMC.nbin = nbin
         BinnedDMC.bins = arr_bins1
@@ -828,7 +801,7 @@ class Uvfits(object):
         BinnedDMC.expt = expt
         self.BinnedDMC = BinnedDMC
 
-    def bin_data(self, binsize=10):
+    def bin_data(self,ruv=None, binsize=10):
         """
         Function to bin UV data
         needs : uvdist_klam
@@ -844,21 +817,21 @@ class Uvfits(object):
             # to the same bins
             #~ pass
         
+        if ruv is None:
+            uvdist = ruv
+        else:
+            uvdist = self.uvdist_klam
+    
         ##### CORE CALC START #####
-        uvmin = self.uvdist_klam.min()
-        uvmax = self.uvdist_klam.max()
-        # Define the bins. Changed this to
+        uvmin = uvdist.min()
+        uvmax = uvdist.max()
+        # Define the bins, from uvmin to uvmax
         arr_bins = _sp.arange(_sp.floor(uvmin),
             _sp.ceil(uvmax)+binsize/2.,
             binsize)
-        # this way we dont start were we dont have any points
         # mid-points of the bins
         arr_bins1 = 0.5*(arr_bins[1:]+arr_bins[:-1])
-        #~ bins = range(nbin-1)
-        uvdist = self.uvdist_klam
-        minbin = arr_bins[:-1]
-        maxbin = arr_bins[1:]
-        minmax = zip(minbin, maxbin)
+        minmax = zip(arr_bins[:-1], arr_bins[1:])
         # only choose data with positive weigths
         pos_wt = self.wt>= 0.0
         def filter_points(i,j):
@@ -871,22 +844,23 @@ class Uvfits(object):
         # Real and Imaginary data binning
         data = _sp.array([self.re, self.im])
         data_mean = _sp.array([data[:,i].mean(axis=1) for i in isubs])
-        data_var = _sp.array([data[:,i].var(axis=1, ddof=1) for i in isubs])
+        # Error of real and imaginary data
+        sqsum = _sp.array([(data[:,i]**2).sum(axis=1) for i in isubs])
+        npoints_arr = _sp.array([npoints, npoints]).transpose()
+        meansum =  npoints_arr * data_mean**2
+        data_var = _sp.sqrt( (sqsum - meansum) / (npoints_arr - 1 ) )
         # Amplitude binning
         amp_mean = _sp.sqrt( (data_mean**2).sum(axis=1) )
         amp_tmp = amp_mean.reshape((len(amp_mean), 1))
-        #TODO : var calculated wrong!!
         amp_var = _sp.sqrt(
             ( ( data_mean * data_var / amp_tmp )**2).sum(axis=1)
             / ( npoints - 2 ) )
-        # Signal to Noise (SNR)
-        # _sp.divide gives 0 when dividing by 0
+        # Signal to Noise (SNR), _sp.divide gives 0 when dividing by 0
         snr = _sp.divide( amp_mean, amp_var )
         # expectation value when no signal
         expt = _sp.sqrt( _sp.pi / 2. ) * amp_var
-        
         ##### CORE CALC END #####
-
+        
         # store in class        
         #~ Binned.nbin = nbin
         Binned.npoints = npoints
