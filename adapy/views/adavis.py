@@ -1079,8 +1079,8 @@ def plot_spectrum (self,
     # load input parameters
     #~ inputdict = dict(region=region)
     # create the spectrum object
-    inputargs = args
-    Spect = adapy.Spectrum(self, region=region, **inputargs)
+    #~ inputargs = args
+    Spect = adapy.data.Spectrum(self, region=region, **args)
     if binning > 1:
         if bintype == 'resample':
             Spect.bin_spectrum(binning=binning, bintype=bintype)
@@ -1526,10 +1526,13 @@ def plot_spectrum (self,
             #else:
             #    args['linefit']['lineid']['writetofile'] = 0
             Spect.identify_lines(**args['linefit']['lineid'])
-    if hasattr(Spect,'lines'):
+    if 'lines' in args:
+        print 'hej'
+    #~ if hasattr(Spect,'lines'):
         print u'Marking the lines, using %2.2f km\u00b7s\u207b\u00b9' % Spect.v_sys
         #~ print Spect.lines
-        lines = parse_linelist(Spect.lines)
+        #~ lines = parse_linelist(Spect.lines)
+        lines = parse_linelist(lines)
         #~ print lines
         #~ print Spect.lines, lines
         # add v_sys so that it plots it at the right v_sys

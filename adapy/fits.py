@@ -730,7 +730,7 @@ class Uvfits(object):
             # If model is loaded, bin that as well
             # to the same bins
             pass
-        if ruv is None:
+        if ruv is not None:
             uvdist = ruv
         else:
             uvdist = self.uvdist_klam
@@ -801,7 +801,7 @@ class Uvfits(object):
         BinnedDMC.expt = expt
         self.BinnedDMC = BinnedDMC
 
-    def bin_data(self,ruv=None, binsize=10):
+    def bin_data(self, ruv=None, binsize=10, nbins=None):
         """
         Function to bin UV data
         needs : uvdist_klam
@@ -817,14 +817,16 @@ class Uvfits(object):
             # to the same bins
             #~ pass
         
-        if ruv is None:
+        if ruv is not None:
             uvdist = ruv
         else:
             uvdist = self.uvdist_klam
-    
+            
         ##### CORE CALC START #####
         uvmin = uvdist.min()
         uvmax = uvdist.max()
+        if nbins is not None:
+            binsize = int(round(((uvmax-uvmin)/nbins), 0 ))
         # Define the bins, from uvmin to uvmax
         arr_bins = _sp.arange(_sp.floor(uvmin),
             _sp.ceil(uvmax)+binsize/2.,

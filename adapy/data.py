@@ -130,6 +130,11 @@ class Spectrum:
         self.restfreq = Fits.restfreq
         self.unitpixel = Fits.unitpixel
         self.unitint = Fits.unitint
+
+        if hasattr(Fits, 'beameff') and hasattr(Fits, 'forweff'):
+            self.teleff = Fits.forweff/Fits.beameff
+        else:
+            self.teleff = 1
         #
         if Fits.datatype[0] == 'SDSPECT':
             print stylify("SD-SPECTRUM - region keyword not doing anything.",fg='y')
@@ -417,10 +422,7 @@ class Spectrum:
                 Fit.frequencies_fitted.append(frequency_fitted)
                 Fit.peak_intensities.append(self.d[channels2].max())
                 #
-                if hasattr(Fits, 'beameff') and hasattr(Fits, 'forweff'):
-                    constant = Fits.forweff/Fits.beameff
-                else:
-                    constant = 1
+                constant = self.teleff
                 #gauss_int = (sqrt(2 * pi) *
                 #            sigma(Fit.params[i+2]) *
                 #            Fit.params[i])*constant
@@ -546,17 +548,18 @@ class Spectrum:
             # log10Aij, lovasAST_I, ELcm, ELK, EUcm, EUK, u_degen, \
             # mol_tag, QNr, llist
             result = spl.search(
-                        freq=frequency_pairs[i],
-                        linelist=['jpl','cdms'])
+                        freq = frequency_pairs[i],
+                        linelist = ['jpl','cdms'],
+                        otype = 'astropy.table' )
                         #e_to=1000)
             if args['writetofile']:
                 with open(args['writetofile'],'a') as f:
                     f.write('\n# Line no. {0}\n'.format(i+1))
-            if result!=None:
-                species, freq = results['species'],result[]
-                smu2, eu = result[13], result[20]
-                uresqnr = result[10]
-                llist = result[24]
+            if result[0]!=None:
+                species, freq = result['species'], result['freq']
+                smu2, eu = result['sijmu2'], result['eu_k']
+                uresqnr = result['uresqn']
+                llist = result['list']
                 #~ species, freq = result[1],result[3]
                 #~ smu2, eu = result[13], result[20]
                 #~ uresqnr = result[10]
@@ -582,6 +585,10 @@ class Spectrum:
                                 '  {4:<25} {5}\n'.format(
                                 species[j],freq[j],smu2[j],eu[j],
                                 uresqnr[j],llist[j]))
+                        #~ print('{0:20}  {1: <10}  {2:>10}  {3:>10}'
+                            #~ '  {4:<25} {5}\n'.format(
+                            #~ species[j],freq[j],smu2[j],eu[j],
+                            #~ uresqnr[j],llist[j]))
                 lineids.append([tmpspecies,tmpfreq])
             else:
                 if args['writetofile']:
