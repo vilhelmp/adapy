@@ -9,6 +9,7 @@ Needs:
 
 Optional:
 - MPFIT (for least-square fitting)
+- lmfit (for uvmodelfit)
 
 Recommended:
 - Python 2.7
