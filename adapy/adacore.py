@@ -1348,6 +1348,95 @@ def gauss2d_decon ((bmaj1, bmin1, theta1, bmaj2, bmin2, theta2), ang='rad'):
     #
     # send back the results
     return (bmaj, bmin, bpa, success)
+
+
+def gauss2d_convolve ((bmaj1, bmin1, theta1, bmaj2, bmin2, theta2), ang='deg'):
+    """
+    Convolves one gaussian  with parameters bmaj1, bmin1, theta1 (major,
+    minor, PA) with another (bmaj2,bmin2, theta2)
+    all in FWHM and radians (if deg is wanted, set ang='deg',
+    if radians ang='rad')
+    
+    uses:
+    pi, cos, sin, arctan2, sqrt, min,
+    
+    """
+    from scipy import pi, cos, sin, arctan2, sqrt, log
+    #
+    # check the ang keyword, if deg, go over to radians from deg
+    if ang=='deg':
+        theta1 *= pi/180
+        theta2 *= pi/180
+    else:
+        pass
+    
+    cospa1 = cos(theta1)
+    cospa2 = cos(theta2)
+    sinpa1 = sin(theta1)
+    sinpa2 = sin(theta2)
+    
+    alpha = (bmaj1*cospa1)**2 + (bmin1*sinpa1)**2 + (bmaj2*cospa2)**2 + (bmin2*sinpa2)**2
+    beta  = (bmaj1*sinpa1)**2 + (bmin1*cospa1)**2 + (bmaj2*sinpa2)**2 + (bmin2*cospa2)**2
+    gamma = 2 * ((bmin1**2-bmaj1**2)*sinpa1*cospa1 + (bmin2**2-bmaj2**2)*sinpa2*cospa2)
+    s = alpha + beta
+    t = sqrt( (alpha-beta)**2 + gamma**2 )
+    bmaj = sqrt( 0.5*(s+t) )
+    bmin = sqrt( 0.5*(s-t) )
+    if not (abs(gamma)+abs(alpha-beta)):
+        bpa = 0.0
+    else:
+        bpa = 0.5 * arctan2(-gamma,alpha-beta) * R2D
+
+    
+    
+    fac = pi / (4.0*log(2.0)) * bmaj1*bmin1 * bmaj2*bmin2 / sqrt(alpha*beta - 0.25 * gamma*gamma)
+
+    success = 0
+    
+    #~ #
+    #~ # define some calculations
+    #~ alpha  = (bmaj1*cos(theta1))**2 + (bmin1*sin(theta1))**2 - \
+             #~ (bmaj2*cos(theta2))**2 - (bmin2*sin(theta2))**2
+    #~ beta   = (bmaj1*sin(theta1))**2 + (bmin1*cos(theta1))**2 - \
+             #~ (bmaj2*sin(theta2))**2 - (bmin2*cos(theta2))**2
+    #~ gamma  = 2 * ( (bmin1**2-bmaj1**2)*sin(theta1)*cos(theta1) -\
+                   #~ (bmin2**2-bmaj2**2)*sin(theta2)*cos(theta2) )
+    #~ #
+    #~ # calculate the intermediate results
+    #~ s = alpha + beta
+    #~ t = sqrt((alpha-beta)**2 + gamma**2)
+    #~ limit = 0.1*min(bmaj1,bmin1, bmaj2, bmin2)**2
+    #~ #
+    #~ # now check if result is illigal/close to a point source
+    #~ if alpha < 0 or beta < 0 or s < t:
+        #~ bmaj, bmin, bpa = [0, 0, 0]
+        #~ #
+        #~ # now check if result is close to a point source
+        #~ tmp_par =.5*(s-t)
+        #~ if tmp_par < limit and alpha > -limit and beta > -limit:
+            #~ success = 1
+        #~ #
+        #~ # it was not close to point source, but results are thus illigal
+        #~ else:
+            #~ success = 2
+    #~ #
+    #~ # since (if) everything is ok, go ahead and calculate the bmaj, bmin & bpa
+    #~ else:
+        #~ bmaj = sqrt(.5*(s+t))
+        #~ bmin = sqrt(.5*(s-t))
+        #~ #
+        #~ # bpa
+        #~ if (abs(gamma)+abs(alpha-beta)) == 0:
+            #~ bpa = 0
+        #~ else:
+            #~ bpa = 0.5 * arctan2(-gamma,(alpha-beta))
+        #
+        # go back to degrees if asked for
+    if ang=='deg':
+        bpa *= 180/pi
+    #
+    # send back the results
+    return (bmaj, bmin, bpa, fac, success)
 ########################################################################
 # DATA HANDLING
 # to adacore.py

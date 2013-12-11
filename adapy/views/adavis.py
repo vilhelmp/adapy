@@ -1770,7 +1770,8 @@ def plot_moment_map(self,
     self.Mom = Mom
     if send==True:
         print 'sending you moment class and extents'
-        return Mom, array(self.extent).reshape((2,2))
+        #~ return Mom, array(self.extent).reshape((2,2))
+        return Mom, array(self.extent)
 
     ####################################################################
 

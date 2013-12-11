@@ -7,6 +7,11 @@ import scipy as _sp
 #~ iras2a = adapy.fits.Uvfits('iras2a_cont.uvfits')
 #~ iras2a.load_model('sky_model_sim.uvfits')
 
+
+# fwhm(image plane) = 182 / fwhm(uv plane)
+#       where the image plane fwhm is measured in arcseconds, and the uv
+#       plane fwhm is measured in kilowavelengths.
+        
 #~ from adapy.fitting import mpfit
 
 deg2rad = lambda deg : deg * _sp.pi / 180
