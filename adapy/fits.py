@@ -41,7 +41,7 @@ class Fits:
     TODO : Create a frequency array as well, much simpler later on then
 
     """
-    def __init__(self, fitsfile, telescope=None, vsys=0, distance=0, **kwargs):
+    def __init__(self, fitsfile, telescope=None, vsys=0, distance=0, endian=None, **kwargs):
         """
 
         attributes
@@ -75,7 +75,8 @@ class Fits:
                the axis keywords/values are empty/null (delet hdr keyword really needed?)
                     o only to loaded data, not save to raw data (fits file)
 
-
+        TODO : choose big or small endian, and convert accordingly
+        
         OVERALL change:
 
         make it load the fits info in steps. start with the RA and DEC keywords
@@ -101,7 +102,10 @@ class Fits:
         s  = getsize(fitsfile)
         print " Size %0.2f MB" % (s/(1024.*1024.))
         f = fitsopen(fitsfile, **kwargs)
-        self.hdr, self.d = f[0].header, f[0].data
+        if endian == 'little':
+            self.hdr, self.d = f[0].header, f[0].data.byteswap().newbyteorder()
+        else:
+            self.hdr, self.d = f[0].header, f[0].data
         #self.d = self.d[0] # this is if the stokes axis is present,
         # but it should not be there anymore
         f.close()
@@ -584,7 +588,6 @@ class Fits:
 
     def box_cut(self,region=[-10,10,-10,10]):
         pass
-    
 
 # UV-FITS DATA CLASS
 class Uvfits(object):
@@ -611,19 +614,23 @@ class Uvfits(object):
                 - No antennas
                 - Telescope (if present)
     """
-    def __init__(self, uvfitsfile, telescope=None, vsys=0, distance=0):
+    def __init__(self, uvfitsfile, telescope=None, vsys=0, distance=0, endian=None):
         """
 
         Reads the uvfits and calculates useful things, e.g. u,v,w,
         phase and amplitude
 
+        .byteswap().newbyteorder() is applied in various places to
+        convert to little endian
+
         """
         from pyfits import open as pfopen
         from scipy import sqrt, pi, arctan2
+        import numpy as _np
         import adapy
         from adapy.libs import cgsconst
         f = pfopen(uvfitsfile)
-
+        self.loadendian = endian
         if f[0].header['NAXIS1'] != 0:
             print "error: this file may not be a UV FITS."
             raise FileError('File format error.')
@@ -640,6 +647,9 @@ class Uvfits(object):
             self.datatype = ('IMAGE', 2)
         
         freq = self.hdu.header['CRVAL4'] #TODO
+        self.freq = freq
+        if self.hdu.header.has_key('RESTFREQ'):
+            self.restfreq = self.hdu.header['RESTFREQ']
         #TODO : Read in velocity and frequency array if present
         """
         The standard unit is to give UU and VV in seconds (??!?)
@@ -670,7 +680,7 @@ class Uvfits(object):
         self.uvdist_m = sqrt(self.u_m**2 +self.v_m**2 + self.w_m**2)
 
         # BASELINE
-        self.baseline = self.hdu.data.par('BASELINE')
+        self.baseline = self.hdu.data.par('BASELINE').byteswap().newbyteorder()
         # DATES
         self.jdate = self.hdu.data.par('DATE')
         self.date = _sp.array([jd2gd(i) for i in self.jdate])
@@ -689,10 +699,10 @@ class Uvfits(object):
         # COMPLEX VISIBILITY
         visi_index = len(self.data.parnames)
         if self.hdu.header['NAXIS']  == 7:
-            self.visdata = self.data.par(visi_index)[:,0,0,0,0,0,:]
+            self.visdata = self.data.par(visi_index)[:,0,0,0,0,0,:].byteswap().newbyteorder()
         #~ self.visdata = self.hdu.data.data[:,0,0,0,0,0,:]
         elif self.hdu.header['NAXIS']  == 6:
-            self.visdata = self.data.par(visi_index)[:,0,0,0,0,:]
+            self.visdata = self.data.par(visi_index)[:,0,0,0,0,:].byteswap().newbyteorder()
         # load the re, im and weight arrays
         self.re = self.visdata[:,0]
         self.im = self.visdata[:,1]
@@ -714,8 +724,12 @@ class Uvfits(object):
         self.sigma = _sp.sqrt(0.5 / ( self.wt * float(self.amp.shape[0]) ) )
         #np.sqrt( 0.5/self.wt/float(self.amp.shape[0]) )
 
-    def load_model(self, modelfile):
-        self.Model = Uvfits(modelfile)
+    def load_model(self, modelfile, endian = None):
+        if endian != None: # overrides the endianness of data loading
+            self.Model = Uvfits(modelfile, endian = endian)
+        else:
+            # make sure it loads the same endian format as data
+            self.Model = Uvfits(modelfile, endian = self.loadendian)
 
     def bin_data_DMC(self,ruv=None, binsize=10):
         """
@@ -808,73 +822,24 @@ class Uvfits(object):
                 re, im, wt, amp
         TODO: move core calcs to separate function for reuse
         """
-        class Binned:
-            pass
-
+     
         # Bin model
-        #~ if self.__dict__.has_key('Model'):
-            # If model is loaded, bin that as well
-            # to the same bins
-            #~ pass
-        
+        if self.__dict__.has_key('Model'):
+            if ruv is not None:
+                uvdist = ruv
+            else:
+                uvdist = self.Model.uvdist_klam
+            re = self.Model.re
+            im = self.Model.im
+            wt = self.Model.wt
+            self.Model.Binned = uv_bin(uvdist, re, im, wt, binsize=binsize, nbins=nbins)
+
         if ruv is not None:
             uvdist = ruv
         else:
             uvdist = self.uvdist_klam
-            
-        ##### CORE CALC START #####
-        uvmin = uvdist.min()
-        uvmax = uvdist.max()
-        if nbins is not None:
-            binsize = int(round(((uvmax-uvmin)/nbins), 0 ))
-        # Define the bins, from uvmin to uvmax
-        arr_bins = _sp.arange(_sp.floor(uvmin),
-            _sp.ceil(uvmax)+binsize/2.,
-            binsize)
-        # mid-points of the bins
-        arr_bins1 = 0.5*(arr_bins[1:]+arr_bins[:-1])
-        minmax = zip(arr_bins[:-1], arr_bins[1:])
-        # only choose data with positive weigths
-        pos_wt = self.wt>= 0.0
-        def filter_points(i,j):
-            # find the indices of data within the limits and
-            # with positive weigths
-            # i:lower boundary, j:upper boundary
-            return ( (uvdist>=i) * (uvdist<j) * pos_wt).nonzero()[0]
-        isubs = [filter_points(i,j) for i,j in minmax]
-        npoints = _sp.array([len(i) for i in isubs])       # points in each interval
-        # Real and Imaginary data binning
-        data = _sp.array([self.re, self.im])
-        data_mean = _sp.array([data[:,i].mean(axis=1) for i in isubs])
-        # Error of real and imaginary data
-        sqsum = _sp.array([(data[:,i]**2).sum(axis=1) for i in isubs])
-        npoints_arr = _sp.array([npoints, npoints]).transpose()
-        meansum =  npoints_arr * data_mean**2
-        data_var = _sp.sqrt( (sqsum - meansum) / (npoints_arr - 1 ) )
-        # Amplitude binning
-        amp_mean = _sp.sqrt( (data_mean**2).sum(axis=1) )
-        amp_tmp = amp_mean.reshape((len(amp_mean), 1))
-        amp_var = _sp.sqrt(
-            ( ( data_mean * data_var / amp_tmp )**2).sum(axis=1)
-            / ( npoints - 2 ) )
-        # Signal to Noise (SNR), _sp.divide gives 0 when dividing by 0
-        snr = _sp.divide( amp_mean, amp_var )
-        # expectation value when no signal
-        expt = _sp.sqrt( _sp.pi / 2. ) * amp_var
-        ##### CORE CALC END #####
         
-        # store in class        
-        #~ Binned.nbin = nbin
-        Binned.npoints = npoints
-        Binned.bins = arr_bins1
-        Binned.amp = amp_mean
-        Binned.amp_var = amp_var
-        Binned.data = data_mean
-        Binned.data_var = data_var
-        Binned.snr = snr
-        Binned.expt = expt
-        # store in main class
-        self.Binned = Binned
+        self.Binned = uv_bin(uvdist, self.re, self.im, self.wt, binsize=binsize, nbins=nbins)
 
     def shift(self, offset):
         phas = -1.0*( ((self.u_klam)*
@@ -882,12 +847,14 @@ class Uvfits(object):
                                           (offset[1]/206264.806)))*2.0*pi
         self.re = (self.re*_sp.cos(phas)) - (self.im*_sp.sin(phas))
         self.im =(self.re*_sp.sin(phas)) + (self.im*_sp.cos(phas))
+        self.isshifted = (True, offset)
 
     def __str__():
         return 'Not implemented yet...'
 
 
-
+######
+# new fits object for future...
 class LoadFits(object):
     def __init__():
         pass
@@ -974,6 +941,66 @@ class LoadFits(object):
         pass
 
 
+#########################
 
 
-
+def uv_bin(uvdist, re, im, wt, binsize=10, nbins=None):
+    """
+    Calculate the binned amplitude and various related things.
+    The binned amplitude is calculated from the real and imaginary
+    part of the visibilities.
+    """
+    class Binned(object):
+        pass
+    ##### CORE CALC START #####
+    uvmin = uvdist.min()
+    uvmax = uvdist.max()
+    if nbins is not None:
+        binsize = int(round(((uvmax-uvmin)/nbins), 0 ))
+    # Define the bins, from uvmin to uvmax
+    arr_bins = _sp.arange(_sp.floor(uvmin),
+        _sp.ceil(uvmax)+binsize/2.,
+        binsize)
+    # mid-points of the bins
+    arr_bins1 = 0.5*(arr_bins[1:]+arr_bins[:-1])
+    minmax = zip(arr_bins[:-1], arr_bins[1:])
+    # only choose data with positive weigths
+    pos_wt = wt>= 0.0
+    def filter_points(i,j):
+        # find the indices of data within the limits and
+        # with positive weigths
+        # i:lower boundary, j:upper boundary
+        return ( (uvdist>=i) * (uvdist<j) * pos_wt).nonzero()[0]
+    isubs = [filter_points(i,j) for i,j in minmax]
+    npoints = _sp.array([len(i) for i in isubs])       # points in each interval
+    # Real and Imaginary data binning
+    data = _sp.array([re, im])
+    data_mean = _sp.array([data[:,i].mean(axis=1) for i in isubs])
+    # Error of real and imaginary data
+    sqsum = _sp.array([(data[:,i]**2).sum(axis=1) for i in isubs])
+    npoints_arr = _sp.array([npoints, npoints]).transpose()
+    meansum =  npoints_arr * data_mean**2
+    data_var = _sp.sqrt( (sqsum - meansum) / (npoints_arr - 1 ) )
+    # Amplitude binning
+    amp_mean = _sp.sqrt( (data_mean**2).sum(axis=1) )
+    amp_tmp = amp_mean.reshape((len(amp_mean), 1))
+    amp_var = _sp.sqrt(
+        ( ( data_mean * data_var / amp_tmp )**2).sum(axis=1)
+        / ( npoints - 2 ) )
+    # Signal to Noise (SNR), _sp.divide gives 0 when dividing by 0
+    snr = _sp.divide( amp_mean, amp_var )
+    # expectation value when no signal
+    expt = _sp.sqrt( _sp.pi / 2. ) * amp_var
+    ##### CORE CALC END #####
+    
+    # store in class        
+    #~ Binned.nbin = nbin
+    Binned.npoints = npoints
+    Binned.bins = arr_bins1
+    Binned.amp = amp_mean
+    Binned.amp_var = amp_var
+    Binned.data = data_mean
+    Binned.data_var = data_var
+    Binned.snr = snr
+    Binned.expt = expt
+    return Binned
