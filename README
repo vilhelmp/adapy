@@ -1,6 +1,7 @@
-ADAPY v 1.0b
-
+ADAPY
+=====
 A collection of scripts to handle radio astronomical data and other various related tasks.
+Mostly for my own benefit, having a backup hosted elsewhere.
 
 Needs:
 - Pyfits
@@ -8,9 +9,9 @@ Needs:
 - Matplotlib
 
 Optional:
-- MPFIT (for least-square fitting)
-- lmfit (for uvmodelfit)
-
+- MPFIT (for least-square fitting) (Line Fitting)
+- lmfit (for uvmodelfit) (deprecated, now has its own bug-full MCMC code...)
+- Astropy (moving over to use this module instead, which already has pWCS and pyFITS)
 Recommended:
 - Python 2.7
 
@@ -24,12 +25,15 @@ Install:
 	For cli access to "splatsearch" and 
 	"ads-search" add "bin" directory to 
 	systems PATH variable.
+	
+	I don't know yet how to work with the setup.py stuff.
+	Will fix that at some point.
 
 Author: Magnus Persson (magnusp@vilhelm.nu)
 
 Only tested on my machine, running Ubuntu Linux and with my data (APEX, SMA, ALMA, PdBI, IRAM-30M). 
 
-Copyright and Licensing: GNU-GPL
+Copyright and Licensing: BSD
 
 ----------------------------------------------------------------------
 ## WHAT TO PUT IN THE README FILE
