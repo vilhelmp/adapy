@@ -98,9 +98,9 @@ class Fits:
 
         # create the class, but without any init script.
         # a class (object) the easy way
-        print u'Loading fitsfile :  %s ' % stylify(str(fitsfile),fg='g')
+        print(u'Loading fitsfile :  %s ' % stylify(str(fitsfile),fg='g'))
         s  = getsize(fitsfile)
-        print " Size %0.2f MB" % (s/(1024.*1024.))
+        print(" Size %0.2f MB" % (s/(1024.*1024.)))
         f = fitsopen(fitsfile, **kwargs)
         if endian == 'little':
             self.hdr, self.d = f[0].header, f[0].data.byteswap().newbyteorder()
@@ -656,9 +656,9 @@ class Uvfits(object):
         So we have to convert to whatever we want.
         """
         # unit nano seconds
-        self.u_nsec = self.data.par('UU') * 1.e+9
-        self.v_nsec = self.data.par('VV') * 1.e+9
-        self.w_nsec = self.data.par('WW') * 1.e+9
+        self.u_nsec = self.data.par('UU') * 1.0e+9
+        self.v_nsec = self.data.par('VV') * 1.0e+9
+        self.w_nsec = self.data.par('WW') * 1.0e+9
         #CC_cm = a.CC*1e2 # light speed in cm/s
         #lmd = lsp / freq
         # u_klam = uu * CC_cm / (CC_cm/freq)
@@ -667,15 +667,15 @@ class Uvfits(object):
         self.v_lam = self.data.par('VV') * freq
         self.w_lam = self.data.par('WW') * freq
         # unit lamda
-        self.u_klam = self.data.par('UU') * freq * 1e-3
-        self.v_klam = self.data.par('VV') * freq * 1e-3
-        self.w_klam = self.data.par('WW') * freq * 1e-3
+        self.u_klam = self.data.par('UU') * freq * 1.0e-3
+        self.v_klam = self.data.par('VV') * freq * 1.0e-3
+        self.w_klam = self.data.par('WW') * freq * 1.0e-3
         # unit meters
-        self.u_m = self.data.par('UU') * cgsconst.CC * 1e-2
-        self.v_m = self.data.par('VV') * cgsconst.CC * 1e-2
-        self.w_m = self.data.par('WW') * cgsconst.CC * 1e-2
+        self.u_m = self.data.par('UU') * cgsconst.CC * 1.0e-2
+        self.v_m = self.data.par('VV') * cgsconst.CC * 1.0e-2
+        self.w_m = self.data.par('WW') * cgsconst.CC * 1.0e-2
         # uv distance
-        self.uvdist_nsec= sqrt(self.u_nsec**2 +self.v_nsec**2 + self.w_nsec**2)
+        self.uvdist_nsec = sqrt(self.u_nsec**2 +self.v_nsec**2 + self.w_nsec**2)
         self.uvdist_klam = sqrt(self.u_klam**2 +self.v_klam**2  + self.w_klam**2)
         self.uvdist_m = sqrt(self.u_m**2 +self.v_m**2 + self.w_m**2)
 
@@ -707,7 +707,9 @@ class Uvfits(object):
         self.re = self.visdata[:,0]
         self.im = self.visdata[:,1]
         self.wt = self.visdata[:,2]
-        
+
+        # the data is not shifted
+        self.isshifted = (False, [0,0])
         # AMPLITUDE 
         self.amp = sqrt(self.re**2 + self.im**2)
         # PHASE
@@ -815,15 +817,20 @@ class Uvfits(object):
         BinnedDMC.expt = expt
         self.BinnedDMC = BinnedDMC
 
-    def bin_data(self, ruv=None, binsize=10, nbins=None):
+    def bin_data(self, ruv=None, binsize=10, nbins=30):
         """
-        Function to bin UV data
+        Function to bin UV data, both vector and scalar average is calculated
+        creates Bin.Sca and Bin.Vec objects in self
+        
         needs : uvdist_klam
                 re, im, wt, amp
         TODO: move core calcs to separate function for reuse
         """
      
         # Bin model
+        class Binned(object):
+            pass
+        self.Bin = Binned
         if self.__dict__.has_key('Model'):
             if ruv is not None:
                 uvdist = ruv
@@ -832,15 +839,16 @@ class Uvfits(object):
             re = self.Model.re
             im = self.Model.im
             wt = self.Model.wt
-            self.Model.Binned = uv_bin(uvdist, re, im, wt, binsize=binsize, nbins=nbins)
-
+            self.Model.Bin = Binned
+            self.Model.Bin.Vec = uv_bin_vector(uvdist, re, im, wt, binsize=binsize, nbins=nbins)
+            self.Model.Bin.Sca = uv_bin_scalar(uvdist, re, im, wt, binsize=binsize, nbins=nbins)
         if ruv is not None:
             uvdist = ruv
         else:
             uvdist = self.uvdist_klam
+            self.Bin.Vec = uv_bin_vector(uvdist, self.re, self.im, self.wt, binsize=binsize, nbins=nbins)
+            self.Bin.Sca = uv_bin_scalar(uvdist, self.re, self.im, self.wt, binsize=binsize, nbins=nbins)
         
-        self.Binned = uv_bin(uvdist, self.re, self.im, self.wt, binsize=binsize, nbins=nbins)
-
     def shift(self, offset):
         phas = -1.0*( ((self.u_klam)*
                (offset[0]/206264.806)) + ((self.v_klam)*
@@ -854,7 +862,7 @@ class Uvfits(object):
 
 
 ######
-# new fits object for future...
+# new fits object, not implemented yet
 class LoadFits(object):
     def __init__():
         pass
@@ -944,28 +952,39 @@ class LoadFits(object):
 #########################
 
 
-def uv_bin(uvdist, re, im, wt, binsize=10, nbins=None):
+def uv_bin_vector(uvdist, re, im, wt, start='zero', binsize=10, nbins=50, weighted=False):
     """
+
+    Vector averaging of amplitudes
     Calculate the binned amplitude and various related things.
     The binned amplitude is calculated from the real and imaginary
     part of the visibilities.
+
+
+    zero : where to start the binning, at uvdist = 0, or min(uvdist)
     """
     class Binned(object):
         pass
     ##### CORE CALC START #####
-    uvmin = uvdist.min()
-    uvmax = uvdist.max()
-    if nbins is not None:
-        binsize = int(round(((uvmax-uvmin)/nbins), 0 ))
+    if start in ['zero', 0, '0']:
+        uvmin = 0.0
+    elif start in ['min']:
+        uvmin = uvdist.min()
+    uvmax = uvmin + binsize * (int(nbins) + 0.5)
+    #~ binsize = int(round(((uvmax-uvmin)/nbins), 0 ))
     # Define the bins, from uvmin to uvmax
+    #~ arr_bins = _sp.linspace(uvmin, uvmax, nbins)
     arr_bins = _sp.arange(_sp.floor(uvmin),
-        _sp.ceil(uvmax)+binsize/2.,
-        binsize)
+                            _sp.ceil(uvmax),
+                            binsize)
+    #~ print ('{0} bins with {1} binsize'.format(nbins, binsize))
+    #~ print len(arr_bins)
     # mid-points of the bins
-    arr_bins1 = 0.5*(arr_bins[1:]+arr_bins[:-1])
+    arr_bins1 = 0.5*(arr_bins[1:] + arr_bins[:-1])
     minmax = zip(arr_bins[:-1], arr_bins[1:])
     # only choose data with positive weigths
     pos_wt = wt>= 0.0
+    #~ pos_wt = wt>= -10000000
     def filter_points(i,j):
         # find the indices of data within the limits and
         # with positive weigths
@@ -973,9 +992,15 @@ def uv_bin(uvdist, re, im, wt, binsize=10, nbins=None):
         return ( (uvdist>=i) * (uvdist<j) * pos_wt).nonzero()[0]
     isubs = [filter_points(i,j) for i,j in minmax]
     npoints = _sp.array([len(i) for i in isubs])       # points in each interval
+    ###########################################################################
     # Real and Imaginary data binning
     data = _sp.array([re, im])
-    data_mean = _sp.array([data[:,i].mean(axis=1) for i in isubs])
+    # mean for Re and Im separately
+    if not weighted:
+        data_mean = _sp.array([data[:,i].mean(axis=1) for i in isubs])
+    elif weighted:
+        print ('Calculating weighted average real and imaginary amplitudes')
+        data_mean = _sp.array([_sp.average(data[:,i], axis=1, weights=wt[i]) for i in isubs])
     # Error of real and imaginary data
     sqsum = _sp.array([(data[:,i]**2).sum(axis=1) for i in isubs])
     npoints_arr = _sp.array([npoints, npoints]).transpose()
@@ -991,16 +1016,182 @@ def uv_bin(uvdist, re, im, wt, binsize=10, nbins=None):
     snr = _sp.divide( amp_mean, amp_var )
     # expectation value when no signal
     expt = _sp.sqrt( _sp.pi / 2. ) * amp_var
-    ##### CORE CALC END #####
+    ###########################################################################
+    # now bin only the real part
     
+    re_mean = data_mean[:,0]
+    re_tmp = amp_mean.reshape((len(re_mean), 1))
+    re_var = _sp.sqrt(
+        ( ( data_mean[:,0] * data_var[:,0] / re_tmp )**2).sum(axis=1)
+        / ( npoints - 2 ) ) 
+    # Signal to Noise (SNR), _sp.divide gives 0 when dividing by 0
+    re_snr = _sp.divide( re_mean, re_var )
+    # expectation value when no signal
+    re_expt = _sp.sqrt( _sp.pi / 2. ) * re_var
+
+    ###########################################################################
+    # now bin only the imaginary part
+    
+    im_mean = data_mean[:,1]
+    im_tmp = im_mean.reshape((len(im_mean), 1))
+    im_var = _sp.sqrt(
+        ( ( data_mean[:,1] * data_var[:,1] / im_tmp )**2).sum(axis=1)
+        / ( npoints - 2 ) ) 
+    # Signal to Noise (SNR), _sp.divide gives 0 when dividing by 0
+    im_snr = _sp.divide( im_mean, im_var )
+    # expectation value when no signal
+    im_expt = _sp.sqrt( _sp.pi / 2. ) * im_var
+
+    ###########################################################################
+    ##### CORE CALC END #####
+
     # store in class        
     #~ Binned.nbin = nbin
     Binned.npoints = npoints
     Binned.bins = arr_bins1
+    Binned.uvdist_klam = arr_bins1
     Binned.amp = amp_mean
     Binned.amp_var = amp_var
     Binned.data = data_mean
     Binned.data_var = data_var
     Binned.snr = snr
     Binned.expt = expt
+    # store Re in class        
+    Binned.re = re_mean
+    Binned.re_var = re_var
+    Binned.re_snr = re_snr
+    Binned.re_expt = re_expt
+    # store Im in class        
+    Binned.im = im_mean
+    Binned.im_var = im_var
+    Binned.im_snr = im_snr
+    Binned.im_expt = im_expt
+
+    # send back an object with all the data structures
     return Binned
+
+def uv_bin_scalar(uvdist, re, im, wt, start='zero', binsize=10, nbins=50, weighted=False):
+    """
+        Scalar averaging amplitudes
+        
+    """
+    class Binned_Scalar(object):
+        pass
+    ##### CORE CALC START #####
+    if start in ['zero', 0, '0']:
+        uvmin = 0.0
+    elif start in ['min']:
+        uvmin = uvdist.min()
+    uvmax = uvmin + binsize * (int(nbins) + 0.5)
+    #~ binsize = int(round(((uvmax-uvmin)/nbins), 0 ))
+    # Define the bins, from uvmin to uvmax
+    #~ arr_bins = _sp.linspace(uvmin, uvmax, nbins)
+    arr_bins = _sp.arange(_sp.floor(uvmin),
+                            _sp.ceil(uvmax),
+                            binsize)
+    #~ print ('{0} bins with {1} binsize'.format(nbins, binsize))
+    #~ print len(arr_bins)
+    # mid-points of the bins
+    arr_bins1 = 0.5*(arr_bins[1:] + arr_bins[:-1])
+    minmax = zip(arr_bins[:-1], arr_bins[1:])
+    # only choose data with positive weigths
+    pos_wt = wt>= 0.0
+    #~ pos_wt = wt>= -10000000
+    def filter_points(i,j):
+        # find the indices of data within the limits and
+        # with positive weigths
+        # i:lower boundary, j:upper boundary
+        return ( (uvdist>=i) * (uvdist<j) * pos_wt).nonzero()[0]
+    isubs = [filter_points(i,j) for i,j in minmax]
+    npoints = _sp.array([len(i) for i in isubs])       # points in each interval
+    ###########################################################################
+    # AMPLITUDE 
+    amp = _sp.sqrt(re**2 + im**2)
+    # PHASE
+    pha = _sp.arctan2(im, re)
+    pha_deg = pha / _sp.pi * 180.
+    # put amp and pha in an array
+    data = _sp.array([amp, pha])
+    # ERROR / SIGMA
+    #TODO : check
+    # following 1.0e6 is just for GILDAS, change if needed
+    #~ print('NB : Error calculated from weights assuming GILDAS '
+    #~ 'data (i.e. frequencies in MHz).')
+    #~ self.sigma = 1/sqrt(self.wt*1.0e6)
+    # Daniels way of calculating sigma
+    # test this first
+    sigma = _sp.sqrt(0.5 / ( wt * float(amp.shape[0]) ) )
+
+    if not weighted:
+        data_mean = _sp.array([data[:,i].mean(axis=1) for i in isubs])
+        # above operation create some 'nan' entries which messes things up
+        # later on if we're not using a masked array
+        data_mean = _sp.ma.masked_array(data_mean,_sp.isnan(data_mean))
+    elif weighted:
+        print ('Calculating weighted average amplitudes')
+        data_mean = _sp.array([_sp.average(data[:,i], axis=1, weights=wt[i]) for i in isubs])
+        data_mean = _sp.ma.masked_array(data_mean,_sp.isnan(data_mean))
+    # error
+    sqsum = _sp.array([(data[:,i]**2).sum(axis=1) for i in isubs])
+    sqsum = _sp.ma.masked_array(sqsum,_sp.isnan(sqsum))
+    
+    npoints_arr = _sp.array([npoints, npoints]).transpose()
+    meansum =  npoints_arr * data_mean**2
+    data_var = _sp.sqrt( (sqsum - meansum) / (npoints_arr - 1 ) )
+    data_test_var = _sp.array([data[:,i].var(axis=1) for i in isubs])
+    
+    #~ amp_mean, pha_mean = data_mean
+    #~ amp_var, pha_var = data_var
+
+    #~ print (data_var - data_test_var)
+
+    ###########################################################################
+    # AMPLITUDE
+    amp_mean = data_mean[:,0]
+    amp_tmp = amp_mean.reshape( (len(amp_mean), 1) )
+    amp_var = _sp.sqrt(
+            ( ( data_mean[:,0] * data_var[:,0] / amp_tmp )**2).sum(axis=1)
+            / ( npoints - 2 ) )
+    amp_snr = _sp.divide( amp_mean, amp_var )
+    amp_expt = _sp.sqrt( _sp.pi / 2. ) * amp_var
+
+    ###########################################################################
+    # PHASE
+    pha_mean = data_mean[:,1]
+    pha_tmp = pha_mean.reshape( (len(pha_mean), 1) )
+    pha_var = _sp.sqrt(
+            ( ( data_mean[:,1] * data_var[:,1] / pha_tmp )**2).sum(axis=1)
+            / ( npoints - 2 ) )
+    pha_snr = _sp.divide( pha_mean, pha_var )
+    pha_expt = _sp.sqrt( _sp.pi / 2. ) * pha_var
+
+
+    ###########################################################################
+    ##### CORE CALC END #####
+
+    # store in class        
+    #~ Binned.nbin = nbin
+    Binned_Scalar.npoints = npoints
+    Binned_Scalar.bins = arr_bins1
+    Binned_Scalar.uvdist_klam = arr_bins1
+    Binned_Scalar.data = data_mean
+    Binned_Scalar.data_var = data_var
+    Binned_Scalar.amp = amp_mean
+    Binned_Scalar.amp_var = amp_var
+    Binned_Scalar.amp_snr = amp_snr
+    Binned_Scalar.amp_expt = amp_expt
+    Binned_Scalar.pha = pha_mean
+    Binned_Scalar.pha_var = pha_var
+    Binned_Scalar.pha_snr = pha_snr
+    Binned_Scalar.pha_expt = pha_expt
+    
+    # send back an object with all the data structures
+    return Binned_Scalar
+
+
+
+
+
+
+
+    
