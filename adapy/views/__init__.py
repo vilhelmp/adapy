@@ -10,6 +10,7 @@
 #~ import cgsconst
 #~ import pyrt
 from adavis import *
+from hist import *
 import figsizes
 #~ import splatsearch 
 #~ import figsizes
