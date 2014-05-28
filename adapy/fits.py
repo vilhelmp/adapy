@@ -845,13 +845,52 @@ class Uvfits(object):
             self.BinSca = uv_bin_scalar(uvdist, self.re, self.im, self.wt, binsize=binsize, nbins=nbins)
         
     def shift(self, offset):
-        phas = -1.0*( ((self.u_klam)*
-               (offset[0]/206264.806)) + ((self.v_klam)*
-                                          (offset[1]/206264.806)))*2.0*pi
-        self.re = (self.re*_sp.cos(phas)) - (self.im*_sp.sin(phas))
-        self.im = (self.re*_sp.sin(phas)) + (self.im*_sp.cos(phas))
+        if 'isshifted' in self.__dict__.keys():
+            print('Data already shifted once, aborting')
+            return False
+        # create input
+        uv = _sp.array([self.u_klam, self.v_klam])
+        reim = _sp.array([self.re, self.im])
+        # shift/translate the data
+        phas, re, im = translate(self.u_klam, self.v_klam, offset)
+        # store in self
+        self.re = re
+        self.im = im
         self.isshifted = (True, offset)
+        print('Only shifts the current object')
 
+    def rotate(self, deg):
+        if 'isrotated' in self.__dict__.keys():
+            print('Data already rotated once, aborting')
+            return False
+        # kilo-lambda
+        uv = _sp.array([self.u_klam, self.v_klam])
+        self.u_klam, self.v_klam = rotate_field(uv, deg)
+        # meters
+        uv = _sp.array([self.u_m, self.v_m])
+        self.u_m, self.v_m = rotate_field(uv, deg)
+        # nano seconds
+        uv = _sp.array([self.u_nsec, self.v_nsec])
+        self.u_nsec, self.v_nsec = rotate_field(uv, deg)
+        # set isrotated to True, so we can check how much it was rotated
+        self.isrotated = (True, deg)
+        print('Only rotates the current object.')
+        # calculate new uvdistances
+        print('Calculating new uvdistances, better way to implement this,\
+         need base entities that are used on the fly to calc. other')
+        self.uvdist_nsec = _sp.sqrt(self.u_nsec**2 +self.v_nsec**2 + self.w_nsec**2)
+        self.uvdist_klam = _sp.sqrt(self.u_klam**2 +self.v_klam**2  + self.w_klam**2)
+        self.uvdist_m = _sp.sqrt(self.u_m**2 +self.v_m**2 + self.w_m**2)
+        
+    def incline(self, deg):
+        print('incline only works on kilo-lamda uv points')
+        # klam
+        uv = _sp.array([self.u_klam, self.v_klam])
+        self.uvdist_klam = incline(uv, deg)
+        # set flag isinclined to True and the amount of degrees
+        self.isinclined = (True, deg)
+        print('Only inclines the current object')
+        
     def __str__():
         return 'Not implemented yet...'
 
@@ -942,7 +981,6 @@ class LoadFits(object):
     
     def save_fits():
         pass
-
 
 #########################
 
@@ -1199,10 +1237,33 @@ def uv_bin_scalar(uvdist, re, im, wt, start='zero', binsize=10, nbins=50, weight
     # send back an object with all the data structures
     return Binned_Scalar
 
+def translate(uv_klam, reim, offset):
+    print ('Has a -1 multiplied here, is this right?')
+    phas = -1.0*( ((uv_klam[0])*(offset[0]/pc2au)) +
+            ((uv_klam[1])*(offset[1]/pc2au)))*2.0*pi
+    re = (reim[0]*_sp.cos(phas)) - (reim[1]*_sp.sin(phas))
+    im = (reim[0]*_sp.sin(phas)) + (reim[1]*_sp.cos(phas))
+    return phas, re, im
 
-
-
-
+def rotate_field(uv, PA): #, direction = 'CCW'):
+    """
+    Rotates a coordinate system (UV plane) counter clockwise (CCW) by PA
+    degrees or clockwise (CW)
+    """
+    # The sign between the u and v, determines the direction
+    #~ morp = dict([['CCW', -1],[ 'CW', 1]])
+    #~ d = morp[direction]
+    #~ PA *= d
+    u_new = uv[0] * _sp.cos( deg2rad(PA) ) + uv[1] * _sp.sin( deg2rad(PA) )
+    v_new = -1 * uv[0] * _sp.sin( deg2rad(PA) ) + uv[1] * _sp.cos( deg2rad(PA) )
+    # The actual fitting code (Daniels Cython code)
+    #newu = x[0,iiter]*cos(p[5]) - x[1,iiter]*sin(p[5])
+    #newv = x[0,iiter]*sin(p[5]) + x[1,iiter]*cos(p[5])
+    return u_new, v_new
+    
+def incline(uv, inc):
+    ruv = ( uv[0]**2 + (uv[1] * _sp.cos(deg2rad(inc)) )**2  )**.5 
+    return ruv
 
 
     

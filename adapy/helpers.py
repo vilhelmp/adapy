@@ -1,5 +1,5 @@
 
-
+import scipy as _sp
 
 ########################################################################
 # UNIT object
@@ -130,6 +130,12 @@ def stylify (s='Test text', f='n', fg='r', bg='d'):
 
 ########################################################################
 # GENERAL FUNCTIONS
+
+deg2rad = lambda deg : deg * _sp.pi / 180
+rad2deg  = lambda rad : rad * 180 / _sp.pi
+
+pc2au = 206264.806 # 1 PC in AU, or arcsecond in ???
+# 206264.806 is also the number of arcsecs in a circle / 2pi
 
 def calc_gain(bmin, bmaj, frequency):
     return 8.168E-25 * bmin * bmaj * frequency**2
