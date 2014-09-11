@@ -94,6 +94,7 @@ class Fits:
         from scipy import where, array, nan
         from string import upper
         from sys import exit as sysexit
+        import adapy.libs.cgsconst as _cgs
         #
 
         # create the class, but without any init script.
@@ -235,7 +236,7 @@ class Fits:
                 self.v_cdeltkms = self.v_cdelt/float(1e3)
                 #self.f_arr = ((arange(0,self.f_naxis)-self.f_crpix)*self.f_cdelt+self.f_crval)
                 # END ugly hack
-            #data = loadvelocity(data, velax)
+            #data = loadvelocity(header)
             # loading velocity information
 
             # plus one because to start at 0 is wrong, need 1 to v_naxis <- this is WRONG
@@ -251,8 +252,7 @@ class Fits:
             #arr = arange(start,stop-1,self.v_cdelt)/float(1e3)
             #print self.v_arr-arr
             # calculate the FOV = 58.4*lambda/D*3600 asec
-
-
+           
             self.fov = 58.4*(3.e8/self.restfreq)/float(self.diameter)*3600.
             print 'Field of view: %.2f asecs, for dish size: %.1f m' % (self.fov, self.diameter)
             #print self.veltype, self.v_crpix, self.v_crval, self.v_cdeltkms, self.v_naxis
@@ -319,6 +319,11 @@ class Fits:
         # construct the frequency array!
         # the 3rd axis longer than 1, and 4th axis is the frequency
         # if the data is constructed in gildas
+        try:
+            self.f_arr = self.restfreq * (1. - (self.v_arr - self.v_sys)*1e5 / _cgs.CC) 
+        except:
+            print('no frequency array created')
+    
         if self.datatype[0] in ['CUBE', 'SDSPECT']:
             self.v_arr_syscorr = self.v_arr - self.v_sys
         #
@@ -889,7 +894,7 @@ class Uvfits(object):
         self.uvdist_klam = incline(uv, deg)
         # set flag isinclined to True and the amount of degrees
         self.isinclined = (True, deg)
-        print('Only inclines the current object')
+        print('Only inclines the current object, if binned b4, bin again')
         
     def __str__():
         return 'Not implemented yet...'
@@ -1070,7 +1075,7 @@ def uv_bin_vector(uvdist, re, im, wt, start='zero', binsize=10, nbins=50, weight
         data_mean = _sp.array([_sp.average(data[:,i], axis=1, weights=wt[i]) if j>0 else _sp.array([_sp.nan, _sp.nan]) for i,j in zip(isubs,npoints)], dtype='float')
         #~ data_mean = _sp.ma.masked_array(data_mean,_sp.isnan(data_mean))
     # Error of real and imaginary data
-    data_var = _sp.array([_sp.var(data[:,i],ddof=1, axis=1) if j>0 else _sp.array([_sp.nan, _sp.nan]) for i,j in zip(isubs,npoints)])
+    data_var = _sp.array([_sp.var(data[:,i], ddof=1, axis=1) if j>0 else _sp.array([_sp.nan, _sp.nan]) for i,j in zip(isubs,npoints)])
     #~ data_var = _sp.ma.masked_array(data_var,_sp.isnan(data_var), fill_value=_sp.nan)
 
     #~ data_var[data_var==-0] = _sp.nan
@@ -1254,6 +1259,7 @@ def rotate_field(uv, PA): #, direction = 'CCW'):
     #~ morp = dict([['CCW', -1],[ 'CW', 1]])
     #~ d = morp[direction]
     #~ PA *= d
+    # 
     u_new = uv[0] * _sp.cos( deg2rad(PA) ) + uv[1] * _sp.sin( deg2rad(PA) )
     v_new = -1 * uv[0] * _sp.sin( deg2rad(PA) ) + uv[1] * _sp.cos( deg2rad(PA) )
     # The actual fitting code (Daniels Cython code)
