@@ -400,11 +400,6 @@ class AnchoredEllipse(AnchoredOffsetbox):
                                    prop=prop,
                                    frameon=frameon, **kwargs)
 
-
-
-
-
-
 def draw_fov(ax, data):
     """
     Function to draw the field of view into the
@@ -1918,8 +1913,9 @@ def plot_moment_map(self,
         mark = cpeak[-1]
     else:
         mark = '+k'
-    cross1 = ax1.plot(xmark, ymark, mark, ms=6)#, mew=3, alpha=0.9)
-    cross2 = ax2.plot(xmark, ymark, mark, ms=6)#  mew=3, alpha=0.9)
+    cross1 = ax1.plot(xmark, ymark, mark, ms=7, mew=1, alpha=0.9)
+    cross2 = ax2.plot(xmark, ymark, mark, ms=7,  mew=1, alpha=0.9)
+    cross3 = ax3.plot(xmark, ymark, mark, ms=7,  mew=1, alpha=0.9)
 
     #
     #~ ax2.xaxis.set_major_formatter(tick_label_formatter)

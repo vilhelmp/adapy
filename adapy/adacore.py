@@ -384,7 +384,8 @@ def calc_offset(ra, dec, display = True, **kwargs):
         dec_decimal = sign(dec[0])*(abs(dec[0]) + dec[1]/60.0 + dec[2]/3600.0)
         offset_inp = kwargs['offset']
         offset = array(offset_inp)/3600.0
-        cosdec = cos(dec_decimal*pi/180.) # convert to radians
+        # correct for declination and convert to radians
+        cosdec = cos(dec_decimal*pi/180.) 
         new_ra = ra_decimal + offset[0]/cosdec
         new_dec = dec_decimal + offset[1]
         if display:
@@ -456,7 +457,7 @@ def calc_offset(ra, dec, display = True, **kwargs):
             print '\nOffset: {0:.4f}, {1:.4f}'.format(ra_offset*3600,
                                                     dec_offset*3600)
         elif not display:
-            return ra_offset*3600, dec_offset*3600
+            return ra_offset*3600., dec_offset*3600.
     else:
         raise(ParError(ra,dec,kwargs))
 
