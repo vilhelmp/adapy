@@ -3,7 +3,7 @@ from .helpers import *
 from .libs.date import jd2gd
 import scipy as _sp
 from datetime import datetime as _dt
-
+from astropy import constants as co
 
 ########################################################################
 # USEFUL STRINGS
@@ -88,7 +88,8 @@ class Fits:
         """
 
         #imports
-        from pyfits import open as fitsopen
+        #~ from pyfits import open as fitsopen
+        from astropy.io.fits import open as fitsopen
         #from  sys import
         from os.path import getsize
         from scipy import where, array, nan
@@ -629,7 +630,8 @@ class Uvfits(object):
         convert to little endian
 
         """
-        from pyfits import open as pfopen
+        #~ from pyfits import open as pfopen
+        from astropy.io.fits import open as pfopen
         from scipy import sqrt, pi, arctan2
         import numpy as _np
         import adapy
@@ -661,9 +663,9 @@ class Uvfits(object):
         So we have to convert to whatever we want.
         """
         # unit nano seconds
-        self.u_nsec = self.data.par('UU') * 1.0e+9
-        self.v_nsec = self.data.par('VV') * 1.0e+9
-        self.w_nsec = self.data.par('WW') * 1.0e+9
+        #~ self.u_nsec = self.data.par('UU') * 1.0e+9
+        #~ self.v_nsec = self.data.par('VV') * 1.0e+9
+        #~ self.w_nsec = self.data.par('WW') * 1.0e+9
         #CC_cm = a.CC*1e2 # light speed in cm/s
         #lmd = lsp / freq
         # u_klam = uu * CC_cm / (CC_cm/freq)
@@ -680,9 +682,13 @@ class Uvfits(object):
         self.v_m = self.data.par('VV') * cgsconst.CC * 1.0e-2
         self.w_m = self.data.par('WW') * cgsconst.CC * 1.0e-2
         # uv distance
-        self.uvdist_nsec = sqrt(self.u_nsec**2 +self.v_nsec**2 + self.w_nsec**2)
-        self.uvdist_klam = sqrt(self.u_klam**2 +self.v_klam**2  + self.w_klam**2)
-        self.uvdist_m = sqrt(self.u_m**2 +self.v_m**2 + self.w_m**2)
+        #~ self.uvdist_nsec = sqrt(self.u_nsec**2 +self.v_nsec**2 + self.w_nsec**2)
+        #~ self.uvdist_klam = sqrt(self.u_klam**2 +self.v_klam**2  + self.w_klam**2)
+        #~ self.uvdist_lam = sqrt(self.u_lam**2 +self.v_lam**2  + self.w_lam**2)
+        #~ self.uvdist_m = sqrt(self.u_m**2 +self.v_m**2 + self.w_m**2)
+        self.uvdist_klam = sqrt(self.u_klam**2 +self.v_klam**2)
+        self.uvdist_lam = sqrt(self.u_lam**2 +self.v_lam**2)
+        self.uvdist_m = sqrt(self.u_m**2 +self.v_m**2)
 
         # BASELINE
         self.baseline = self.hdu.data.par('BASELINE').byteswap().newbyteorder()
@@ -701,6 +707,12 @@ class Uvfits(object):
         tmp = _sp.where(_sp.diff(_sp.unique(self.jdate.round(0)))>1)[0]
         self.ntracks = len(tmp)+1
         
+        ################################################################
+        # NB : need to streamline this.
+        # only load the complex visibilities, into a complex array
+        # AND then work on that
+        
+        
         # COMPLEX VISIBILITY
         visi_index = len(self.data.parnames)
         if self.hdu.header['NAXIS']  == 7:
@@ -709,10 +721,23 @@ class Uvfits(object):
         elif self.hdu.header['NAXIS']  == 6:
             self.visdata = self.data.par(visi_index)[:,0,0,0,0,:].byteswap().newbyteorder()
         # load the re, im and weight arrays
-        self.re = self.visdata[:,0]
-        self.im = self.visdata[:,1]
-        self.wt = self.visdata[:,2]
-
+        self.re, self.im, self.wt = self.visdata[:,:].T
+        #~ self.re = self.visdata[:,0][:]
+        #~ self.im = self.visdata[:,1][:]
+        #~ self.wt = self.visdata[:,2][:]
+        # complex numbers
+        #~ self.comp = self.visdata[:,:2].astype(_np.float64).view(_np.complexfloating)
+        #~ self.comp = 1j*self.visdata[:,1][:]
+        #~ self.comp += self.visdata[:,0][:]
+        self.comp = self.visdata[:,:2].astype(_np.float).view(_np.complex)
+        """
+        with complex array, you can do
+        amp = np.abs(vis)
+        np.angle(vis)   
+        vis.real
+        vis.imag
+        
+        """
         # the data is not shifted
         self.isshifted = (False, [0,0])
         # AMPLITUDE 
@@ -725,7 +750,7 @@ class Uvfits(object):
         # following 1.0e6 is just for GILDAS, change if needed
         #~ print('NB : Error calculated from weights assuming GILDAS '
         #~ 'data (i.e. frequencies in MHz).')
-        #~ self.sigma = 1/sqrt(self.wt*1.0e6)
+        self.sigma_alt = 1/sqrt(self.wt*1.0e6)
         # Daniels way of calculating sigma
         # test this first
         self.sigma = _sp.sqrt(0.5 / ( self.wt * float(self.amp.shape[0]) ) )
@@ -864,8 +889,8 @@ class Uvfits(object):
         self.isshifted = (True, offset)
         print('Only shifts the current object')
 
-    def rotate(self, deg):
-        if 'isrotated' in self.__dict__.keys():
+    def rotate(self, deg, force=False):
+        if 'isrotated' in self.__dict__.keys() and not force:
             print('Data already rotated once, aborting')
             return False
         # kilo-lambda
@@ -875,26 +900,69 @@ class Uvfits(object):
         uv = _sp.array([self.u_m, self.v_m])
         self.u_m, self.v_m = rotate_field(uv, deg)
         # nano seconds
-        uv = _sp.array([self.u_nsec, self.v_nsec])
-        self.u_nsec, self.v_nsec = rotate_field(uv, deg)
+        #~ uv = _sp.array([self.u_nsec, self.v_nsec])
+        #~ self.u_nsec, self.v_nsec = rotate_field(uv, deg)
         # set isrotated to True, so we can check how much it was rotated
         self.isrotated = (True, deg)
-        print('Only rotates the current object.')
+        # print('Only rotates the current object.')
         # calculate new uvdistances
-        print('Calculating new uvdistances, better way to implement this,\
-         need base entities that are used on the fly to calc. other')
-        self.uvdist_nsec = _sp.sqrt(self.u_nsec**2 +self.v_nsec**2 + self.w_nsec**2)
+        # print('Calculating new uvdistances, better way to implement this,\
+        #  need base entities that are used on the fly to calc. other')
+        #~ self.uvdist_nsec = _sp.sqrt(self.u_nsec**2 +self.v_nsec**2 + self.w_nsec**2)
         self.uvdist_klam = _sp.sqrt(self.u_klam**2 +self.v_klam**2  + self.w_klam**2)
         self.uvdist_m = _sp.sqrt(self.u_m**2 +self.v_m**2 + self.w_m**2)
         
     def incline(self, deg):
-        print('incline only works on kilo-lamda uv points')
+        # print('incline only works on kilo-lamda uv points')
         # klam
         uv = _sp.array([self.u_klam, self.v_klam])
         self.uvdist_klam = incline(uv, deg)
         # set flag isinclined to True and the amount of degrees
         self.isinclined = (True, deg)
-        print('Only inclines the current object, if binned b4, bin again')
+        # print('Only inclines the current object, if binned b4, bin again')
+        
+    def deproject(self, PA, inc):
+        uvin = _sp.array([self.u_klam, self.v_klam])
+        newuv_klam, ruv_klam = deproject(uvin, PA, inc)
+        
+        # store original values
+        class UV_original: pass
+        UV_original.uvdist_klam = self.uvdist_klam[:]
+        UV_original.u_klam = self.u_klam[:]
+        UV_original.v_klam = self.v_klam[:]
+        self.UV_original = UV_original
+        
+        self.uvdist_klam = ruv_klam
+        self.u_klam = newuv_klam[0]
+        self.v_klam = newuv_klam[1]
+        self.uvdist_lam = ruv_klam*1e3
+        self.u_lam = newuv_klam[0]*1e3
+        self.v_lam = newuv_klam[1]*1e3
+        self.uvdist_m = ruv_klam / (self.freq * 1.0e-3) * co.c.cgs.value * 1.0e-2
+        self.u_m = newuv_klam[0] / (self.freq * 1.0e-3) * co.c.cgs.value * 1.0e-2
+        self.v_m = newuv_klam[1] / (self.freq * 1.0e-3) * co.c.cgs.value * 1.0e-2
+        
+        self.isrotated = (True, PA)
+        self.isinclined = (True, inc)
+        
+    def reset_projection(self):
+        
+        if 'UV_original' in self.__dict__.keys():
+            self.uvdist_klam = self.UV_original.uvdist_klam[:]
+            self.u_klam = self.UV_original.u_klam[:]
+            self.v_klam = self.UV_original.v_klam[:]
+            self.uvdist_lam = self.UV_original.uvdist_klam[:]*1e3
+            self.u_lam = self.UV_original.u_klam[:]*1e3
+            self.v_lam = self.UV_original.v_klam[:]*1e3
+            self.uvdist_m = self.UV_original.uvdist_klam[:] / (self.freq * 1.0e-3) * co.c.cgs.value * 1.0e-2
+            self.u_m = self.UV_original.u_klam[:] / (self.freq * 1.0e-3) * co.c.cgs.value * 1.0e-2
+            self.v_m = self.UV_original.v_klam[:] / (self.freq * 1.0e-3) * co.c.cgs.value * 1.0e-2
+        else:
+            print self.isrotated
+            print self.isinclined
+            raise StandardError('No orignal UV points saved.')
+            
+        
         
     def __str__():
         return 'Not implemented yet...'
@@ -1062,7 +1130,7 @@ def uv_bin_vector(uvdist, re, im, wt, start='zero', binsize=10, nbins=50, weight
         # value to nan, do not rely on mean or average to take care of it
         # here we use a masked array, which handles the nan much better
         # removed masked arrays again!
-        print('method takes into account nan raw data values')
+        # print('method takes into account nan raw data values')
         data_mean =  _sp.array([_sp.nanmean(data[:,i], axis=1) if j>0 else _sp.array([_sp.nan, _sp.nan]) for i,j in zip(isubs,npoints)])
         #~ check = _sp.array([npoints==0, npoints==0]).T
         #~ data_mean = _sp.ma.masked_array(data_mean, check, fill_value=_sp.nan)
@@ -1075,6 +1143,9 @@ def uv_bin_vector(uvdist, re, im, wt, start='zero', binsize=10, nbins=50, weight
         data_mean = _sp.array([_sp.average(data[:,i], axis=1, weights=wt[i]) if j>0 else _sp.array([_sp.nan, _sp.nan]) for i,j in zip(isubs,npoints)], dtype='float')
         #~ data_mean = _sp.ma.masked_array(data_mean,_sp.isnan(data_mean))
     # Error of real and imaginary data
+    #~ data_var = _sp.array([_sp.var(data[:,i], ddof=1, axis=1) if j>0 else _sp.array([_sp.nan, _sp.nan]) for i,j in zip(isubs,npoints)])
+    # ddof = j-1, the number of points in bin, minus the parameter determined
+    # i.e. the mean.
     data_var = _sp.array([_sp.var(data[:,i], ddof=1, axis=1) if j>0 else _sp.array([_sp.nan, _sp.nan]) for i,j in zip(isubs,npoints)])
     #~ data_var = _sp.ma.masked_array(data_var,_sp.isnan(data_var), fill_value=_sp.nan)
 
@@ -1090,6 +1161,8 @@ def uv_bin_vector(uvdist, re, im, wt, start='zero', binsize=10, nbins=50, weight
     # calculate the variance of the amplitude
     # error propagation of the variance of the imaginary
     # and real parts
+    # if the amp_temp is close to zero, we can end up with
+    # inf in variance.
     pars=2
     dof = _sp.array([float(i-pars) if i>0 else 0.0 for i in npoints])
     amp_var = (( ( data_mean * data_var / amp_tmp )**2).sum(axis=1)
@@ -1250,26 +1323,46 @@ def translate(uv_klam, reim, offset):
     im = (reim[0]*_sp.sin(phas)) + (reim[1]*_sp.cos(phas))
     return phas, re, im
 
-def rotate_field(uv, PA): #, direction = 'CCW'):
+def deproject(uv, PA, inc):
     """
-    Rotates a coordinate system (UV plane) counter clockwise (CCW) by PA
-    degrees or clockwise (CW)
+    Rotate and deproject individual visibility coordinates.
+    From Hughes et al. (2007) - "AN INNER HOLE IN THE DISK AROUND 
+    TW HYDRAE RESOLVED IN 7 mm DUST EMISSION".
     """
-    # The sign between the u and v, determines the direction
-    #~ morp = dict([['CCW', -1],[ 'CW', 1]])
-    #~ d = morp[direction]
-    #~ PA *= d
-    # 
-    u_new = uv[0] * _sp.cos( deg2rad(PA) ) + uv[1] * _sp.sin( deg2rad(PA) )
-    v_new = -1 * uv[0] * _sp.sin( deg2rad(PA) ) + uv[1] * _sp.cos( deg2rad(PA) )
-    # The actual fitting code (Daniels Cython code)
-    #newu = x[0,iiter]*cos(p[5]) - x[1,iiter]*sin(p[5])
-    #newv = x[0,iiter]*sin(p[5]) + x[1,iiter]*cos(p[5])
+    R = ( (uv**2).sum(axis=0) )**0.5
+    #~ phi = _sp.arctan(uv[1]/uv[0] - deg2rad(PA))
+    phi = _sp.arctan2(uv[1],uv[0]) - deg2rad(PA)
+    #~ phi = _sp.arctan2( (uv[1] - deg2rad(PA) * uv[0]) , uv[0])
+    newu = R * _sp.cos(phi) * _sp.cos( deg2rad(inc) )
+    newv = R * _sp.sin(phi)
+    newuv = _sp.array([newu, newv])
+    ruv = (newuv**2).sum(axis=0)**.5
+    return newuv, ruv
+
+def rotate_field(uv, PA, U_RA_align = True):
+    """
+    Rotates a coordinate system (UV plane) by PA
+    degrees.
+    uv : 2-D array with uv[0] U and uv[1] coordinated
+    PA : Position Angle, in degrees
+    U_RA_align : for ALMA and PdBI the U-axis and RA are aligned
+                 and thus one form of the equation must be used
+                 While for SMA/CARMA (USA, meh), they are not aligned
+                 and thus some sign changes have to impliemented from
+                 that presented in Berger & Segransan (2007)
+    
+    """
+    direction =  [-1, 1][int(U_RA_align)]
+    u_new = uv[0] * _sp.cos( deg2rad(PA) ) + direction * uv[1] * _sp.sin( deg2rad(PA) )
+    v_new = -1 * direction * uv[0] * _sp.sin( deg2rad(PA) ) + uv[1] * _sp.cos( deg2rad(PA) )
     return u_new, v_new
     
 def incline(uv, inc):
-    ruv = ( uv[0]**2 + (uv[1] * _sp.cos(deg2rad(inc)) )**2  )**.5 
+    #~ ruv = ( uv[0]**2 + (uv[1] * _sp.cos(deg2rad(inc)) )**2  )**.5 
+    # the PA goes from North to East in the image plane, and the 
+    # Major axis is flipped 90 degrees going from
+    # image to UV plane (Major in image in minor in UV)
+    ruv = ( uv[0]**2 * _sp.cos(deg2rad(inc))**2 + uv[1]**2  )**.5 
     return ruv
-
 
     
