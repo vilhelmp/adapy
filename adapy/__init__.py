@@ -10,5 +10,7 @@ import colors
 from adacore import *
 
 import fits
+import uvfits
+from uvfits import Uvfits
 import data
 

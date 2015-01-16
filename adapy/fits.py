@@ -3,11 +3,15 @@ from .helpers import *
 from .libs.date import jd2gd
 import scipy as _sp
 from datetime import datetime as _dt
-from astropy import constants as co
+
+import astropy.units as u
+import astropy.constants as co
+from fits_helpers import *
 
 ########################################################################
-# USEFUL STRINGS
+# STRINGS
 KMS = u"km\u00b7s\u207b\u00b9"
+
 
 
 ########################################################################
@@ -630,6 +634,7 @@ class Uvfits(object):
         convert to little endian
 
         """
+        print('Depricated in favour of uvfits.py in same catalog')
         #~ from pyfits import open as pfopen
         from astropy.io.fits import open as pfopen
         from scipy import sqrt, pi, arctan2
@@ -657,11 +662,20 @@ class Uvfits(object):
         self.freq = freq
         if 'RESTFREQ' in self.hdu.header.keys():
             self.restfreq = self.hdu.header['RESTFREQ']
+            self.restfreq_unit = self.hdu.header['RESTFREQ'] * u.Hz
+        else:
+            raise StandardError('No restfrequency found, NEED it!')
         #TODO : Read in velocity and frequency array if present
         """
         The standard unit is to give UU and VV in seconds (??!?)
         So we have to convert to whatever we want.
         """
+        # standard storing unit here is kilo-lambdas
+        # save a million lines of code!
+        u.add_enabled_equivalencies(lambdas_equivalencies(self.restfreq_unit))
+        self.u = (self.data.par('UU') * u.s).to(klambdas)
+        self.v = (self.data.par('VV') * u.s).to(klambdas)
+        self.w = (self.data.par('WW') * u.s).to(klambdas)
         # unit nano seconds
         #~ self.u_nsec = self.data.par('UU') * 1.0e+9
         #~ self.v_nsec = self.data.par('VV') * 1.0e+9
@@ -967,93 +981,6 @@ class Uvfits(object):
     def __str__():
         return 'Not implemented yet...'
 
-
-######
-# new fits object, not implemented yet
-class LoadFits(object):
-    def __init__():
-        pass
-
-    def __str__():
-        print '\n','='*40
-        print ' '*8,'FITS file\n'
-        print 'Data type : %s' % str(self.datatype[0])
-        if self.datatype[1] in [3]:
-            print 'Shape of image cube : {0}'.format(self.d.shape)
-        print 'Object : %s' % self.obj
-        if hasattr(self,'beameff'):
-            print 'Beam Efficiency : {0:3.4f}'.format(self.beameff)
-        if hasattr(self,'forweff'):
-            print 'Fwd Efficiency : {0:3.4f}'.format(self.forweff)
-        #
-        print ''
-        if self.datatype[0] != 'SDSPECT':
-            self.ra_size = abs(self.ra_cdelt)*self.ra_npix
-            self.dec_size = abs(self.dec_cdelt)*self.dec_npix
-            print 'Spatial size of image\n RA\t: %2.3f asec\n DEC\t: %2.3f asec' % (self.ra_size, self.dec_size)
-        print 'Phase center '
-        print '  RA : {0}'.format(parse_ra(self.ra_crval,string=1))
-        print ' DEC : {0}'.format(parse_dec(self.dec_crval,string=1))
-        if hasattr(self,'bmaj') and hasattr(self,'bmin') and hasattr(self,'bpa'):
-            print '\nBeam info'
-            print ' Beam major axis : {0}'.format(self.bmaj)
-            print ' Beam minor axis : {0}'.format(self.bmin)
-            print ' Beam position angle : {0}'.format(self.bpa)
-        #
-        print ''
-        if hasattr(self,'restfreq'):
-            if (1E-9*self.restfreq)<1:
-                freq = 1E-6*self.restfreq
-                freq_unit = 'MHz'
-            else:
-                freq = 1E-9*self.restfreq
-                freq_unit = 'GHz'
-            print 'Rest frequency of data : {0} {1}'.format(freq,freq_unit)
-        return '\n ADAVIS - Fitsfile Object \n'
-
-    # Functions to define things
-    def define_vlsr():
-        pass
-
-    def define_dpc():
-        pass
-
-    # Functions to confine data
-    def extract_box():
-        pass
-
-    def extract_interval():
-        pass
-
-    # Functions to parse coordinates
-    def parse_spatial(self,coord, ctype='offset', shape='box'):
-        """
-            coord       : either [Xi,Xj,Yi,Yj] or
-                          [Xi, Yi, R]
-
-            shape       : 'box' or 'circle'
-            
-            ctype       : 'pixel' - actual pixels
-                          'offset' - i.e. arcsec offset
-        """
-        pass
-
-    def parse_spectral(self, ctype='velocity', otype='where'):
-        """
-        Parse coordinates along the spectral axis
-        in velocity or frequency to indices
-            ctype       : coordinate type
-                          'velocity', 'vel', 'v'
-                          or 'frequency', 'freq', 'f'
-            otype       : output type
-                          'where' - e.g. array([3,4,5,6,7,8,9])
-                          'interval' - e.g. [3,10]
-            
-        """
-        pass
-    
-    def save_fits():
-        pass
 
 #########################
 
