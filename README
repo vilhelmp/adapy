@@ -1,7 +1,9 @@
 ADAPY
 =====
-A collection of scripts to handle radio astronomical data and other various related tasks.
+My collection of scripts to handle my radio astronomical data and other various related tasks.
 Mostly for my own benefit, having a backup hosted elsewhere.
+
+NB : Some stuff is potentially broken...
 
 Needs:
 - Pyfits
