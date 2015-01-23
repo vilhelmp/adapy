@@ -624,7 +624,7 @@ class Uvfits(object):
                 - No antennas
                 - Telescope (if present)
     """
-    def __init__(self, uvfitsfile, telescope=None, vsys=0, distance=0, endian=None):
+    def __init__(self, uvfitsfile, telescope=None, vsys=0, distance=0, endian=None, **kwargs):
         """
 
         Reads the uvfits and calculates useful things, e.g. u,v,w,
@@ -641,7 +641,7 @@ class Uvfits(object):
         import numpy as _np
         import adapy
         from adapy.libs import cgsconst
-        f = pfopen(uvfitsfile)
+        f = pfopen(uvfitsfile, **kwargs)
         self.loadendian = endian
         if f[0].header['NAXIS1'] != 0:
             print "error: this file may not be a UV FITS."
