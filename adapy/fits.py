@@ -861,7 +861,7 @@ class Uvfits(object):
         BinnedDMC.expt = expt
         self.BinnedDMC = BinnedDMC
 
-    def bin_data(self, ruv=None, binsize=10, nbins=30):
+    def bin_data(self, ruv=None, binsize=10, nbins=30, ignore_wt=False):
         """
         Function to bin UV data, both vector and scalar average is calculated
         creates Bin.Sca and Bin.Vec objects in self
@@ -876,17 +876,24 @@ class Uvfits(object):
                 uvdist = ruv
             else:
                 uvdist = self.Model.uvdist_klam
-            re = self.Model.re
-            im = self.Model.im
-            wt = self.Model.wt
-            self.Model.BinVec = uv_bin_vector(uvdist, re, im, wt, binsize=binsize, nbins=nbins)
-            self.Model.BinSca = uv_bin_scalar(uvdist, re, im, wt, binsize=binsize, nbins=nbins)
+            mre = self.Model.re
+            mim = self.Model.im
+            if ignore_wt:
+                mwt = _sp.ones_like(self.Model.re)
+            else:
+                mwt = self.Model.wt
+            self.Model.BinVec = uv_bin_vector(uvdist, mre, mim, mwt, binsize=binsize, nbins=nbins)
+            self.Model.BinSca = uv_bin_scalar(uvdist, mre, mim, mwt, binsize=binsize, nbins=nbins)
         if ruv is not None:
             uvdist = ruv
         else:
             uvdist = self.uvdist_klam
-            self.BinVec = uv_bin_vector(uvdist, self.re, self.im, self.wt, binsize=binsize, nbins=nbins)
-            self.BinSca = uv_bin_scalar(uvdist, self.re, self.im, self.wt, binsize=binsize, nbins=nbins)
+        if ignore_wt:
+                wt = _sp.ones_like(self.re)
+        else:
+                wt = self.wt
+        self.BinVec = uv_bin_vector(uvdist, self.re, self.im, wt, binsize=binsize, nbins=nbins)
+        self.BinSca = uv_bin_scalar(uvdist, self.re, self.im, wt, binsize=binsize, nbins=nbins)
         
     def shift(self, offset):
         if 'isshifted' in self.__dict__.keys():

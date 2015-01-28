@@ -41,7 +41,7 @@ class Uvfits(object):
                 - No antennas
                 - Telescope (if present)
     """
-    def __init__(self, uvfitsfile, telescope=None, vsys=0, distance=0, endian=None):
+    def __init__(self, uvfitsfile, telescope=None, vsys=0, distance=0, endian=None, **kwargs):
         """
 
         Reads the uvfits and calculates useful things, e.g. u,v,w,
@@ -57,7 +57,7 @@ class Uvfits(object):
         import numpy as _np
         import adapy
         from adapy.libs import cgsconst
-        f = pfopen(uvfitsfile)
+        f = pfopen(uvfitsfile, **kwargs)
         self.loadendian = endian
         if f[0].header['NAXIS1'] != 0:
             print "error: this file may not be a UV FITS."
@@ -99,6 +99,8 @@ class Uvfits(object):
         self.baseline = self.hdu.data.par('BASELINE').byteswap().newbyteorder()
         # DATES
         self.jdate = self.hdu.data.par('DATE')
+        # set date to 1900, Jan, 01, 01:00:00 if date before before this
+        self.jdate =self.jdate.clip(2415020.5)
         self.date = _sp.array([jd2gd(i) for i in self.jdate])
         self.date0 = self.date.transpose()
         fields = ['year', 'month', 'day', 'hour', 'minute', 'sec']
@@ -106,7 +108,6 @@ class Uvfits(object):
         # convert to datetime objects
         # LOSES the sub-second resolution
         self.date2 = [_dt(int(i[0]), int(i[1]), int(i[2]), int(i[3]), int(i[4]), int(i[5])) for i in self.date]
-        
         # get number of tracks
         # TODO : rough hack, separate track if diff day is >1
         tmp = _sp.where(_sp.diff(_sp.unique(self.jdate.round(0)))>1)[0]
@@ -255,7 +256,7 @@ class Uvfits(object):
         BinnedDMC.expt = expt
         self.BinnedDMC = BinnedDMC
 
-    def bin_data(self, ruv=None, binsize=10, nbins=30):
+    def bin_data(self, ruv=None, binsize=10, nbins=30, ignore_wt=False):
         """
         Function to bin UV data, both vector and scalar average is calculated
         creates Bin.Sca and Bin.Vec objects in self
@@ -270,17 +271,24 @@ class Uvfits(object):
                 uvdist = ruv
             else:
                 uvdist = self.Model.uvdist_klam
-            re = self.Model.re
-            im = self.Model.im
-            wt = self.Model.wt
-            self.Model.BinVec = uv_bin_vector(uvdist, re, im, wt, binsize=binsize, nbins=nbins)
-            self.Model.BinSca = uv_bin_scalar(uvdist, re, im, wt, binsize=binsize, nbins=nbins)
+            mre = self.Model.re
+            mim = self.Model.im
+            if ignore_wt:
+                mwt = _sp.ones_like(self.Model.re)
+            else:
+                mwt = self.Model.wt
+            self.Model.BinVec = uv_bin_vector(uvdist, re, im, mwt, binsize=binsize, nbins=nbins)
+            self.Model.BinSca = uv_bin_scalar(uvdist, re, im, mwt, binsize=binsize, nbins=nbins)
         if ruv is not None:
             uvdist = ruv
         else:
             uvdist = self.uvdist_klam
-            self.BinVec = uv_bin_vector(uvdist, self.re, self.im, self.wt, binsize=binsize, nbins=nbins)
-            self.BinSca = uv_bin_scalar(uvdist, self.re, self.im, self.wt, binsize=binsize, nbins=nbins)
+        if ignore_wt:
+                wt = _sp.ones_like(self.re)
+        else:
+                wt = self.wt
+        self.BinVec = uv_bin_vector(uvdist, self.re, self.im, wt, binsize=binsize, nbins=nbins)
+        self.BinSca = uv_bin_scalar(uvdist, self.re, self.im, wt, binsize=binsize, nbins=nbins)
         
     def shift(self, offset):
         if 'isshifted' in self.__dict__.keys():
