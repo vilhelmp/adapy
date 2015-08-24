@@ -23,8 +23,6 @@ def lambdas_equivalencies(restunit):
     return eq
 
 
-
-
 ########################################################################
 
 
@@ -286,7 +284,7 @@ def uv_bin_scalar(uvdist, re, im, wt, start='zero', binsize=10, nbins=50, weight
     # send back an object with all the data structures
     return Binned_Scalar
 
-# UV DATA SPECIFIC MANIPULATION
+# MANIPULATING, DE-PROJECT, ROTATE, TRANSLATE etc
 def translate(uv_klam, reim, offset):
     print ('Has a -1 multiplied here, is this right?')
     phas = -1.0*( ((uv_klam[0])*(offset[0]/pc2au)) +

@@ -1,12 +1,25 @@
 
-from .helpers import *
-from .libs.date import jd2gd
-import scipy as _sp
-from datetime import datetime as _dt
+
+
 
 import astropy.units as u
 import astropy.constants as co
-from fits_helpers import *
+from astropy.io.fits import open as pfopen
+from astropy import wcs
+from .uvfits_helpers import *
+
+# check the imports below
+from datetime import datetime as _dt
+from .helpers import *
+from .libs.date import jd2gd
+import scipy as _sp
+from scipy import sqrt, pi, arctan2
+import numpy as _np
+import numpy as np
+import adapy
+
+
+
 
 ########################################################################
 # STRINGS
@@ -51,12 +64,6 @@ class Uvfits(object):
         convert to little endian
 
         """
-        #~ from pyfits import open as pfopen
-        from astropy.io.fits import open as pfopen
-        from scipy import sqrt, pi, arctan2
-        import numpy as _np
-        import adapy
-        from adapy.libs import cgsconst
         f = pfopen(uvfitsfile, **kwargs)
         self.loadendian = endian
         if f[0].header['NAXIS1'] != 0:
@@ -74,8 +81,20 @@ class Uvfits(object):
         else:
             self.datatype = ('IMAGE', 2)
         
-        freq = self.hdu.header['CRVAL4'] #TODO
-        self.freq = freq
+        # find spectral axis
+        axis_types = self.WCS.get_axis_types()
+        ax_types = np.array([i['coordinate_type'] for i in axis_types])
+        try:
+            spec_axis = ('spectral' == ax_types).nonzero()[0][0]
+            freq = self.hdu.header['CRVAL{0}'.format(spec_axis+1)]
+            # assumes the frequency given in Hz
+            self.freq = freq * un.Hz
+        except (IndexError):
+            print('No spectral axis in header.')
+            spec_axis = -1
+            self.freq = None
+        
+        
         if 'RESTFREQ' in self.hdu.header.keys():
             self.restfreq = self.hdu.header['RESTFREQ']
             self.restfreq_unit = self.hdu.header['RESTFREQ'] * u.Hz

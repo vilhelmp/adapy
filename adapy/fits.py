@@ -5,8 +5,11 @@ import scipy as _sp
 from datetime import datetime as _dt
 
 import astropy.units as u
+import astropy.units as un
 import astropy.constants as co
-from fits_helpers import *
+from uvfits_helpers import *
+import numpy as np
+
 
 ########################################################################
 # STRINGS
@@ -148,7 +151,8 @@ class Fits:
         from numpy import diff, arange
         #~ while self.d.shape[0] == 1:
             #~ self.d = self.d[0]
-
+        # TODO: Horrible implementation! 
+        # Check if I can go over to radio_tools spectral cube instead
         try:
             self.restfreq = Unit(self.hdr['RESTFREQ'],'Hz' ) # in Hertz
         except KeyError:
@@ -637,10 +641,12 @@ class Uvfits(object):
         print('Depricated in favour of uvfits.py in same catalog')
         #~ from pyfits import open as pfopen
         from astropy.io.fits import open as pfopen
+        
         from scipy import sqrt, pi, arctan2
         import numpy as _np
         import adapy
         from adapy.libs import cgsconst
+        from astropy import wcs
         f = pfopen(uvfitsfile, **kwargs)
         self.loadendian = endian
         if f[0].header['NAXIS1'] != 0:
@@ -653,13 +659,28 @@ class Uvfits(object):
             print "error: cannot open uv data HDU."
         self.hdr = self.hdu.header
         self.data = self.hdu.data
+        self.WCS = wcs.WCS(self.hdr)
+        
         if self.hdr['NAXIS4'] > 1:
             self.datatype = ('CUBE', 3)
         else:
             self.datatype = ('IMAGE', 2)
         
-        freq = self.hdu.header['CRVAL4'] #TODO
-        self.freq = freq
+        # find spectral axis
+        axis_types = self.WCS.get_axis_types()
+        ax_types = np.array([i['coordinate_type'] for i in axis_types])
+        try:
+            spec_axis = ('spectral' == ax_types).nonzero()[0][0]
+            freq = self.hdu.header['CRVAL{0}'.format(spec_axis+1)]
+            # assumes the frequency given in Hz
+            self.freq = freq
+            self.freq_unit = freq * un.Hz
+        except (IndexError):
+            print('No spectral axis in header.')
+            spec_axis = -1
+            self.freq = None
+           
+       
         if 'RESTFREQ' in self.hdu.header.keys():
             self.restfreq = self.hdu.header['RESTFREQ']
             self.restfreq_unit = self.hdu.header['RESTFREQ'] * u.Hz
@@ -861,7 +882,7 @@ class Uvfits(object):
         BinnedDMC.expt = expt
         self.BinnedDMC = BinnedDMC
 
-    def bin_data(self, ruv=None, binsize=10, nbins=30, ignore_wt=False):
+    def bin_data(self, ruv=None, binsize=10, nbins=30, ignore_wt=False, **kwargs):
         """
         Function to bin UV data, both vector and scalar average is calculated
         creates Bin.Sca and Bin.Vec objects in self
@@ -882,8 +903,8 @@ class Uvfits(object):
                 mwt = _sp.ones_like(self.Model.re)
             else:
                 mwt = self.Model.wt
-            self.Model.BinVec = uv_bin_vector(uvdist, mre, mim, mwt, binsize=binsize, nbins=nbins)
-            self.Model.BinSca = uv_bin_scalar(uvdist, mre, mim, mwt, binsize=binsize, nbins=nbins)
+            self.Model.BinVec = uv_bin_vector(uvdist, mre, mim, mwt, binsize=binsize, nbins=nbins, **kwargs)
+            self.Model.BinSca = uv_bin_scalar(uvdist, mre, mim, mwt, binsize=binsize, nbins=nbins, **kwargs)
         if ruv is not None:
             uvdist = ruv
         else:
@@ -892,8 +913,8 @@ class Uvfits(object):
                 wt = _sp.ones_like(self.re)
         else:
                 wt = self.wt
-        self.BinVec = uv_bin_vector(uvdist, self.re, self.im, wt, binsize=binsize, nbins=nbins)
-        self.BinSca = uv_bin_scalar(uvdist, self.re, self.im, wt, binsize=binsize, nbins=nbins)
+        self.BinVec = uv_bin_vector(uvdist, self.re, self.im, wt, binsize=binsize, nbins=nbins, **kwargs)
+        self.BinSca = uv_bin_scalar(uvdist, self.re, self.im, wt, binsize=binsize, nbins=nbins, **kwargs)
         
     def shift(self, offset):
         if 'isshifted' in self.__dict__.keys():
@@ -988,9 +1009,7 @@ class Uvfits(object):
     def __str__():
         return 'Not implemented yet...'
 
-
 #########################
-
 
 def uv_bin_vector(uvdist, re, im, wt, start='zero', binsize=10, nbins=50, weighted=False):
     """
