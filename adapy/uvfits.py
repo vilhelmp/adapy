@@ -16,7 +16,7 @@ import scipy as _sp
 from scipy import sqrt, pi, arctan2
 import numpy as _np
 import numpy as np
-import adapy
+#import adapy
 
 
 
